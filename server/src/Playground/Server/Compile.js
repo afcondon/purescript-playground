@@ -30,16 +30,17 @@ export const _compileMainPromise = (source) => () =>
           { cwd: WORKSPACE, maxBuffer: 16 * 1024 * 1024 },
           (err, _stdout, stderr) => {
             if (err) {
-              respond({ js: null, warnings: [], errors: [stderr || err.message] });
+              respond({ js: null, warnings: [], errors: [stderr || err.message], types: [] });
               return;
             }
             readFile(BUNDLE_PATH, 'utf8')
-              .then((js) => respond({ js, warnings: [], errors: [] }))
+              .then((js) => respond({ js, warnings: [], errors: [], types: [] }))
               .catch((e) =>
                 respond({
                   js: null,
                   warnings: [],
                   errors: [`bundle read failed: ${e.message}`],
+                  types: [],
                 })
               );
           }
@@ -50,6 +51,7 @@ export const _compileMainPromise = (source) => () =>
           js: null,
           warnings: [],
           errors: [`writeFile failed: ${e.message}`],
+          types: [],
         })
       );
   });

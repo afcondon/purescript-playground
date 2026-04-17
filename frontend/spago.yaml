@@ -12,11 +12,14 @@ package:
     - argonaut-codecs
     - argonaut-core
     - arrays
+    - codec
+    - codec-argonaut
     - console
     - effect
     - either
     - foldable-traversable
     - halogen
+    - http-methods
     - maybe
     - playground-shared
     - prelude

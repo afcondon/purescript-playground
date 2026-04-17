@@ -31,6 +31,10 @@ body {
 .playground-header {
   padding: 1rem 2rem;
   border-bottom: 1px solid var(--rule);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2rem;
 }
 
 .playground-header h1 {
@@ -44,6 +48,58 @@ body {
   margin: 0.25rem 0 0 0;
   color: var(--muted);
   font-size: 0.8rem;
+}
+
+.compile-btn {
+  font: inherit;
+  padding: 0.35rem 1rem;
+  background: var(--accent);
+  color: #fdfdfc;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+}
+
+.compile-btn:disabled {
+  background: var(--muted);
+  cursor: default;
+}
+
+.compile-btn:not(:disabled):hover {
+  filter: brightness(1.1);
+}
+
+.pane-output .js-output,
+.pane-output .compile-error,
+.pane-output .transport-error {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  padding: 0.5rem;
+  background: #f4f4f1;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+}
+
+.pane-output .compile-error,
+.pane-output .transport-error {
+  background: #fdf2f0;
+  border-color: #e8c8c2;
+  color: #5c2a1c;
+}
+
+.pane-output .compile-errors {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pane-output .muted {
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .columns {

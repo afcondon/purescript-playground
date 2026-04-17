@@ -4,7 +4,7 @@ import Prelude
 
 import Data.Generic.Rep (class Generic)
 import Effect.Aff.Class (liftAff)
-import HTTPurple (ServerM, ok, ok', serve)
+import HTTPurple (Method(..), ServerM, ok', serve)
 import HTTPurple.Headers (headers)
 import Routing.Duplex (RouteDuplex', root)
 import Routing.Duplex.Generic (noArgs, sum)
@@ -37,9 +37,23 @@ fixedMainSource =
 main :: ServerM
 main = serve { port: 3050, hostname: "localhost" }
   { route
-  , router: \{ route: r } -> case r of
-      Health -> ok "ok"
-      SessionCompile -> do
-        body <- liftAff $ Compile.compileMain fixedMainSource
-        ok' (headers { "Content-Type": "application/json" }) body
+  , router: \{ route: r, method } ->
+      let plainCors = headers
+            { "Access-Control-Allow-Origin": "*"
+            , "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+            , "Access-Control-Allow-Headers": "Content-Type"
+            }
+          jsonCors = headers
+            { "Content-Type": "application/json"
+            , "Access-Control-Allow-Origin": "*"
+            , "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
+            , "Access-Control-Allow-Headers": "Content-Type"
+            }
+      in case method of
+        Options -> ok' plainCors ""
+        _ -> case r of
+          Health -> ok' plainCors "ok"
+          SessionCompile -> do
+            body <- liftAff $ Compile.compileMain fixedMainSource
+            ok' jsonCors body
   }
