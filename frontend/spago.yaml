@@ -18,8 +18,11 @@ package:
     - effect
     - either
     - foldable-traversable
+    - foreign
     - halogen
     - http-methods
+    - ordered-collections
+    - transformers
     - maybe
     - playground-shared
     - prelude

@@ -10,6 +10,8 @@ import Data.Array (filter, findIndex, modifyAt, snoc)
 import Data.Codec.Argonaut as CA
 import Data.Either (Either(..))
 import Data.HTTP.Method (Method(..))
+import Data.Map (Map)
+import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Time.Duration (Milliseconds(..))
 import Effect.Aff (delay)
@@ -18,9 +20,12 @@ import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
+import Halogen.Subscription as HS
 import Type.Proxy (Proxy(..))
 
 import Playground.Frontend.Editor as Editor
+import Playground.Frontend.Worker (Worker, WorkerMessage(..))
+import Playground.Frontend.Worker as Worker
 import Playground.Session
   ( Cell(..)
   , CompileRequest(..)
@@ -37,10 +42,14 @@ type State =
   , cells :: Array CellRec
   , nextCellId :: Int
   , compiling :: Boolean
-  , js :: Maybe String
   , errors :: Array String
   , transportError :: Maybe String
+  , runtimeError :: Maybe String
+  , cellResults :: Map String String
   , pendingCompile :: Maybe H.ForkId
+  , worker :: Maybe Worker
+  , workerSub :: Maybe H.SubscriptionId
+  , workerTimeout :: Maybe H.ForkId
   }
 
 type Slots =
@@ -55,12 +64,14 @@ _cellEditor :: Proxy "cellEditor"
 _cellEditor = Proxy
 
 data Action
-  = Compile          -- user-triggered (button); compiles immediately
-  | ScheduleCompile  -- debounced — fires after edits settle
+  = Compile
+  | ScheduleCompile
   | ModuleChanged String
   | CellChanged String String
   | AddCell
   | RemoveCell String
+  | HandleWorkerMessage WorkerMessage
+  | WorkerTimeout
 
 starterModule :: String
 starterModule =
@@ -82,14 +93,21 @@ initialState _ =
   , cells: starterCells
   , nextCellId: 4
   , compiling: false
-  , js: Nothing
   , errors: []
   , transportError: Nothing
+  , runtimeError: Nothing
+  , cellResults: Map.empty
   , pendingCompile: Nothing
+  , worker: Nothing
+  , workerSub: Nothing
+  , workerTimeout: Nothing
   }
 
 debounceMs :: Milliseconds
 debounceMs = Milliseconds 400.0
+
+workerTimeoutMs :: Milliseconds
+workerTimeoutMs = Milliseconds 3000.0
 
 component :: forall q i o m. MonadAff m => H.Component q i o m
 component = H.mkComponent
@@ -120,11 +138,13 @@ handleAction = case _ of
       in s { cells = snoc s.cells newCell, nextCellId = s.nextCellId + 1 }
     handleAction ScheduleCompile
   RemoveCell id -> do
-    H.modify_ \s -> s { cells = filter (_.id >>> (_ /= id)) s.cells }
+    H.modify_ \s -> s
+      { cells = filter (_.id >>> (_ /= id)) s.cells
+      , cellResults = Map.delete id s.cellResults
+      }
     handleAction ScheduleCompile
   ScheduleCompile -> do
     s <- H.get
-    -- Cancel any previously-scheduled compile.
     case s.pendingCompile of
       Just fid -> H.kill fid
       Nothing -> pure unit
@@ -133,7 +153,12 @@ handleAction = case _ of
       handleAction Compile
     H.modify_ _ { pendingCompile = Just fid }
   Compile -> do
-    H.modify_ _ { compiling = true, transportError = Nothing, pendingCompile = Nothing }
+    H.modify_ _
+      { compiling = true
+      , transportError = Nothing
+      , runtimeError = Nothing
+      , pendingCompile = Nothing
+      }
     s <- H.get
     let
       req = CompileRequest
@@ -157,15 +182,74 @@ handleAction = case _ of
             { compiling = false
             , transportError = Just ("decode: " <> CA.printJsonDecodeError decodeErr)
             }
-        Right (CompileResponse r) ->
-          H.modify_ _
-            { compiling = false, js = r.js, errors = r.errors }
+        Right (CompileResponse r) -> do
+          H.modify_ _ { compiling = false, errors = r.errors }
+          case r.js of
+            Nothing -> teardownExecution
+            Just js -> startExecution js
+  HandleWorkerMessage msg -> case msg of
+    Emit id value ->
+      H.modify_ \s -> s { cellResults = Map.insert id value s.cellResults }
+    Done -> teardownExecution
+    WorkerError err -> do
+      H.modify_ _ { runtimeError = Just err }
+      teardownExecution
+    Unknown tag ->
+      H.modify_ _ { runtimeError = Just ("worker: unknown message " <> tag) }
+  WorkerTimeout -> do
+    H.modify_ _ { runtimeError = Just ("timeout after " <> show workerTimeoutMs) }
+    teardownExecution
   where
   mkCell c = Cell { id: c.id, kind: c.kind, source: c.source }
   updateCell id src cells =
     fromMaybe cells do
       idx <- findIndex (_.id >>> (_ == id)) cells
       modifyAt idx (_ { source = src }) cells
+
+-- | Tears down any live worker, its subscription, and its timeout fiber.
+teardownExecution
+  :: forall o m
+   . MonadAff m
+  => H.HalogenM State Action Slots o m Unit
+teardownExecution = do
+  s <- H.get
+  case s.worker of
+    Just w -> H.liftEffect (Worker.terminate w)
+    Nothing -> pure unit
+  case s.workerSub of
+    Just sid -> H.unsubscribe sid
+    Nothing -> pure unit
+  case s.workerTimeout of
+    Just fid -> H.kill fid
+    Nothing -> pure unit
+  H.modify_ _
+    { worker = Nothing
+    , workerSub = Nothing
+    , workerTimeout = Nothing
+    }
+
+-- | Tears down any previous run, then spawns a fresh worker, posts the
+-- | bundle JS, subscribes to worker messages, and schedules a timeout.
+startExecution
+  :: forall o m
+   . MonadAff m
+  => String
+  -> H.HalogenM State Action Slots o m Unit
+startExecution js = do
+  teardownExecution
+  H.modify_ _ { cellResults = Map.empty }
+  { emitter, listener } <- H.liftEffect HS.create
+  subId <- H.subscribe (HandleWorkerMessage <$> emitter)
+  worker <- H.liftEffect $ Worker.spawnWorker (HS.notify listener)
+  H.liftEffect $ Worker.postJs worker js
+  timeoutId <- H.fork do
+    H.liftAff (delay workerTimeoutMs)
+    handleAction WorkerTimeout
+  H.modify_ _
+    { worker = Just worker
+    , workerSub = Just subId
+    , workerTimeout = Just timeoutId
+    }
 
 render :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
 render state =
@@ -174,7 +258,7 @@ render state =
     , HH.main [ HP.class_ (H.ClassName "columns") ]
         [ renderModuleColumn state
         , renderCellsColumn state
-        , renderOutputColumn state
+        , renderGutterColumn state
         ]
     ]
 
@@ -184,7 +268,9 @@ renderHeader state =
     [ HH.div [ HP.class_ (H.ClassName "title-group") ]
         [ HH.h1_ [ HH.text "PureScript Playground" ]
         , HH.p [ HP.class_ (H.ClassName "subtitle") ]
-            [ HH.text "M2: edit the module and the cells; Compile posts and renders the bundle." ]
+            [ HH.text
+                "Edit the module and the cells; auto-compiles 400ms after you stop typing."
+            ]
         ]
     , HH.button
         [ HP.class_ (H.ClassName "compile-btn")
@@ -207,7 +293,7 @@ renderCellsColumn :: forall m. MonadAff m => State -> H.ComponentHTML Action Slo
 renderCellsColumn state =
   HH.section [ HP.class_ (H.ClassName "pane pane-cells") ]
     ( [ HH.h2_ [ HH.text "Cells" ] ]
-        <> map (renderCellRow) state.cells
+        <> map renderCellRow state.cells
         <>
           [ HH.button
               [ HP.class_ (H.ClassName "add-cell-btn")
@@ -234,20 +320,15 @@ renderCellRow c =
         (\(Editor.Changed src) -> CellChanged c.id src)
     ]
 
-renderOutputColumn :: forall m. State -> H.ComponentHTML Action Slots m
-renderOutputColumn state =
-  HH.section [ HP.class_ (H.ClassName "pane pane-output") ]
-    [ HH.h2_ [ HH.text "Compiled JS" ]
+renderGutterColumn :: forall m. State -> H.ComponentHTML Action Slots m
+renderGutterColumn state =
+  HH.section [ HP.class_ (H.ClassName "pane pane-gutter") ]
+    [ HH.h2_ [ HH.text "Values" ]
     , case state.transportError of
         Just err ->
           HH.pre [ HP.class_ (H.ClassName "transport-error") ] [ HH.text err ]
         Nothing -> case state.errors of
-          [] -> case state.js of
-            Just js ->
-              HH.pre [ HP.class_ (H.ClassName "js-output") ] [ HH.text js ]
-            Nothing ->
-              HH.p [ HP.class_ (H.ClassName "muted") ]
-                [ HH.text "Press Compile to send the module + cells and render the bundle." ]
+          [] -> renderResults state
           errs ->
             HH.div [ HP.class_ (H.ClassName "compile-errors") ]
               ( map
@@ -257,4 +338,30 @@ renderOutputColumn state =
                   )
                   errs
               )
+    ]
+
+renderResults :: forall m. State -> H.ComponentHTML Action Slots m
+renderResults state =
+  HH.div [ HP.class_ (H.ClassName "gutter-rows") ]
+    ( map (renderCellResult state) state.cells
+        <> renderRuntimeError state.runtimeError
+    )
+
+renderCellResult :: forall m. State -> CellRec -> H.ComponentHTML Action Slots m
+renderCellResult state c =
+  HH.div [ HP.class_ (H.ClassName "gutter-row") ]
+    [ HH.span [ HP.class_ (H.ClassName "gutter-cell-id") ] [ HH.text c.id ]
+    , case Map.lookup c.id state.cellResults of
+        Just v ->
+          HH.pre [ HP.class_ (H.ClassName "gutter-value") ] [ HH.text v ]
+        Nothing ->
+          HH.span [ HP.class_ (H.ClassName "muted") ] [ HH.text "—" ]
+    ]
+
+renderRuntimeError :: forall m. Maybe String -> Array (H.ComponentHTML Action Slots m)
+renderRuntimeError = case _ of
+  Nothing -> []
+  Just err ->
+    [ HH.pre [ HP.class_ (H.ClassName "runtime-error") ]
+        [ HH.text ("runtime: " <> err) ]
     ]
