@@ -31,8 +31,15 @@ help:
 bootstrap: build bundle
 	@echo "Bootstrap complete."
 
+# Explicitly build only the three packages we maintain directly.
+# `playground-runtime` is user-facing scratch space — its Main.purs is
+# overwritten by the backend on every compile, so we don't try to build
+# it from the command line here (a stale broken Main would wedge the
+# whole workspace build).
 build:
-	spago build
+	spago build -p playground-shared
+	spago build -p playground-server
+	spago build -p playground-frontend
 
 bundle:
 	spago bundle -p playground-frontend

@@ -1,6 +1,5 @@
 module Playground.User where
 
-import Prelude
-
-double :: Int -> Int
-double x = x * 2
+-- Placeholder. The backend overwrites this file on every
+-- /session/compile with the user's module source, renamed to
+-- `module Playground.User where`.

@@ -32814,8 +32814,8 @@
   var containerRef2 = "sigil-view";
   var component2 = function(dictMonadAff) {
     var liftEffect7 = liftEffect(monadEffectHalogenM(dictMonadAff.MonadEffect0()));
-    var render3 = function(state3) {
-      return span3([ref2(containerRef2), class_("sigil-view")])([text5(state3.typeString)]);
+    var render3 = function(v) {
+      return span3([ref2(containerRef2), class_("sigil-view")])([]);
     };
     var handleAction3 = function(v) {
       if (v instanceof SetInput) {
@@ -32844,18 +32844,18 @@
                   return state3.typeString;
                 }
                 ;
-                throw new Error("Failed pattern match at Playground.Frontend.SigilView (line 63, column 22 - line 67, column 44): " + [v1.constructor.name]);
+                throw new Error("Failed pattern match at Playground.Frontend.SigilView (line 64, column 22 - line 68, column 44): " + [v1.constructor.name]);
               })();
               var el = toElement(mEl.value0);
               return liftEffect7(_setInnerHTML(el)(html2));
             }
             ;
-            throw new Error("Failed pattern match at Playground.Frontend.SigilView (line 59, column 7 - line 68, column 45): " + [mEl.constructor.name]);
+            throw new Error("Failed pattern match at Playground.Frontend.SigilView (line 60, column 7 - line 69, column 45): " + [mEl.constructor.name]);
           });
         });
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.SigilView (line 52, column 18 - line 68, column 45): " + [v.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Frontend.SigilView (line 53, column 18 - line 69, column 45): " + [v.constructor.name]);
     };
     return mkComponent({
       initialState: identity14,

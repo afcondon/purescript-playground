@@ -607,53 +607,67 @@ New questions will land here as they surface during M0–M6.)
 
 **M2 — synthesis from user input (2–3 days)**
 
-- [ ] Two CM6 editors on the frontend (module + cells).
-- [ ] Cell list data model + add/remove cell UI (single column for
+- [x] Two CM6 editors on the frontend (module + cells).
+- [x] Cell list data model + add/remove cell UI (single column for
       now, one cell per editor instance).
-- [ ] `Playground.Runtime` module shipped with every compile, defining
+- [x] `Playground.Runtime` module shipped with every compile, defining
       `ToPlaygroundValue` with the `Effect a` / `Show a` instance chain
-      and the `__playground_emit` foreign import.
-- [ ] Backend synthesiser: user module → `Playground.User`, cells →
+      and the `__playground_emit` foreign import. (Lives in
+      `runtime-workspace/src/Playground/Runtime.purs`; imported by
+      every synthesised Main.)
+- [x] Backend synthesiser: user module → `Playground.User`, cells →
       top-level bindings, synthesised `main` calling
       `toPlaygroundValue` + `__playground_emit`.
-- [ ] End-to-end: edit, debounce, submit, compile, display JS.
+- [x] End-to-end: edit, debounce, submit, compile, display JS.
 
 **M3 — execution in a Worker (2 days)**
 
-- [ ] Web Worker that accepts compiled JS, executes `main`,
+- [x] Web Worker that accepts compiled JS, executes `main`,
       collects emissions via a registered `__playground_emit` hook.
-- [ ] Require-shim in the Worker pointed at our backend's
-      `/output/:module/…` proxy.
-- [ ] Timeout + worker termination.
-- [ ] Frontend renders result-per-cell in a gutter column (values
+      (Spun up from a Blob URL — no static `/worker.js` file needed.)
+- [x] Require-shim skipped — `spago bundle` produces a single
+      self-contained IIFE, so no library JS needs to be pulled in at
+      runtime.
+- [x] Timeout + worker termination. (3s default; kills + unsubscribes
+      on every new compile.)
+- [x] Frontend renders result-per-cell in a gutter column (values
       only for now; types arrive in M4).
 
 **M4 — type sidecar + Sigil rendering (2–3 days)**
 
-- [ ] Backend launches and supervises a `purs ide server` subprocess
+- [x] Backend launches and supervises a `purs ide server` subprocess
       pointed at a workspace that includes the synthesised module.
-- [ ] After each compile, backend queries `purs ide` for the type of
-      each `cell_cN` binding; uses `purescript-language-cst-parser` to
-      confirm the canonical list of cell identifiers.
-- [ ] `/session/compile` response extended with `{ types: { cId: … } }`.
-- [ ] Frontend hands each cell's type string to purescript-sigil and
+      (Lazy-spawned on first compile; killed on backend SIGINT/SIGTERM.)
+- [x] After each compile, backend queries `purs ide` for the type of
+      each `cell_cN` binding. (Cell ids extracted by regex on the
+      synthesised Main.purs we wrote; language-cst-parser remains an
+      option for richer identifier handling later.)
+- [x] `/session/compile` response extended with `{ types: [{ id, signature }] }`.
+- [x] Frontend hands each cell's type string to purescript-sigil and
       renders it in the gutter beside the value.
-- [ ] Handle the "type not yet known" case gracefully (fresh cells,
-      cells that failed to compile in isolation).
+- [x] Handle the "type not yet known" case gracefully — the frontend
+      shows "—" and falls back to the Halogen text node if Sigil can't
+      parse the string.
 
 **M5 — error panel, compile-state display (1 day)**
 
-- [ ] Errors from `purs` (via the backend) surface in a dedicated panel.
-- [ ] "Compiling…" indicator while requests are in flight.
-- [ ] Last-good values + types stay visible (faded) while a new
-      compile is pending.
+- [x] Errors from `purs` (via the backend) surface in a dedicated
+      bottom panel.
+- [x] "Compiling…" indicator on the Compile button while a request is
+      in flight.
+- [x] Last-good values + types stay visible (faded via a
+      `.is-compiling` class) while a new compile is pending.
 
 **M6 — MVP polish (1 day)**
 
 - [ ] Keyboard UX: add cell, remove cell, focus next/prev.
-- [ ] Starter content.
-- [ ] Deploy recipe (run locally via the marginalia-registered
-      commands; no public hosting decision yet).
+      (Deferred — CM6 + inter-cell focus wiring is bigger than MVP
+      needs; the buttons do the job for now.)
+- [x] Starter content — `Scratch` module with `double` and three cells
+      demonstrating liveness + shared scope.
+- [x] Deploy recipe — `make start` / `make stop` registered in
+      marginalia; `make build` only touches the three workspace
+      packages we maintain so stale scratch code can't wedge bootstrap.
 
 **After MVP** — Phase 2 milestones (inline error attribution,
 richer Sigil-rendered values, hover types) to be detailed after M6.

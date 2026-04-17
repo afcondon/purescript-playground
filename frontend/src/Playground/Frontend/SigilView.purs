@@ -40,14 +40,15 @@ component = H.mkComponent
       }
   }
   where
-  render state =
+  -- No children — Halogen's VDom won't touch content we set via
+  -- innerHTML in handleAction. The container is pure imperatively-
+  -- managed territory.
+  render _ =
     HH.span
       [ HP.ref containerRef
       , HP.class_ (H.ClassName "sigil-view")
       ]
-      -- Fallback text while the innerHTML hasn't been set yet, and for
-      -- screen readers when Sigil's semantic markup is present.
-      [ HH.text state.typeString ]
+      []
 
   handleAction = case _ of
     SetInput input -> do
