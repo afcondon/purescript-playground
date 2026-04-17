@@ -1,0 +1,73 @@
+/* PureScript Playground — M0 stub styles.
+   Swiss-style: clean grid, generous whitespace, restrained palette.
+   Three columns + header. */
+
+:root {
+  --bg: #fdfdfc;
+  --fg: #1d1d1b;
+  --muted: #6b6b66;
+  --rule: #e3e3df;
+  --accent: #2b5f75;
+  --mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.playground-shell {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  height: 100vh;
+}
+
+.playground-header {
+  padding: 1rem 2rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.playground-header h1 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.playground-header .subtitle {
+  margin: 0.25rem 0 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  height: 100%;
+  overflow: hidden;
+}
+
+.pane {
+  padding: 1rem 1.5rem;
+  border-right: 1px solid var(--rule);
+  overflow: auto;
+}
+
+.pane:last-child { border-right: none; }
+
+.pane h2 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.pane p { color: var(--fg); }

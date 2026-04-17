@@ -1,0 +1,9 @@
+{
+  "name": "playground-frontend",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}
