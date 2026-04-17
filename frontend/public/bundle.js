@@ -131,19 +131,19 @@
   };
   var applyFirst = function(dictApply) {
     var apply1 = apply(dictApply);
-    var map35 = map(dictApply.Functor0());
+    var map33 = map(dictApply.Functor0());
     return function(a2) {
       return function(b2) {
-        return apply1(map35($$const)(a2))(b2);
+        return apply1(map33($$const)(a2))(b2);
       };
     };
   };
   var applySecond = function(dictApply) {
     var apply1 = apply(dictApply);
-    var map35 = map(dictApply.Functor0());
+    var map33 = map(dictApply.Functor0());
     return function(a2) {
       return function(b2) {
-        return apply1(map35($$const(identity2))(a2))(b2);
+        return apply1(map33($$const(identity2))(a2))(b2);
       };
     };
   };
@@ -153,7 +153,7 @@
     return dict.pure;
   };
   var unless = function(dictApplicative) {
-    var pure111 = pure(dictApplicative);
+    var pure110 = pure(dictApplicative);
     return function(v) {
       return function(v1) {
         if (!v) {
@@ -161,7 +161,7 @@
         }
         ;
         if (v) {
-          return pure111(unit);
+          return pure110(unit);
         }
         ;
         throw new Error("Failed pattern match at Control.Applicative (line 68, column 1 - line 68, column 65): " + [v.constructor.name, v1.constructor.name]);
@@ -169,7 +169,7 @@
     };
   };
   var when = function(dictApplicative) {
-    var pure111 = pure(dictApplicative);
+    var pure110 = pure(dictApplicative);
     return function(v) {
       return function(v1) {
         if (v) {
@@ -177,7 +177,7 @@
         }
         ;
         if (!v) {
-          return pure111(unit);
+          return pure110(unit);
         }
         ;
         throw new Error("Failed pattern match at Control.Applicative (line 63, column 1 - line 63, column 63): " + [v.constructor.name, v1.constructor.name]);
@@ -186,10 +186,10 @@
   };
   var liftA1 = function(dictApplicative) {
     var apply5 = apply(dictApplicative.Apply0());
-    var pure111 = pure(dictApplicative);
+    var pure110 = pure(dictApplicative);
     return function(f) {
       return function(a2) {
-        return apply5(pure111(f))(a2);
+        return apply5(pure110(f))(a2);
       };
     };
   };
@@ -311,15 +311,15 @@
     }
     var Scheduler = (function() {
       var limit = 1024;
-      var size6 = 0;
+      var size5 = 0;
       var ix = 0;
       var queue = new Array(limit);
       var draining = false;
       function drain() {
         var thunk;
         draining = true;
-        while (size6 !== 0) {
-          size6--;
+        while (size5 !== 0) {
+          size5--;
           thunk = queue[ix];
           queue[ix] = void 0;
           ix = (ix + 1) % limit;
@@ -333,13 +333,13 @@
         },
         enqueue: function(cb) {
           var i2, tmp;
-          if (size6 === limit) {
+          if (size5 === limit) {
             tmp = draining;
             drain();
             draining = tmp;
           }
-          queue[(ix + size6) % limit] = cb;
-          size6++;
+          queue[(ix + size5) % limit] = cb;
+          size5++;
           if (!draining) {
             drain();
           }
@@ -1163,24 +1163,24 @@
 
   // output/Control.Monad/index.js
   var unlessM = function(dictMonad) {
-    var bind18 = bind(dictMonad.Bind1());
+    var bind17 = bind(dictMonad.Bind1());
     var unless2 = unless(dictMonad.Applicative0());
     return function(mb) {
       return function(m) {
-        return bind18(mb)(function(b2) {
+        return bind17(mb)(function(b2) {
           return unless2(b2)(m);
         });
       };
     };
   };
   var ap = function(dictMonad) {
-    var bind18 = bind(dictMonad.Bind1());
-    var pure23 = pure(dictMonad.Applicative0());
+    var bind17 = bind(dictMonad.Bind1());
+    var pure20 = pure(dictMonad.Applicative0());
     return function(f) {
       return function(a2) {
-        return bind18(f)(function(f$prime) {
-          return bind18(a2)(function(a$prime) {
-            return pure23(f$prime(a$prime));
+        return bind17(f)(function(f$prime) {
+          return bind17(a2)(function(a$prime) {
+            return pure20(f$prime(a$prime));
           });
         });
       };
@@ -1959,11 +1959,11 @@
   var $$try = function(dictMonadError) {
     var catchError1 = catchError(dictMonadError);
     var Monad0 = dictMonadError.MonadThrow0().Monad0();
-    var map35 = map(Monad0.Bind1().Apply0().Functor0());
-    var pure23 = pure(Monad0.Applicative0());
+    var map33 = map(Monad0.Bind1().Apply0().Functor0());
+    var pure20 = pure(Monad0.Applicative0());
     return function(a2) {
-      return catchError1(map35(Right.create)(a2))(function($52) {
-        return pure23(Left.create($52));
+      return catchError1(map33(Right.create)(a2))(function($52) {
+        return pure20(Left.create($52));
       });
     };
   };
@@ -2465,13 +2465,13 @@
     };
   };
   var bindExceptT = function(dictMonad) {
-    var bind18 = bind(dictMonad.Bind1());
-    var pure23 = pure(dictMonad.Applicative0());
+    var bind17 = bind(dictMonad.Bind1());
+    var pure20 = pure(dictMonad.Applicative0());
     return {
       bind: function(v) {
         return function(k) {
-          return bind18(v)(either(function($193) {
-            return pure23(Left.create($193));
+          return bind17(v)(either(function($193) {
+            return pure20(Left.create($193));
           })(function(a2) {
             var v1 = k(a2);
             return v1;
@@ -2523,25 +2523,25 @@
     var append6 = append(dictSemigroup);
     return function(dictMonad) {
       var Bind1 = dictMonad.Bind1();
-      var bind18 = bind(Bind1);
-      var pure23 = pure(dictMonad.Applicative0());
+      var bind17 = bind(Bind1);
+      var pure20 = pure(dictMonad.Applicative0());
       var functorExceptT1 = functorExceptT(Bind1.Apply0().Functor0());
       return {
         alt: function(v) {
           return function(v1) {
-            return bind18(v)(function(rm) {
+            return bind17(v)(function(rm) {
               if (rm instanceof Right) {
-                return pure23(new Right(rm.value0));
+                return pure20(new Right(rm.value0));
               }
               ;
               if (rm instanceof Left) {
-                return bind18(v1)(function(rn) {
+                return bind17(v1)(function(rn) {
                   if (rn instanceof Right) {
-                    return pure23(new Right(rn.value0));
+                    return pure20(new Right(rn.value0));
                   }
                   ;
                   if (rn instanceof Left) {
-                    return pure23(new Left(append6(rm.value0)(rn.value0)));
+                    return pure20(new Left(append6(rm.value0)(rn.value0)));
                   }
                   ;
                   throw new Error("Failed pattern match at Control.Monad.Except.Trans (line 87, column 9 - line 89, column 49): " + [rn.constructor.name]);
@@ -2681,13 +2681,13 @@
   };
   var traverse_ = function(dictApplicative) {
     var applySecond3 = applySecond(dictApplicative.Apply0());
-    var pure23 = pure(dictApplicative);
+    var pure20 = pure(dictApplicative);
     return function(dictFoldable) {
       var foldr22 = foldr(dictFoldable);
       return function(f) {
         return foldr22(function($454) {
           return applySecond3(f($454));
-        })(pure23(unit));
+        })(pure20(unit));
       };
     };
   };
@@ -2853,23 +2853,23 @@
       };
     }
     return function(apply5) {
-      return function(map35) {
-        return function(pure23) {
+      return function(map33) {
+        return function(pure20) {
           return function(f) {
             return function(array4) {
               function go2(bot, top3) {
                 switch (top3 - bot) {
                   case 0:
-                    return pure23([]);
+                    return pure20([]);
                   case 1:
-                    return map35(array1)(f(array4[bot]));
+                    return map33(array1)(f(array4[bot]));
                   case 2:
-                    return apply5(map35(array2)(f(array4[bot])))(f(array4[bot + 1]));
+                    return apply5(map33(array2)(f(array4[bot])))(f(array4[bot + 1]));
                   case 3:
-                    return apply5(apply5(map35(array3)(f(array4[bot])))(f(array4[bot + 1])))(f(array4[bot + 2]));
+                    return apply5(apply5(map33(array3)(f(array4[bot])))(f(array4[bot + 1])))(f(array4[bot + 2]));
                   default:
                     var pivot = bot + Math.floor((top3 - bot) / 4) * 2;
-                    return apply5(map35(concat2)(go2(bot, pivot)))(go2(pivot, top3));
+                    return apply5(map33(concat2)(go2(bot, pivot)))(go2(pivot, top3));
                 }
               }
               return go2(0, array4.length);
@@ -3420,9 +3420,9 @@
               var result = [];
               var value13 = b2;
               while (true) {
-                var maybe3 = f(value13);
-                if (isNothing2(maybe3)) return result;
-                var tuple = fromJust6(maybe3);
+                var maybe2 = f(value13);
+                if (isNothing2(maybe2)) return result;
+                var tuple = fromJust6(maybe2);
                 result.push(fst2(tuple));
                 value13 = snd2(tuple);
               }
@@ -3445,9 +3445,9 @@
               while (true) {
                 var tuple = f(value13);
                 result.push(fst2(tuple));
-                var maybe3 = snd2(tuple);
-                if (isNothing2(maybe3)) return result;
-                value13 = fromJust6(maybe3);
+                var maybe2 = snd2(tuple);
+                if (isNothing2(maybe2)) return result;
+                value13 = fromJust6(maybe2);
               }
             };
           };
@@ -3848,7 +3848,6 @@
   var functorList = {
     map: listMap
   };
-  var map10 = /* @__PURE__ */ map(functorList);
   var foldableList = {
     foldr: function(f) {
       return function(b2) {
@@ -3955,32 +3954,6 @@
       };
     }
   };
-  var applyList = {
-    apply: function(v) {
-      return function(v1) {
-        if (v instanceof Nil) {
-          return Nil.value;
-        }
-        ;
-        if (v instanceof Cons) {
-          return append1(map10(v.value0)(v1))(apply(applyList)(v.value1)(v1));
-        }
-        ;
-        throw new Error("Failed pattern match at Data.List.Types (line 157, column 1 - line 159, column 48): " + [v.constructor.name, v1.constructor.name]);
-      };
-    },
-    Functor0: function() {
-      return functorList;
-    }
-  };
-  var applicativeList = {
-    pure: function(a2) {
-      return new Cons(a2, Nil.value);
-    },
-    Apply0: function() {
-      return applyList;
-    }
-  };
   var altList = {
     alt: append1,
     Functor0: function() {
@@ -3997,7 +3970,7 @@
   })();
 
   // output/Data.List/index.js
-  var map11 = /* @__PURE__ */ map(functorMaybe);
+  var map10 = /* @__PURE__ */ map(functorMaybe);
   var uncons = function(v) {
     if (v instanceof Nil) {
       return Nothing.value;
@@ -4014,7 +3987,7 @@
   };
   var toUnfoldable = function(dictUnfoldable) {
     return unfoldr(dictUnfoldable)(function(xs) {
-      return map11(function(rec) {
+      return map10(function(rec) {
         return new Tuple(rec.head, rec.tail);
       })(uncons(xs));
     });
@@ -4070,7 +4043,7 @@
       return val;
     };
   };
-  var map12 = /* @__PURE__ */ map(functorMaybe);
+  var map11 = /* @__PURE__ */ map(functorMaybe);
   var Leaf = /* @__PURE__ */ (function() {
     function Leaf2() {
     }
@@ -4338,7 +4311,7 @@
     return function(k) {
       return function(m) {
         var v = unsafeSplit(compare4, k, m);
-        return map12(function(a2) {
+        return map11(function(a2) {
           return new Tuple(a2, unsafeJoinNodes(v.value1, v.value2));
         })(v.value0);
       };
@@ -5065,7 +5038,7 @@
   // output/Data.Array/index.js
   var $$void4 = /* @__PURE__ */ $$void(functorST);
   var intercalate1 = /* @__PURE__ */ intercalate(foldableArray);
-  var map13 = /* @__PURE__ */ map(functorArray);
+  var map12 = /* @__PURE__ */ map(functorArray);
   var map22 = /* @__PURE__ */ map(functorST);
   var fromJust4 = /* @__PURE__ */ fromJust();
   var when2 = /* @__PURE__ */ when(applicativeST);
@@ -5145,7 +5118,7 @@
       }
       ;
       if (v instanceof Just) {
-        return map13(snd)(sortWith1(fst)((function __do2() {
+        return map12(snd)(sortWith1(fst)((function __do2() {
           var result = unsafeThaw(singleton4(v.value0))();
           foreach(indexedAndSorted)(function(v1) {
             return function __do3() {
@@ -5234,8 +5207,8 @@
   });
 
   // output/Halogen.VDom.Types/index.js
-  var map14 = /* @__PURE__ */ map(functorArray);
-  var map15 = /* @__PURE__ */ map(functorTuple);
+  var map13 = /* @__PURE__ */ map(functorArray);
+  var map14 = /* @__PURE__ */ map(functorTuple);
   var Text = /* @__PURE__ */ (function() {
     function Text3(value0) {
       this.value0 = value0;
@@ -5347,11 +5320,11 @@
       }
       ;
       if (v2 instanceof Elem) {
-        return new Elem(v2.value0, v2.value1, v.value0(v2.value2), map14(go2)(v2.value3));
+        return new Elem(v2.value0, v2.value1, v.value0(v2.value2), map13(go2)(v2.value3));
       }
       ;
       if (v2 instanceof Keyed) {
-        return new Keyed(v2.value0, v2.value1, v.value0(v2.value2), map14(map15(go2))(v2.value3));
+        return new Keyed(v2.value0, v2.value1, v.value0(v2.value2), map13(map14(go2))(v2.value3));
       }
       ;
       if (v2 instanceof Widget) {
@@ -6052,12 +6025,12 @@
     };
   };
   var unsafeReadTagged = function(dictMonad) {
-    var pure111 = pure(applicativeExceptT(dictMonad));
+    var pure110 = pure(applicativeExceptT(dictMonad));
     var fail1 = fail(dictMonad);
     return function(tag) {
       return function(value13) {
         if (tagOf(value13) === tag) {
-          return pure111(unsafeFromForeign(value13));
+          return pure110(unsafeFromForeign(value13));
         }
         ;
         if (otherwise) {
@@ -6497,7 +6470,7 @@
     return Lift.create;
   })();
   var goLeft = function(dictApplicative) {
-    var pure23 = pure(dictApplicative);
+    var pure20 = pure(dictApplicative);
     return function(fStack) {
       return function(valStack) {
         return function(nat) {
@@ -6505,7 +6478,7 @@
             return function(count) {
               if (func instanceof Pure) {
                 return new Tuple(new Cons({
-                  func: pure23(func.value0),
+                  func: pure20(func.value0),
                   count
                 }, fStack), valStack);
               }
@@ -6576,7 +6549,7 @@
   };
   var foldFreeAp = function(dictApplicative) {
     var goApply1 = goApply(dictApplicative);
-    var pure23 = pure(dictApplicative);
+    var pure20 = pure(dictApplicative);
     var goLeft1 = goLeft(dictApplicative);
     return function(nat) {
       return function(z) {
@@ -6585,7 +6558,7 @@
           var $tco_result;
           function $tco_loop(v) {
             if (v.value1.value0 instanceof Pure) {
-              var v1 = goApply1(v.value0)(v.value1.value1)(pure23(v.value1.value0.value0));
+              var v1 = goApply1(v.value0)(v.value1.value1)(pure20(v.value1.value0.value0));
               if (v1 instanceof Left) {
                 $tco_done = true;
                 return v1.value0;
@@ -7009,13 +6982,13 @@
   var foldFree = function(dictMonadRec) {
     var Monad0 = dictMonadRec.Monad0();
     var map113 = map(Monad0.Bind1().Apply0().Functor0());
-    var pure111 = pure(Monad0.Applicative0());
+    var pure110 = pure(Monad0.Applicative0());
     var tailRecM4 = tailRecM(dictMonadRec);
     return function(k) {
       var go2 = function(f) {
         var v = toView(f);
         if (v instanceof Return) {
-          return map113(Done.create)(pure111(v.value0));
+          return map113(Done.create)(pure110(v.value0));
         }
         ;
         if (v instanceof Bind) {
@@ -7412,7 +7385,7 @@
   // output/Halogen.Component/index.js
   var voidLeft2 = /* @__PURE__ */ voidLeft(functorHalogenM);
   var traverse_3 = /* @__PURE__ */ traverse_(applicativeHalogenM)(foldableMaybe);
-  var map16 = /* @__PURE__ */ map(functorHalogenM);
+  var map15 = /* @__PURE__ */ map(functorHalogenM);
   var pure5 = /* @__PURE__ */ pure(applicativeHalogenM);
   var lookup4 = /* @__PURE__ */ lookup2();
   var pop3 = /* @__PURE__ */ pop2();
@@ -7459,7 +7432,7 @@
       ;
       if (v instanceof Query) {
         return unCoyoneda(function(g) {
-          var $45 = map16(maybe(v.value1(unit))(g));
+          var $45 = map15(maybe(v.value1(unit))(g));
           return function($46) {
             return $45(args.handleQuery($46));
           };
@@ -7685,9 +7658,9 @@
   var fork3 = /* @__PURE__ */ fork(monadForkAff);
   var parSequence_2 = /* @__PURE__ */ parSequence_(parallelAff)(applicativeParAff)(foldableList);
   var pure6 = /* @__PURE__ */ pure(applicativeAff);
-  var map18 = /* @__PURE__ */ map(functorCoyoneda);
+  var map17 = /* @__PURE__ */ map(functorCoyoneda);
   var parallel3 = /* @__PURE__ */ parallel(parallelAff);
-  var map19 = /* @__PURE__ */ map(functorAff);
+  var map18 = /* @__PURE__ */ map(functorAff);
   var sequential2 = /* @__PURE__ */ sequential(parallelAff);
   var map23 = /* @__PURE__ */ map(functorMaybe);
   var insert4 = /* @__PURE__ */ insert(ordSubscriptionId);
@@ -7759,7 +7732,7 @@
     return function(ref3) {
       return function(q2) {
         return bind12(liftEffect4(read(ref3)))(function(v) {
-          return evalM(render3)(ref3)(v["component"]["eval"](new Query(map18(Just.create)(liftCoyoneda(q2)), $$const(Nothing.value))));
+          return evalM(render3)(ref3)(v["component"]["eval"](new Query(map17(Just.create)(liftCoyoneda(q2)), $$const(Nothing.value))));
         });
       };
     };
@@ -7778,7 +7751,7 @@
                     })(dsx);
                   }));
                 };
-                return map19(v2.value2)(sequential2(v2.value0(applicativeParAff)(evalChild)(v1.children)));
+                return map18(v2.value2)(sequential2(v2.value0(applicativeParAff)(evalChild)(v1.children)));
               })(cqb);
             });
           };
@@ -7969,7 +7942,7 @@
   var parSequence_3 = /* @__PURE__ */ parSequence_(parallelAff)(applicativeParAff)(foldableList);
   var liftEffect5 = /* @__PURE__ */ liftEffect(monadEffectAff);
   var pure7 = /* @__PURE__ */ pure(applicativeEffect);
-  var map20 = /* @__PURE__ */ map(functorEffect);
+  var map19 = /* @__PURE__ */ map(functorEffect);
   var pure12 = /* @__PURE__ */ pure(applicativeAff);
   var when3 = /* @__PURE__ */ when(applicativeEffect);
   var renderStateX2 = /* @__PURE__ */ renderStateX(functorEffect);
@@ -8067,7 +8040,7 @@
               return function(childrenOutRef) {
                 return unComponentSlot(function(slot3) {
                   return function __do2() {
-                    var childrenIn = map20(slot3.pop)(read(childrenInRef))();
+                    var childrenIn = map19(slot3.pop)(read(childrenInRef))();
                     var $$var2 = (function() {
                       if (childrenIn instanceof Just) {
                         write(childrenIn.value0.value1)(childrenInRef)();
@@ -8097,7 +8070,7 @@
                       ;
                       throw new Error("Failed pattern match at Halogen.Aff.Driver (line 213, column 14 - line 222, column 98): " + [childrenIn.constructor.name]);
                     })();
-                    var isDuplicate = map20(function($69) {
+                    var isDuplicate = map19(function($69) {
                       return isJust(slot3.get($69));
                     })(read(childrenOutRef))();
                     when3(isDuplicate)(warn("Halogen: Duplicate slot address was detected during rendering, unexpected results may occur"))();
@@ -8123,7 +8096,7 @@
           return function($$var2) {
             return function __do2() {
               var v = read($$var2)();
-              var shouldProcessHandlers = map20(isNothing)(read(v.pendingHandlers))();
+              var shouldProcessHandlers = map19(isNothing)(read(v.pendingHandlers))();
               when3(shouldProcessHandlers)(write(new Just(Nil.value))(v.pendingHandlers))();
               write(empty3)(v.childrenOut)();
               write(v.children)(v.childrenIn)();
@@ -8316,15 +8289,15 @@
   }
 
   // output/Web.DOM.Node/index.js
-  var map21 = /* @__PURE__ */ map(functorEffect);
+  var map20 = /* @__PURE__ */ map(functorEffect);
   var parentNode2 = /* @__PURE__ */ (function() {
-    var $6 = map21(toMaybe);
+    var $6 = map20(toMaybe);
     return function($7) {
       return $6(_parentNode($7));
     };
   })();
   var nextSibling = /* @__PURE__ */ (function() {
-    var $15 = map21(toMaybe);
+    var $15 = map20(toMaybe);
     return function($16) {
       return $15(_nextSibling($16));
     };
@@ -8352,7 +8325,7 @@
   var identity10 = /* @__PURE__ */ identity(categoryFn);
   var bind14 = /* @__PURE__ */ bind(bindAff);
   var liftEffect6 = /* @__PURE__ */ liftEffect(monadEffectAff);
-  var map24 = /* @__PURE__ */ map(functorEffect);
+  var map21 = /* @__PURE__ */ map(functorEffect);
   var bindFlipped8 = /* @__PURE__ */ bindFlipped(bindEffect);
   var substInParent = function(v) {
     return function(v1) {
@@ -8500,7 +8473,7 @@
   var runUI2 = function(component5) {
     return function(i2) {
       return function(element3) {
-        return bind14(liftEffect6(map24(toDocument)(bindFlipped8(document2)(windowImpl))))(function(document3) {
+        return bind14(liftEffect6(map21(toDocument)(bindFlipped8(document2)(windowImpl))))(function(document3) {
           return runUI(renderSpec(document3)(element3))(component5)(i2);
         });
       };
@@ -8841,11 +8814,12 @@
   function id2(x) {
     return x;
   }
+  var jsonNull = null;
   function stringify(j) {
     return JSON.stringify(j);
   }
-  function _caseJson(isNull2, isBool, isNum, isStr, isArr, isObj, j) {
-    if (j == null) return isNull2();
+  function _caseJson(isNull3, isBool, isNum, isStr, isArr, isObj, j) {
+    if (j == null) return isNull3();
     else if (typeof j === "boolean") return isBool(j);
     else if (typeof j === "number") return isNum(j);
     else if (typeof j === "string") return isStr(j);
@@ -8866,6 +8840,7 @@
     return verbJsonType(Nothing.value)(Just.create);
   })();
   var jsonEmptyObject = /* @__PURE__ */ id2(empty4);
+  var isJsonType = /* @__PURE__ */ verbJsonType(false)(/* @__PURE__ */ $$const(true));
   var caseJsonString = function(d) {
     return function(f) {
       return function(j) {
@@ -8882,6 +8857,14 @@
     };
   };
   var toObject = /* @__PURE__ */ toJsonType(caseJsonObject);
+  var caseJsonNull = function(d) {
+    return function(f) {
+      return function(j) {
+        return _caseJson(f, $$const(d), $$const(d), $$const(d), $$const(d), $$const(d), j);
+      };
+    };
+  };
+  var isNull2 = /* @__PURE__ */ isJsonType(caseJsonNull);
   var caseJsonArray = function(d) {
     return function(f) {
       return function(j) {
@@ -8926,7 +8909,7 @@
 
   // output/Data.FormURLEncoded/index.js
   var apply2 = /* @__PURE__ */ apply(applyMaybe);
-  var map25 = /* @__PURE__ */ map(functorMaybe);
+  var map24 = /* @__PURE__ */ map(functorMaybe);
   var traverse2 = /* @__PURE__ */ traverse(traversableArray)(applicativeMaybe);
   var toArray2 = function(v) {
     return v;
@@ -8938,7 +8921,7 @@
       }
       ;
       if (v.value1 instanceof Just) {
-        return apply2(map25(function(key) {
+        return apply2(map24(function(key) {
           return function(val) {
             return key + ("=" + val);
           };
@@ -8947,7 +8930,7 @@
       ;
       throw new Error("Failed pattern match at Data.FormURLEncoded (line 37, column 16 - line 39, column 114): " + [v.constructor.name]);
     };
-    var $37 = map25(joinWith("&"));
+    var $37 = map24(joinWith("&"));
     var $38 = traverse2(encodePart);
     return function($39) {
       return $37($38(toArray2($39)));
@@ -9172,7 +9155,7 @@
   var unsafeReadTagged2 = /* @__PURE__ */ unsafeReadTagged(monadIdentity);
   var alt5 = /* @__PURE__ */ alt(/* @__PURE__ */ altExceptT(semigroupNonEmptyList)(monadIdentity));
   var composeKleisliFlipped3 = /* @__PURE__ */ composeKleisliFlipped(/* @__PURE__ */ bindExceptT(monadIdentity));
-  var map26 = /* @__PURE__ */ map(functorMaybe);
+  var map25 = /* @__PURE__ */ map(functorMaybe);
   var any2 = /* @__PURE__ */ any(foldableArray)(heytingAlgebraBoolean);
   var eq3 = /* @__PURE__ */ eq(eqString);
   var bindFlipped9 = /* @__PURE__ */ bindFlipped(bindMaybe);
@@ -9291,7 +9274,7 @@
         }
         ;
         if (v2 instanceof FormURLEncoded) {
-          return note("Body contains values that cannot be encoded as application/x-www-form-urlencoded")(map26(unsafeToForeign)(encode(v2.value0)));
+          return note("Body contains values that cannot be encoded as application/x-www-form-urlencoded")(map25(unsafeToForeign)(encode(v2.value0)));
         }
         ;
         if (v2 instanceof Json) {
@@ -9310,7 +9293,7 @@
         };
       };
       var headers = function(reqContent) {
-        return addHeader(map26(ContentType.create)(bindFlipped9(toMediaType)(reqContent)))(addHeader(map26(Accept.create)(toMediaType2(req.responseFormat)))(req.headers));
+        return addHeader(map25(ContentType.create)(bindFlipped9(toMediaType)(reqContent)))(addHeader(map25(Accept.create)(toMediaType2(req.responseFormat)))(req.headers));
       };
       var ajaxRequest = function(v2) {
         return {
@@ -9327,7 +9310,7 @@
           username: toNullable(req.username),
           password: toNullable(req.password),
           withCredentials: req.withCredentials,
-          timeout: fromMaybe(0)(map26(function(v1) {
+          timeout: fromMaybe(0)(map25(function(v1) {
             return v1;
           })(req.timeout))
         };
@@ -9534,7 +9517,7 @@
     };
   };
   var fromEnum2 = /* @__PURE__ */ fromEnum(boundedEnumChar);
-  var map27 = /* @__PURE__ */ map(functorMaybe);
+  var map26 = /* @__PURE__ */ map(functorMaybe);
   var unfoldr2 = /* @__PURE__ */ unfoldr(unfoldableArray);
   var div3 = /* @__PURE__ */ div(euclideanRingInt);
   var mod2 = /* @__PURE__ */ mod(euclideanRingInt);
@@ -9582,7 +9565,7 @@
     });
   };
   var unconsButWithTuple = function(s) {
-    return map27(function(v) {
+    return map26(function(v) {
       return new Tuple(v.head, v.tail);
     })(uncons4(s));
   };
@@ -9707,7 +9690,6 @@
   var bind5 = /* @__PURE__ */ bind(bindEither);
   var lmap2 = /* @__PURE__ */ lmap(bifunctorEither);
   var pure10 = /* @__PURE__ */ pure(applicativeEither);
-  var pure14 = /* @__PURE__ */ pure(applicativeList);
   var bindFlipped10 = /* @__PURE__ */ bindFlipped(bindEither);
   var fromFoldable5 = /* @__PURE__ */ fromFoldable4(foldableList);
   var traverseWithIndex2 = /* @__PURE__ */ traverseWithIndex(traversableWithIndexArray)(applicativeEither);
@@ -9819,19 +9801,6 @@
   var record = /* @__PURE__ */ (function() {
     return new Codec($$const(pure10({})), pure(applicativeTuple(monoidList)));
   })();
-  var prop3 = function(key) {
-    return function(codec2) {
-      return codec(function(obj) {
-        return lmap2(AtKey.create(key))(maybe(new Left(MissingValue.value))(decode(codec2))(lookup3(key)(obj)));
-      })((function() {
-        var $200 = Tuple.create(key);
-        var $201 = encode2(codec2);
-        return function($202) {
-          return pure14($200($201($202)));
-        };
-      })());
-    };
-  };
   var prismaticCodec = function(name17) {
     return function(f) {
       return function(g) {
@@ -9894,7 +9863,6 @@
     };
   };
   var string2 = /* @__PURE__ */ jsonPrimCodec("String")(toString)(id2);
-  var json2 = /* @__PURE__ */ codec$prime(pure10)(/* @__PURE__ */ identity(categoryFn));
   var jobject = /* @__PURE__ */ jsonPrimCodec("Object")(toObject)(id2);
   var object2 = function(name17) {
     return function(codec2) {
@@ -9926,10 +9894,10 @@
   // output/Foreign.Index/index.js
   var unsafeReadProp = function(dictMonad) {
     var fail4 = fail(dictMonad);
-    var pure23 = pure(applicativeExceptT(dictMonad));
+    var pure20 = pure(applicativeExceptT(dictMonad));
     return function(k) {
       return function(value13) {
-        return unsafeReadPropImpl(fail4(new TypeMismatch("object", typeOf(value13))), pure23, k, value13);
+        return unsafeReadPropImpl(fail4(new TypeMismatch("object", typeOf(value13))), pure20, k, value13);
       };
     };
   };
@@ -10434,8 +10402,8 @@
       for (; ; ) {
         let last4 = this.nodes.length - 1;
         let top3 = this.nodes[last4], offsetValue = this.offsets[last4], offset = offsetValue >> 1;
-        let size6 = top3 instanceof TextLeaf ? top3.text.length : top3.children.length;
-        if (offset == (dir2 > 0 ? size6 : 0)) {
+        let size5 = top3 instanceof TextLeaf ? top3.text.length : top3.children.length;
+        if (offset == (dir2 > 0 ? size5 : 0)) {
           if (last4 == 0) {
             this.done = true;
             this.value = "";
@@ -10564,10 +10532,10 @@
     /**
     @internal
     */
-    constructor(from2, to, number3, text6) {
+    constructor(from2, to, number2, text6) {
       this.from = from2;
       this.to = to;
-      this.number = number3;
+      this.number = number2;
       this.text = text6;
     }
     /**
@@ -10767,10 +10735,10 @@
     Create a change desc from its JSON representation (as produced
     by [`toJSON`](https://codemirror.net/6/docs/ref/#state.ChangeDesc.toJSON).
     */
-    static fromJSON(json3) {
-      if (!Array.isArray(json3) || json3.length % 2 || json3.some((a2) => typeof a2 != "number"))
+    static fromJSON(json2) {
+      if (!Array.isArray(json2) || json2.length % 2 || json2.some((a2) => typeof a2 != "number"))
         throw new RangeError("Invalid JSON representation of ChangeDesc");
-      return new _ChangeDesc(json3);
+      return new _ChangeDesc(json2);
     }
     /**
     @internal
@@ -10810,8 +10778,8 @@
         if (ins2 >= 0) {
           sections[i2] = ins2;
           sections[i2 + 1] = len;
-          let index5 = i2 >> 1;
-          while (inserted.length < index5)
+          let index4 = i2 >> 1;
+          while (inserted.length < index4)
             inserted.push(Text2.empty);
           inserted.push(len ? doc2.slice(pos, pos + len) : Text2.empty);
         }
@@ -10973,12 +10941,12 @@
     Create a changeset from its JSON representation (as produced by
     [`toJSON`](https://codemirror.net/6/docs/ref/#state.ChangeSet.toJSON).
     */
-    static fromJSON(json3) {
-      if (!Array.isArray(json3))
+    static fromJSON(json2) {
+      if (!Array.isArray(json2))
         throw new RangeError("Invalid JSON representation of ChangeSet");
       let sections = [], inserted = [];
-      for (let i2 = 0; i2 < json3.length; i2++) {
-        let part = json3[i2];
+      for (let i2 = 0; i2 < json2.length; i2++) {
+        let part = json2[i2];
         if (typeof part == "number") {
           sections.push(part, -1);
         } else if (!Array.isArray(part) || typeof part[0] != "number" || part.some((e, i3) => i3 && typeof e != "string")) {
@@ -11018,11 +10986,11 @@
   function addInsert(values, sections, value13) {
     if (value13.length == 0)
       return;
-    let index5 = sections.length - 2 >> 1;
-    if (index5 < values.length) {
+    let index4 = sections.length - 2 >> 1;
+    if (index4 < values.length) {
       values[values.length - 1] = values[values.length - 1].append(value13);
     } else {
-      while (values.length < index5)
+      while (values.length < index4)
         values.push(Text2.empty);
       values.push(value13);
     }
@@ -11168,12 +11136,12 @@
       return this.ins < 0 ? this.len : this.ins;
     }
     get text() {
-      let { inserted } = this.set, index5 = this.i - 2 >> 1;
-      return index5 >= inserted.length ? Text2.empty : inserted[index5];
+      let { inserted } = this.set, index4 = this.i - 2 >> 1;
+      return index4 >= inserted.length ? Text2.empty : inserted[index4];
     }
     textBit(len) {
-      let { inserted } = this.set, index5 = this.i - 2 >> 1;
-      return index5 >= inserted.length && !len ? Text2.empty : inserted[index5].slice(this.off, len == null ? void 0 : this.off + len);
+      let { inserted } = this.set, index4 = this.i - 2 >> 1;
+      return index4 >= inserted.length && !len ? Text2.empty : inserted[index4].slice(this.off, len == null ? void 0 : this.off + len);
     }
     forward(len) {
       if (len == this.len)
@@ -11286,10 +11254,10 @@
     Convert a JSON representation of a range to a `SelectionRange`
     instance.
     */
-    static fromJSON(json3) {
-      if (!json3 || typeof json3.anchor != "number" || typeof json3.head != "number")
+    static fromJSON(json2) {
+      if (!json2 || typeof json2.anchor != "number" || typeof json2.head != "number")
         throw new RangeError("Invalid JSON representation for SelectionRange");
-      return EditorSelection.range(json3.anchor, json3.head);
+      return EditorSelection.range(json2.anchor, json2.head);
     }
     /**
     @internal
@@ -11366,10 +11334,10 @@
     /**
     Create a selection from a JSON representation.
     */
-    static fromJSON(json3) {
-      if (!json3 || !Array.isArray(json3.ranges) || typeof json3.main != "number" || json3.main >= json3.ranges.length)
+    static fromJSON(json2) {
+      if (!json2 || !Array.isArray(json2.ranges) || typeof json2.main != "number" || json2.main >= json2.ranges.length)
         throw new RangeError("Invalid JSON representation for EditorSelection");
-      return new _EditorSelection(json3.ranges.map((r) => SelectionRange.fromJSON(r)), json3.main);
+      return new _EditorSelection(json2.ranges.map((r) => SelectionRange.fromJSON(r)), json2.main);
     }
     /**
     Create a selection holding a single range.
@@ -11924,8 +11892,8 @@
     /**
     @internal
     */
-    constructor(map35) {
-      this.map = map35;
+    constructor(map33) {
+      this.map = map33;
     }
     /**
     Create a [state effect](https://codemirror.net/6/docs/ref/#state.StateEffect) instance of this
@@ -12127,24 +12095,24 @@
       scrollIntoView: !!spec.scrollIntoView
     };
   }
-  function resolveTransaction(state3, specs, filter4) {
+  function resolveTransaction(state3, specs, filter3) {
     let s = resolveTransactionInner(state3, specs.length ? specs[0] : {}, state3.doc.length);
     if (specs.length && specs[0].filter === false)
-      filter4 = false;
+      filter3 = false;
     for (let i2 = 1; i2 < specs.length; i2++) {
       if (specs[i2].filter === false)
-        filter4 = false;
+        filter3 = false;
       let seq = !!specs[i2].sequential;
       s = mergeTransaction(s, resolveTransactionInner(state3, specs[i2], seq ? s.changes.newLength : state3.doc.length), seq);
     }
     let tr2 = Transaction.create(state3, s.changes, s.selection, s.effects, s.annotations, s.scrollIntoView);
-    return extendTransaction(filter4 ? filterTransaction(tr2) : tr2);
+    return extendTransaction(filter3 ? filterTransaction(tr2) : tr2);
   }
   function filterTransaction(tr2) {
     let state3 = tr2.startState;
     let result = true;
-    for (let filter4 of state3.facet(changeFilter)) {
-      let value13 = filter4(tr2);
+    for (let filter3 of state3.facet(changeFilter)) {
+      let value13 = filter3(tr2);
       if (value13 === false) {
         result = false;
         break;
@@ -12387,10 +12355,10 @@
         selection: this.selection.toJSON()
       };
       if (fields)
-        for (let prop4 in fields) {
-          let value13 = fields[prop4];
+        for (let prop3 in fields) {
+          let value13 = fields[prop3];
           if (value13 instanceof StateField && this.config.address[value13.id] != null)
-            result[prop4] = value13.spec.toJSON(this.field(fields[prop4]), this);
+            result[prop3] = value13.spec.toJSON(this.field(fields[prop3]), this);
         }
       return result;
     }
@@ -12400,20 +12368,20 @@
     to [`toJSON`](https://codemirror.net/6/docs/ref/#state.EditorState.toJSON) when serializing as
     third argument.
     */
-    static fromJSON(json3, config = {}, fields) {
-      if (!json3 || typeof json3.doc != "string")
+    static fromJSON(json2, config = {}, fields) {
+      if (!json2 || typeof json2.doc != "string")
         throw new RangeError("Invalid JSON representation for EditorState");
       let fieldInit = [];
       if (fields)
-        for (let prop4 in fields) {
-          if (Object.prototype.hasOwnProperty.call(json3, prop4)) {
-            let field = fields[prop4], value13 = json3[prop4];
+        for (let prop3 in fields) {
+          if (Object.prototype.hasOwnProperty.call(json2, prop3)) {
+            let field = fields[prop3], value13 = json2[prop3];
             fieldInit.push(field.init((state3) => field.spec.fromJSON(value13, state3)));
           }
         }
       return _EditorState.create({
-        doc: json3.doc,
-        selection: EditorSelection.fromJSON(json3.selection),
+        doc: json2.doc,
+        selection: EditorSelection.fromJSON(json2.selection),
         extensions: config.extensions ? fieldInit.concat([config.extensions]) : fieldInit
       });
     }
@@ -12463,9 +12431,9 @@
     literal dollar sign.
     */
     phrase(phrase, ...insert10) {
-      for (let map35 of this.facet(_EditorState.phrases))
-        if (Object.prototype.hasOwnProperty.call(map35, phrase)) {
-          phrase = map35[phrase];
+      for (let map33 of this.facet(_EditorState.phrases))
+        if (Object.prototype.hasOwnProperty.call(map33, phrase)) {
+          phrase = map33[phrase];
           break;
         }
       if (insert10.length)
@@ -12709,16 +12677,16 @@
     get size() {
       if (this.isEmpty)
         return 0;
-      let size6 = this.nextLayer.size;
+      let size5 = this.nextLayer.size;
       for (let chunk of this.chunk)
-        size6 += chunk.value.length;
-      return size6;
+        size5 += chunk.value.length;
+      return size5;
     }
     /**
     @internal
     */
-    chunkEnd(index5) {
-      return this.chunkPos[index5] + this.chunk[index5].length;
+    chunkEnd(index4) {
+      return this.chunkPos[index4] + this.chunk[index4].length;
     }
     /**
     Update the range set, optionally adding new ranges or filtering
@@ -12731,8 +12699,8 @@
     */
     update(updateSpec) {
       let { add: add3 = [], sort: sort2 = false, filterFrom = 0, filterTo = this.length } = updateSpec;
-      let filter4 = updateSpec.filter;
-      if (add3.length == 0 && !filter4)
+      let filter3 = updateSpec.filter;
+      if (add3.length == 0 && !filter3)
         return this;
       if (sort2)
         add3 = add3.slice().sort(cmpRange);
@@ -12745,17 +12713,17 @@
           let range3 = add3[i2++];
           if (!builder.addInner(range3.from, range3.to, range3.value))
             spill.push(range3);
-        } else if (cur.rangeIndex == 1 && cur.chunkIndex < this.chunk.length && (i2 == add3.length || this.chunkEnd(cur.chunkIndex) < add3[i2].from) && (!filter4 || filterFrom > this.chunkEnd(cur.chunkIndex) || filterTo < this.chunkPos[cur.chunkIndex]) && builder.addChunk(this.chunkPos[cur.chunkIndex], this.chunk[cur.chunkIndex])) {
+        } else if (cur.rangeIndex == 1 && cur.chunkIndex < this.chunk.length && (i2 == add3.length || this.chunkEnd(cur.chunkIndex) < add3[i2].from) && (!filter3 || filterFrom > this.chunkEnd(cur.chunkIndex) || filterTo < this.chunkPos[cur.chunkIndex]) && builder.addChunk(this.chunkPos[cur.chunkIndex], this.chunk[cur.chunkIndex])) {
           cur.nextChunk();
         } else {
-          if (!filter4 || filterFrom > cur.to || filterTo < cur.from || filter4(cur.from, cur.to, cur.value)) {
+          if (!filter3 || filterFrom > cur.to || filterTo < cur.from || filter3(cur.from, cur.to, cur.value)) {
             if (!builder.addInner(cur.from, cur.to, cur.value))
               spill.push(Range.create(cur.from, cur.to, cur.value));
           }
           cur.next();
         }
       }
-      return builder.finishInner(this.nextLayer.isEmpty && !spill.length ? _RangeSet.empty : this.nextLayer.update({ add: spill, filter: filter4, filterFrom, filterTo }));
+      return builder.finishInner(this.nextLayer.isEmpty && !spill.length ? _RangeSet.empty : this.nextLayer.update({ add: spill, filter: filter3, filterFrom, filterTo }));
     }
     /**
     Map this range set through a set of changes, return the new set.
@@ -13091,8 +13059,8 @@
         }
       }
     }
-    setRangeIndex(index5) {
-      if (index5 == this.layer.chunk[this.chunkIndex].value.length) {
+    setRangeIndex(index4) {
+      if (index4 == this.layer.chunk[this.chunkIndex].value.length) {
         this.chunkIndex++;
         if (this.skip) {
           while (this.chunkIndex < this.layer.chunk.length && this.skip.has(this.layer.chunk[this.chunkIndex]))
@@ -13100,7 +13068,7 @@
         }
         this.rangeIndex = 0;
       } else {
-        this.rangeIndex = index5;
+        this.rangeIndex = index4;
       }
     }
     nextChunk() {
@@ -13162,9 +13130,9 @@
       }
     }
   };
-  function heapBubble(heap, index5) {
-    for (let cur = heap[index5]; ; ) {
-      let childIndex = (index5 << 1) + 1;
+  function heapBubble(heap, index4) {
+    for (let cur = heap[index4]; ; ) {
+      let childIndex = (index4 << 1) + 1;
       if (childIndex >= heap.length)
         break;
       let child = heap[childIndex];
@@ -13175,8 +13143,8 @@
       if (cur.compare(child) < 0)
         break;
       heap[childIndex] = cur;
-      heap[index5] = child;
-      index5 = childIndex;
+      heap[index4] = child;
+      index4 = childIndex;
     }
   }
   var SpanCursor = class {
@@ -13209,10 +13177,10 @@
         this.removeActive(this.minActive);
       this.cursor.forward(pos, side);
     }
-    removeActive(index5) {
-      remove(this.active, index5);
-      remove(this.activeTo, index5);
-      remove(this.activeRank, index5);
+    removeActive(index4) {
+      remove(this.active, index4);
+      remove(this.activeTo, index4);
+      remove(this.activeRank, index4);
       this.minActive = findMinIndex(this.active, this.activeTo);
     }
     addActive(trackOpen) {
@@ -13333,15 +13301,15 @@
         return false;
     return true;
   }
-  function remove(array2, index5) {
-    for (let i2 = index5, e = array2.length - 1; i2 < e; i2++)
+  function remove(array2, index4) {
+    for (let i2 = index4, e = array2.length - 1; i2 < e; i2++)
       array2[i2] = array2[i2 + 1];
     array2.pop();
   }
-  function insert5(array2, index5, value13) {
-    for (let i2 = array2.length - 1; i2 >= index5; i2--)
+  function insert5(array2, index4, value13) {
+    for (let i2 = array2.length - 1; i2 >= index4; i2--)
       array2[i2 + 1] = array2[i2];
-    array2[index5] = value13;
+    array2[index4] = value13;
   }
   function findMinIndex(value13, array2) {
     let found = -1, foundPos = 1e9;
@@ -13397,26 +13365,26 @@
       function render3(selectors, spec2, target6, isKeyframes) {
         let local2 = [], isAt = /^@(\w+)\b/.exec(selectors[0]), keyframes = isAt && isAt[1] == "keyframes";
         if (isAt && spec2 == null) return target6.push(selectors[0] + ";");
-        for (let prop4 in spec2) {
-          let value13 = spec2[prop4];
-          if (/&/.test(prop4)) {
+        for (let prop3 in spec2) {
+          let value13 = spec2[prop3];
+          if (/&/.test(prop3)) {
             render3(
-              prop4.split(/,\s*/).map((part) => selectors.map((sel) => part.replace(/&/, sel))).reduce((a2, b2) => a2.concat(b2)),
+              prop3.split(/,\s*/).map((part) => selectors.map((sel) => part.replace(/&/, sel))).reduce((a2, b2) => a2.concat(b2)),
               value13,
               target6
             );
           } else if (value13 && typeof value13 == "object") {
-            if (!isAt) throw new RangeError("The value of a property (" + prop4 + ") should be a primitive value.");
-            render3(splitSelector(prop4), value13, local2, keyframes);
+            if (!isAt) throw new RangeError("The value of a property (" + prop3 + ") should be a primitive value.");
+            render3(splitSelector(prop3), value13, local2, keyframes);
           } else if (value13 != null) {
-            local2.push(prop4.replace(/_.*/, "").replace(/[A-Z]/g, (l) => "-" + l.toLowerCase()) + ": " + value13 + ";");
+            local2.push(prop3.replace(/_.*/, "").replace(/[A-Z]/g, (l) => "-" + l.toLowerCase()) + ": " + value13 + ";");
           }
         }
         if (local2.length || keyframes) {
           target6.push((finish && !isAt && !isKeyframes ? selectors.map(finish) : selectors).join(", ") + " {" + local2.join(" ") + "}");
         }
       }
-      for (let prop4 in spec) render3(splitSelector(prop4), spec[prop4], this.rules);
+      for (let prop3 in spec) render3(splitSelector(prop3), spec[prop3], this.rules);
     }
     // :: () → string
     // Returns a string containing the module's CSS rules.
@@ -13473,18 +13441,18 @@
       let sheet = this.sheet;
       let pos = 0, j = 0;
       for (let i2 = 0; i2 < modules.length; i2++) {
-        let mod4 = modules[i2], index5 = this.modules.indexOf(mod4);
-        if (index5 < j && index5 > -1) {
-          this.modules.splice(index5, 1);
+        let mod4 = modules[i2], index4 = this.modules.indexOf(mod4);
+        if (index4 < j && index4 > -1) {
+          this.modules.splice(index4, 1);
           j--;
-          index5 = -1;
+          index4 = -1;
         }
-        if (index5 == -1) {
+        if (index4 == -1) {
           this.modules.splice(j++, 0, mod4);
           if (sheet) for (let k = 0; k < mod4.rules.length; k++)
             sheet.insertRule(mod4.rules[k], pos++);
         } else {
-          while (j < index5) pos += this.modules[j++].rules.length;
+          while (j < index4) pos += this.modules[j++].rules.length;
           pos += mod4.rules.length;
           j++;
         }
@@ -14016,10 +13984,10 @@
     return targetNode ? scanFor(node, off, targetNode, targetOff, -1) || scanFor(node, off, targetNode, targetOff, 1) : false;
   }
   function domIndex(node) {
-    for (var index5 = 0; ; index5++) {
+    for (var index4 = 0; ; index4++) {
       node = node.previousSibling;
       if (!node)
-        return index5;
+        return index4;
     }
   }
   function isBlockElement(node) {
@@ -14407,20 +14375,20 @@
     /**
     @internal
     */
-    static find(order, index5, level, assoc) {
-      let maybe3 = -1;
+    static find(order, index4, level, assoc) {
+      let maybe2 = -1;
       for (let i2 = 0; i2 < order.length; i2++) {
         let span5 = order[i2];
-        if (span5.from <= index5 && span5.to >= index5) {
+        if (span5.from <= index4 && span5.to >= index4) {
           if (span5.level == level)
             return i2;
-          if (maybe3 < 0 || (assoc != 0 ? assoc < 0 ? span5.from < index5 : span5.to > index5 : order[maybe3].level > span5.level))
-            maybe3 = i2;
+          if (maybe2 < 0 || (assoc != 0 ? assoc < 0 ? span5.from < index4 : span5.to > index4 : order[maybe2].level > span5.level))
+            maybe2 = i2;
         }
       }
-      if (maybe3 < 0)
+      if (maybe2 < 0)
         throw new RangeError("Index out of range");
-      return maybe3;
+      return maybe2;
     }
   };
   function isolatesEq(a2, b2) {
@@ -15137,9 +15105,9 @@
       return null;
     }
     domPosFor(off, side) {
-      let index5 = domIndex(this.dom);
+      let index4 = domIndex(this.dom);
       let after = this.length ? off > 0 : side > 0;
-      return new DOMPos(this.parent.dom, index5 + (after ? 1 : 0), off == 0 || off == this.length);
+      return new DOMPos(this.parent.dom, index4 + (after ? 1 : 0), off == 0 || off == this.length);
     }
     markDirty(attrs) {
       this.flags &= ~2;
@@ -15555,21 +15523,21 @@
     // has been traversed. When side is 1, leave, enter, or skip
     // everything at the end position.
     advance(dist2, side, walker) {
-      let { tile, index: index5, beforeBreak, parents } = this;
+      let { tile, index: index4, beforeBreak, parents } = this;
       while (dist2 || side > 0) {
         if (!tile.isComposite()) {
-          if (index5 == tile.length) {
+          if (index4 == tile.length) {
             beforeBreak = !!tile.breakAfter;
-            ({ tile, index: index5 } = parents.pop());
-            index5++;
+            ({ tile, index: index4 } = parents.pop());
+            index4++;
           } else if (!dist2) {
             break;
           } else {
-            let take6 = Math.min(dist2, tile.length - index5);
+            let take6 = Math.min(dist2, tile.length - index4);
             if (walker)
-              walker.skip(tile, index5, index5 + take6);
+              walker.skip(tile, index4, index4 + take6);
             dist2 -= take6;
-            index5 += take6;
+            index4 += take6;
           }
         } else if (beforeBreak) {
           if (!dist2)
@@ -15578,31 +15546,31 @@
             walker.break();
           dist2--;
           beforeBreak = false;
-        } else if (index5 == tile.children.length) {
+        } else if (index4 == tile.children.length) {
           if (!dist2 && !parents.length)
             break;
           if (walker)
             walker.leave(tile);
           beforeBreak = !!tile.breakAfter;
-          ({ tile, index: index5 } = parents.pop());
-          index5++;
+          ({ tile, index: index4 } = parents.pop());
+          index4++;
         } else {
-          let next = tile.children[index5], brk = next.breakAfter;
+          let next = tile.children[index4], brk = next.breakAfter;
           if ((side > 0 ? next.length <= dist2 : next.length < dist2) && (!walker || walker.skip(next, 0, next.length) !== false || !next.isComposite)) {
             beforeBreak = !!brk;
-            index5++;
+            index4++;
             dist2 -= next.length;
           } else {
-            parents.push({ tile, index: index5 });
+            parents.push({ tile, index: index4 });
             tile = next;
-            index5 = 0;
+            index4 = 0;
             if (walker && next.isComposite())
               walker.enter(next);
           }
         }
       }
       this.tile = tile;
-      this.index = index5;
+      this.index = index4;
       this.beforeBreak = beforeBreak;
       return this;
     }
@@ -15899,10 +15867,10 @@
       let i2 = cls.bucket;
       let bucket = this.buckets[i2], off = this.index[i2];
       for (let j = bucket.length - 1; j >= 0; j--) {
-        let index5 = (j + off) % bucket.length, tile = bucket[index5];
+        let index4 = (j + off) % bucket.length, tile = bucket[index4];
         if ((!test2 || test2(tile)) && !this.reused.has(tile)) {
-          bucket.splice(index5, 1);
-          if (index5 < off)
+          bucket.splice(index4, 1);
+          if (index4 < off)
             this.index[i2]--;
           this.reused.set(tile, type);
           return tile;
@@ -16104,9 +16072,9 @@
       let pendingLineAttrs = null;
       let b2 = this.builder, markCount = 0;
       let openEnd = RangeSet.spans(this.decorations, from2, to, {
-        point: (from3, to2, deco, active, openStart, index5) => {
+        point: (from3, to2, deco, active, openStart, index4) => {
           if (deco instanceof PointDecoration) {
-            if (this.disallowBlockEffectsFor[index5]) {
+            if (this.disallowBlockEffectsFor[index4]) {
               if (deco.block)
                 throw new RangeError("Block decorations may not be specified via plugins");
               if (to2 > this.view.state.doc.lineAt(from3).to)
@@ -18023,8 +17991,8 @@
     }, 50);
   }
   function textFilter(state3, facet, text6) {
-    for (let filter4 of state3.facet(facet))
-      text6 = filter4(text6, state3);
+    for (let filter3 of state3.facet(facet))
+      text6 = filter3(text6, state3);
     return text6;
   }
   function doPaste(view, input3) {
@@ -19198,10 +19166,10 @@
     };
   }
   var LineGap = class {
-    constructor(from2, to, size6, displaySize) {
+    constructor(from2, to, size5, displaySize) {
       this.from = from2;
       this.to = to;
-      this.size = size6;
+      this.size = size5;
       this.displaySize = displaySize;
     }
     static same(a2, b2) {
@@ -19221,9 +19189,9 @@
     }
   };
   var LineGapWidget = class extends WidgetType {
-    constructor(size6, vertical) {
+    constructor(size5, vertical) {
       super();
-      this.size = size6;
+      this.size = size5;
       this.vertical = vertical;
     }
     eq(other) {
@@ -19454,21 +19422,21 @@
     }
     getViewport(bias, scrollTarget) {
       let marginTop = 0.5 - Math.max(-0.5, Math.min(0.5, bias / 1e3 / 2));
-      let map35 = this.heightMap, oracle = this.heightOracle;
+      let map33 = this.heightMap, oracle = this.heightOracle;
       let { visibleTop, visibleBottom } = this;
-      let viewport = new Viewport(map35.lineAt(visibleTop - marginTop * 1e3, QueryType.ByHeight, oracle, 0, 0).from, map35.lineAt(visibleBottom + (1 - marginTop) * 1e3, QueryType.ByHeight, oracle, 0, 0).to);
+      let viewport = new Viewport(map33.lineAt(visibleTop - marginTop * 1e3, QueryType.ByHeight, oracle, 0, 0).from, map33.lineAt(visibleBottom + (1 - marginTop) * 1e3, QueryType.ByHeight, oracle, 0, 0).to);
       if (scrollTarget) {
         let { head: head5 } = scrollTarget.range;
         if (head5 < viewport.from || head5 > viewport.to) {
           let viewHeight = Math.min(this.editorHeight, this.pixelViewport.bottom - this.pixelViewport.top);
-          let block = map35.lineAt(head5, QueryType.ByPos, oracle, 0, 0), topPos;
+          let block = map33.lineAt(head5, QueryType.ByPos, oracle, 0, 0), topPos;
           if (scrollTarget.y == "center")
             topPos = (block.top + block.bottom) / 2 - viewHeight / 2;
           else if (scrollTarget.y == "start" || scrollTarget.y == "nearest" && head5 < viewport.from)
             topPos = block.top;
           else
             topPos = block.bottom - viewHeight;
-          viewport = new Viewport(map35.lineAt(topPos - 1e3 / 2, QueryType.ByHeight, oracle, 0, 0).from, map35.lineAt(topPos + viewHeight + 1e3 / 2, QueryType.ByHeight, oracle, 0, 0).to);
+          viewport = new Viewport(map33.lineAt(topPos - 1e3 / 2, QueryType.ByHeight, oracle, 0, 0).from, map33.lineAt(topPos + viewHeight + 1e3 / 2, QueryType.ByHeight, oracle, 0, 0).to);
         }
       }
       return viewport;
@@ -19537,9 +19505,9 @@
             if (lineStart > from2)
               to = lineStart;
           }
-          let size6 = this.gapSize(line, from2, to, structure);
-          let displaySize = wrapping || size6 < 2e6 ? size6 : 2e6;
-          gap = new LineGap(from2, to, size6, displaySize);
+          let size5 = this.gapSize(line, from2, to, structure);
+          let displaySize = wrapping || size5 < 2e6 ? size5 : 2e6;
+          gap = new LineGap(from2, to, size5, displaySize);
         }
         gaps.push(gap);
       };
@@ -19699,10 +19667,10 @@
       return ranges[ranges.length - 1].to;
     let dist2 = Math.floor(total * ratio);
     for (let i2 = 0; ; i2++) {
-      let { from: from2, to } = ranges[i2], size6 = to - from2;
-      if (dist2 <= size6)
+      let { from: from2, to } = ranges[i2], size5 = to - from2;
+      if (dist2 <= size5)
         return from2 + dist2;
-      dist2 -= size6;
+      dist2 -= size5;
     }
   }
   function findFraction(structure, pos) {
@@ -21792,10 +21760,10 @@
   var Keymaps = /* @__PURE__ */ new WeakMap();
   function getKeymap(state3) {
     let bindings = state3.facet(keymap);
-    let map35 = Keymaps.get(bindings);
-    if (!map35)
-      Keymaps.set(bindings, map35 = buildKeymap(bindings.reduce((a2, b2) => a2.concat(b2), [])));
-    return map35;
+    let map33 = Keymaps.get(bindings);
+    if (!map33)
+      Keymaps.set(bindings, map33 = buildKeymap(bindings.reduce((a2, b2) => a2.concat(b2), [])));
+    return map33;
   }
   var storedPrefix = null;
   var PrefixTimeout = 4e3;
@@ -21867,7 +21835,7 @@
     return bound;
   }
   var currentKeyEvent = null;
-  function runHandlers(map35, event, view, scope2) {
+  function runHandlers(map33, event, view, scope2) {
     currentKeyEvent = event;
     let name17 = keyName(event);
     let charCode = codePointAt3(name17, 0), isChar = codePointSize2(charCode) == name17.length && name17 != " ";
@@ -21899,7 +21867,7 @@
       }
       return false;
     };
-    let scopeObj = map35[scope2], baseName, shiftName;
+    let scopeObj = map33[scope2], baseName, shiftName;
     if (scopeObj) {
       if (runFor(scopeObj[prefix + modifiers(name17, event, !isChar)])) {
         handled = true;
@@ -22569,8 +22537,8 @@
       this.spacer = null;
       this.dom = document.createElement("div");
       this.dom.className = "cm-gutter" + (this.config.class ? " " + this.config.class : "");
-      for (let prop4 in config.domEventHandlers) {
-        this.dom.addEventListener(prop4, (event) => {
+      for (let prop3 in config.domEventHandlers) {
+        this.dom.addEventListener(prop3, (event) => {
           let target6 = event.target, y;
           if (target6 != this.dom && this.dom.contains(target6)) {
             while (target6.parentNode != this.dom)
@@ -22581,7 +22549,7 @@
             y = event.clientY;
           }
           let line = view.lineBlockAtHeight(y - view.documentTop);
-          if (config.domEventHandlers[prop4](view, line, event))
+          if (config.domEventHandlers[prop3](view, line, event))
             event.preventDefault();
         });
       }
@@ -22696,9 +22664,9 @@
     }
   });
   var NumberMarker = class extends GutterMarker {
-    constructor(number3) {
+    constructor(number2) {
       super();
-      this.number = number3;
+      this.number = number2;
     }
     eq(other) {
       return this.number == other.number;
@@ -22707,8 +22675,8 @@
       return document.createTextNode(this.number);
     }
   };
-  function formatNumber(view, number3) {
-    return view.state.facet(lineNumberConfig).formatNumber(number3, view.state);
+  function formatNumber(view, number2) {
+    return view.state.facet(lineNumberConfig).formatNumber(number2, view.state);
   }
   var lineNumberGutter = /* @__PURE__ */ activeGutters.compute([lineNumberConfig], (state3) => ({
     class: "cm-lineNumbers",
@@ -22854,8 +22822,8 @@
     Retrieves a node prop for this type. Will return `undefined` if
     the prop isn't present on this node.
     */
-    prop(prop4) {
-      return this.props[prop4.id];
+    prop(prop3) {
+      return this.props[prop3.id];
     }
     /**
     True when this is the top node of a grammar.
@@ -22903,11 +22871,11 @@
     names, separated by spaces, in a single property name to map
     multiple node names to a single value.
     */
-    static match(map35) {
+    static match(map33) {
       let direct = /* @__PURE__ */ Object.create(null);
-      for (let prop4 in map35)
-        for (let name17 of prop4.split(" "))
-          direct[name17] = map35[prop4];
+      for (let prop3 in map33)
+        for (let name17 of prop3.split(" "))
+          direct[name17] = map33[prop3];
       return (node) => {
         for (let groups = node.prop(NodeProp.group), i2 = -1; i2 < (groups ? groups.length : 0); i2++) {
           let found = direct[i2 < 0 ? node.name : groups[i2]];
@@ -22949,10 +22917,10 @@
           if (add3) {
             if (!newProps)
               newProps = Object.assign({}, type.props);
-            let value13 = add3[1], prop4 = add3[0];
-            if (prop4.combine && prop4.id in newProps)
-              value13 = prop4.combine(newProps[prop4.id], value13);
-            newProps[prop4.id] = value13;
+            let value13 = add3[1], prop3 = add3[0];
+            if (prop3.combine && prop3.id in newProps)
+              value13 = prop3.combine(newProps[prop3.id], value13);
+            newProps[prop3.id] = value13;
           }
         }
         newTypes.push(newProps ? new NodeType(type.name, newProps, type.id, type.flags) : type);
@@ -22982,8 +22950,8 @@
       this.props = null;
       if (props && props.length) {
         this.props = /* @__PURE__ */ Object.create(null);
-        for (let [prop4, value13] of props)
-          this.props[typeof prop4 == "number" ? prop4 : prop4.id] = value13;
+        for (let [prop3, value13] of props)
+          this.props[typeof prop3 == "number" ? prop3 : prop3.id] = value13;
       }
     }
     /**
@@ -23101,8 +23069,8 @@
     Get the value of the given [node prop](#common.NodeProp) for this
     node. Works with both per-node and per-type props.
     */
-    prop(prop4) {
-      return !prop4.perNode ? this.type.prop(prop4) : this.props ? this.props[prop4.id] : void 0;
+    prop(prop3) {
+      return !prop3.perNode ? this.type.prop(prop3) : this.props ? this.props[prop3.id] : void 0;
     }
     /**
     Returns the node's [per-node props](#common.NodeProp.perNode) in a
@@ -23134,9 +23102,9 @@
   };
   Tree.empty = new Tree(NodeType.none, [], [], 0);
   var FlatBufferCursor = class _FlatBufferCursor {
-    constructor(buffer, index5) {
+    constructor(buffer, index4) {
       this.buffer = buffer;
-      this.index = index5;
+      this.index = index4;
     }
     get id() {
       return this.buffer[this.index - 4];
@@ -23180,27 +23148,27 @@
     */
     toString() {
       let result = [];
-      for (let index5 = 0; index5 < this.buffer.length; ) {
-        result.push(this.childString(index5));
-        index5 = this.buffer[index5 + 3];
+      for (let index4 = 0; index4 < this.buffer.length; ) {
+        result.push(this.childString(index4));
+        index4 = this.buffer[index4 + 3];
       }
       return result.join(",");
     }
     /**
     @internal
     */
-    childString(index5) {
-      let id3 = this.buffer[index5], endIndex = this.buffer[index5 + 3];
+    childString(index4) {
+      let id3 = this.buffer[index4], endIndex = this.buffer[index4 + 3];
       let type = this.set.types[id3], result = type.name;
       if (/\W/.test(result) && !type.isError)
         result = JSON.stringify(result);
-      index5 += 4;
-      if (endIndex == index5)
+      index4 += 4;
+      if (endIndex == index4)
         return result;
       let children2 = [];
-      while (index5 < endIndex) {
-        children2.push(this.childString(index5));
-        index5 = this.buffer[index5 + 3];
+      while (index4 < endIndex) {
+        children2.push(this.childString(index4));
+        index4 = this.buffer[index4 + 3];
       }
       return result + "(" + children2.join(",") + ")";
     }
@@ -23314,11 +23282,11 @@
     }
   };
   var TreeNode = class _TreeNode extends BaseNode {
-    constructor(_tree, from2, index5, _parent) {
+    constructor(_tree, from2, index4, _parent) {
       super();
       this._tree = _tree;
       this.from = from2;
-      this.index = index5;
+      this.index = index4;
       this._parent = _parent;
     }
     get type() {
@@ -23339,9 +23307,9 @@
           if (next instanceof TreeBuffer) {
             if (mode & IterMode.ExcludeBuffers)
               continue;
-            let index5 = next.findChild(0, next.buffer.length, dir2, pos - start2, side);
-            if (index5 > -1)
-              return new BufferNode(new BufferContext(parent2, next, i2, start2), null, index5);
+            let index4 = next.findChild(0, next.buffer.length, dir2, pos - start2, side);
+            if (index4 > -1)
+              return new BufferNode(new BufferContext(parent2, next, i2, start2), null, index4);
           } else if (mode & IterMode.IncludeAnonymous || (!next.type.isAnonymous || hasChild(next))) {
             let mounted2;
             if (!(mode & IterMode.IgnoreMounts) && (mounted2 = MountedTree.get(next)) && !mounted2.overlay)
@@ -23397,8 +23365,8 @@
         /* Side.Before */
       );
     }
-    prop(prop4) {
-      return this._tree.prop(prop4);
+    prop(prop3) {
+      return this._tree.prop(prop3);
     }
     enter(pos, side, mode = 0) {
       let mounted;
@@ -23483,10 +23451,10 @@
     return true;
   }
   var BufferContext = class {
-    constructor(parent2, buffer, index5, start2) {
+    constructor(parent2, buffer, index4, start2) {
       this.parent = parent2;
       this.buffer = buffer;
-      this.index = index5;
+      this.index = index4;
       this.start = start2;
     }
   };
@@ -23500,17 +23468,17 @@
     get to() {
       return this.context.start + this.context.buffer.buffer[this.index + 2];
     }
-    constructor(context, _parent, index5) {
+    constructor(context, _parent, index4) {
       super();
       this.context = context;
       this._parent = _parent;
-      this.index = index5;
-      this.type = context.buffer.set.types[context.buffer.buffer[index5]];
+      this.index = index4;
+      this.type = context.buffer.set.types[context.buffer.buffer[index4]];
     }
     child(dir2, pos, side) {
       let { buffer } = this.context;
-      let index5 = buffer.findChild(this.index + 4, buffer.buffer[this.index + 3], dir2, pos - this.context.start, side);
-      return index5 < 0 ? null : new _BufferNode(this.context, this, index5);
+      let index4 = buffer.findChild(this.index + 4, buffer.buffer[this.index + 3], dir2, pos - this.context.start, side);
+      return index4 < 0 ? null : new _BufferNode(this.context, this, index4);
     }
     get firstChild() {
       return this.child(
@@ -23544,15 +23512,15 @@
         /* Side.Before */
       );
     }
-    prop(prop4) {
-      return this.type.prop(prop4);
+    prop(prop3) {
+      return this.type.prop(prop3);
     }
     enter(pos, side, mode = 0) {
       if (mode & IterMode.ExcludeBuffers)
         return null;
       let { buffer } = this.context;
-      let index5 = buffer.findChild(this.index + 4, buffer.buffer[this.index + 3], side > 0 ? 1 : -1, pos - this.context.start, side);
-      return index5 < 0 ? null : new _BufferNode(this.context, this, index5);
+      let index4 = buffer.findChild(this.index + 4, buffer.buffer[this.index + 3], side > 0 ? 1 : -1, pos - this.context.start, side);
+      return index4 < 0 ? null : new _BufferNode(this.context, this, index4);
     }
     get parent() {
       return this._parent || this.context.parent.nextSignificantParent();
@@ -23689,12 +23657,12 @@
       this.to = node.to;
       return true;
     }
-    yieldBuf(index5, type) {
-      this.index = index5;
+    yieldBuf(index4, type) {
+      this.index = index4;
       let { start: start2, buffer } = this.buffer;
-      this.type = type || buffer.set.types[buffer.buffer[index5]];
-      this.from = start2 + buffer.buffer[index5 + 1];
-      this.to = start2 + buffer.buffer[index5 + 2];
+      this.type = type || buffer.set.types[buffer.buffer[index4]];
+      this.from = start2 + buffer.buffer[index4 + 1];
+      this.to = start2 + buffer.buffer[index4 + 2];
       return true;
     }
     /**
@@ -23723,11 +23691,11 @@
       if (!this.buffer)
         return this.yield(this._tree.nextChild(dir2 < 0 ? this._tree._tree.children.length - 1 : 0, dir2, pos, side, this.mode));
       let { buffer } = this.buffer;
-      let index5 = buffer.findChild(this.index + 4, buffer.buffer[this.index + 3], dir2, pos - this.buffer.start, side);
-      if (index5 < 0)
+      let index4 = buffer.findChild(this.index + 4, buffer.buffer[this.index + 3], dir2, pos - this.buffer.start, side);
+      if (index4 < 0)
         return false;
       this.stack.push(this.index);
-      return this.yieldBuf(index5);
+      return this.yieldBuf(index4);
     }
     /**
     Move the cursor to this node's first child. When this returns
@@ -23836,7 +23804,7 @@
       return this.sibling(-1);
     }
     atLastNode(dir2) {
-      let index5, parent2, { buffer } = this;
+      let index4, parent2, { buffer } = this;
       if (buffer) {
         if (dir2 > 0) {
           if (this.index < buffer.buffer.buffer.length)
@@ -23846,13 +23814,13 @@
             if (buffer.buffer.buffer[i2 + 3] < this.index)
               return false;
         }
-        ({ index: index5, parent: parent2 } = buffer);
+        ({ index: index4, parent: parent2 } = buffer);
       } else {
-        ({ index: index5, _parent: parent2 } = this._tree);
+        ({ index: index4, _parent: parent2 } = this._tree);
       }
-      for (; parent2; { index: index5, _parent: parent2 } = parent2) {
-        if (index5 > -1)
-          for (let i2 = index5 + dir2, e = dir2 < 0 ? -1 : parent2._tree.children.length; i2 != e; i2 += dir2) {
+      for (; parent2; { index: index4, _parent: parent2 } = parent2) {
+        if (index4 > -1)
+          for (let i2 = index4 + dir2, e = dir2 < 0 ? -1 : parent2._tree.children.length; i2 != e; i2 += dir2) {
             let child = parent2._tree.children[i2];
             if (this.mode & IterMode.IncludeAnonymous || child instanceof TreeBuffer || !child.type.isAnonymous || hasChild(child))
               return false;
@@ -23916,16 +23884,16 @@
         return this._tree;
       let cache = this.bufferNode, result = null, depth = 0;
       if (cache && cache.context == this.buffer) {
-        scan: for (let index5 = this.index, d = this.stack.length; d >= 0; ) {
+        scan: for (let index4 = this.index, d = this.stack.length; d >= 0; ) {
           for (let c = cache; c; c = c._parent)
-            if (c.index == index5) {
-              if (index5 == this.index)
+            if (c.index == index4) {
+              if (index4 == this.index)
                 return c;
               result = c;
               depth = d + 1;
               break scan;
             }
-          index5 = this.stack[--d];
+          index4 = this.stack[--d];
         }
       }
       for (let i2 = depth; i2 < this.stack.length; i2++)
@@ -24003,36 +23971,36 @@
     let types2 = nodeSet2.types;
     let contextHash = 0, lookAhead2 = 0;
     function takeNode(parentStart, minPos, children3, positions2, inRepeat, depth) {
-      let { id: id3, start: start2, end, size: size6 } = cursor;
+      let { id: id3, start: start2, end, size: size5 } = cursor;
       let lookAheadAtStart = lookAhead2, contextAtStart = contextHash;
-      if (size6 < 0) {
+      if (size5 < 0) {
         cursor.next();
-        if (size6 == -1) {
+        if (size5 == -1) {
           let node2 = reused[id3];
           children3.push(node2);
           positions2.push(start2 - parentStart);
           return;
-        } else if (size6 == -3) {
+        } else if (size5 == -3) {
           contextHash = id3;
           return;
-        } else if (size6 == -4) {
+        } else if (size5 == -4) {
           lookAhead2 = id3;
           return;
         } else {
-          throw new RangeError(`Unrecognized record size: ${size6}`);
+          throw new RangeError(`Unrecognized record size: ${size5}`);
         }
       }
       let type = types2[id3], node, buffer2;
       let startPos = start2 - parentStart;
       if (end - start2 <= maxBufferLength && (buffer2 = findBufferSize(cursor.pos - minPos, inRepeat))) {
         let data2 = new Uint16Array(buffer2.size - buffer2.skip);
-        let endPos = cursor.pos - buffer2.size, index5 = data2.length;
+        let endPos = cursor.pos - buffer2.size, index4 = data2.length;
         while (cursor.pos > endPos)
-          index5 = copyToBuffer(buffer2.start, data2, index5);
+          index4 = copyToBuffer(buffer2.start, data2, index4);
         node = new TreeBuffer(data2, end - buffer2.start, nodeSet2);
         startPos = buffer2.start - parentStart;
       } else {
-        let endPos = cursor.pos - size6;
+        let endPos = cursor.pos - size5;
         cursor.next();
         let localChildren = [], localPositions = [];
         let localInRepeat = id3 >= minRepeatType ? id3 : -1;
@@ -24069,8 +24037,8 @@
       let nodes = [];
       let nodeCount = 0, stopAt = -1;
       while (cursor.pos > minPos) {
-        let { id: id3, start: start2, end, size: size6 } = cursor;
-        if (size6 > 4) {
+        let { id: id3, start: start2, end, size: size5 } = cursor;
+        if (size5 > 4) {
           cursor.next();
         } else if (stopAt > -1 && start2 < stopAt) {
           break;
@@ -24129,16 +24097,16 @@
     }
     function findBufferSize(maxSize, inRepeat) {
       let fork5 = cursor.fork();
-      let size6 = 0, start2 = 0, skip = 0, minStart = fork5.end - maxBufferLength;
+      let size5 = 0, start2 = 0, skip = 0, minStart = fork5.end - maxBufferLength;
       let result = { size: 0, start: 0, skip: 0 };
       scan: for (let minPos = fork5.pos - maxSize; fork5.pos > minPos; ) {
         let nodeSize2 = fork5.size;
         if (fork5.id == inRepeat && nodeSize2 >= 0) {
-          result.size = size6;
+          result.size = size5;
           result.start = start2;
           result.skip = skip;
           skip += 4;
-          size6 += 4;
+          size5 += 4;
           fork5.next();
           continue;
         }
@@ -24160,36 +24128,36 @@
           fork5.next();
         }
         start2 = nodeStart;
-        size6 += nodeSize2;
+        size5 += nodeSize2;
         skip += localSkipped;
       }
-      if (inRepeat < 0 || size6 == maxSize) {
-        result.size = size6;
+      if (inRepeat < 0 || size5 == maxSize) {
+        result.size = size5;
         result.start = start2;
         result.skip = skip;
       }
       return result.size > 4 ? result : void 0;
     }
-    function copyToBuffer(bufferStart, buffer2, index5) {
-      let { id: id3, start: start2, end, size: size6 } = cursor;
+    function copyToBuffer(bufferStart, buffer2, index4) {
+      let { id: id3, start: start2, end, size: size5 } = cursor;
       cursor.next();
-      if (size6 >= 0 && id3 < minRepeatType) {
-        let startIndex = index5;
-        if (size6 > 4) {
-          let endPos = cursor.pos - (size6 - 4);
+      if (size5 >= 0 && id3 < minRepeatType) {
+        let startIndex = index4;
+        if (size5 > 4) {
+          let endPos = cursor.pos - (size5 - 4);
           while (cursor.pos > endPos)
-            index5 = copyToBuffer(bufferStart, buffer2, index5);
+            index4 = copyToBuffer(bufferStart, buffer2, index4);
         }
-        buffer2[--index5] = startIndex;
-        buffer2[--index5] = end - bufferStart;
-        buffer2[--index5] = start2 - bufferStart;
-        buffer2[--index5] = id3;
-      } else if (size6 == -3) {
+        buffer2[--index4] = startIndex;
+        buffer2[--index4] = end - bufferStart;
+        buffer2[--index4] = start2 - bufferStart;
+        buffer2[--index4] = id3;
+      } else if (size5 == -3) {
         contextHash = id3;
-      } else if (size6 == -4) {
+      } else if (size5 == -4) {
         lookAhead2 = id3;
       }
-      return index5;
+      return index4;
     }
     let children2 = [], positions = [];
     while (cursor.pos > 0)
@@ -24201,19 +24169,19 @@
   function nodeSize(balanceType, node) {
     if (!balanceType.isAnonymous || node instanceof TreeBuffer || node.type != balanceType)
       return 1;
-    let size6 = nodeSizeCache.get(node);
-    if (size6 == null) {
-      size6 = 1;
+    let size5 = nodeSizeCache.get(node);
+    if (size5 == null) {
+      size5 = 1;
       for (let child of node.children) {
         if (child.type != balanceType || !(child instanceof Tree)) {
-          size6 = 1;
+          size5 = 1;
           break;
         }
-        size6 += nodeSize(balanceType, child);
+        size5 += nodeSize(balanceType, child);
       }
-      nodeSizeCache.set(node, size6);
+      nodeSizeCache.set(node, size5);
     }
-    return size6;
+    return size5;
   }
   function balanceRange(balanceType, children2, positions, from2, to, start2, length9, mkTop, mkTree) {
     let total = 0;
@@ -24470,11 +24438,11 @@
   }
   function styleTags(spec) {
     let byName = /* @__PURE__ */ Object.create(null);
-    for (let prop4 in spec) {
-      let tags2 = spec[prop4];
+    for (let prop3 in spec) {
+      let tags2 = spec[prop3];
       if (!Array.isArray(tags2))
         tags2 = [tags2];
-      for (let part of prop4.split(" "))
+      for (let part of prop3.split(" "))
         if (part) {
           let pieces = [], mode = 2, rest = part;
           for (let pos = 0; ; ) {
@@ -24557,13 +24525,13 @@
   };
   Rule.empty = new Rule([], 2, null);
   function tagHighlighter(tags2, options2) {
-    let map35 = /* @__PURE__ */ Object.create(null);
+    let map33 = /* @__PURE__ */ Object.create(null);
     for (let style2 of tags2) {
       if (!Array.isArray(style2.tag))
-        map35[style2.tag.id] = style2.class;
+        map33[style2.tag.id] = style2.class;
       else
         for (let tag of style2.tag)
-          map35[tag.id] = style2.class;
+          map33[tag.id] = style2.class;
     }
     let { scope: scope2, all: all4 = null } = options2 || {};
     return {
@@ -24571,7 +24539,7 @@
         let cls = all4;
         for (let tag of tags3) {
           for (let sub3 of tag.set) {
-            let tagClass = map35[sub3.id];
+            let tagClass = map33[sub3.id];
             if (tagClass) {
               cls = cls ? cls + " " + tagClass : tagClass;
               break;
@@ -25079,9 +25047,9 @@
               result.push({ from: from2, to: from2 + tree.length });
             return;
           } else if (mount.overlay) {
-            let size6 = result.length;
+            let size5 = result.length;
             explore(mount.tree, mount.overlay[0].from + from2);
-            if (result.length > size6)
+            if (result.length > size5)
               return;
           }
         }
@@ -25973,9 +25941,9 @@
     if (byProp)
       return byProp;
     if (node.name.length == 1) {
-      let index5 = brackets.indexOf(node.name);
-      if (index5 > -1 && index5 % 2 == (dir2 < 0 ? 1 : 0))
-        return [brackets[index5 + dir2]];
+      let index4 = brackets.indexOf(node.name);
+      if (index4 > -1 && index4 % 2 == (dir2 < 0 ? 1 : 0))
+        return [brackets[index4 + dir2]];
     }
     return null;
   }
@@ -26240,9 +26208,9 @@
     if (typeof state3 != "object")
       return state3;
     let newState = {};
-    for (let prop4 in state3) {
-      let val = state3[prop4];
-      newState[prop4] = val instanceof Array ? val.slice() : val;
+    for (let prop3 in state3) {
+      let val = state3[prop3];
+      newState[prop3] = val instanceof Array ? val.slice() : val;
     }
     return newState;
   }
@@ -26415,15 +26383,15 @@
     }
     nextLine() {
       let from2 = this.parsedPos, line = this.lineAfter(from2), end = from2 + line.length;
-      for (let index5 = this.rangeIndex; ; ) {
-        let rangeEnd2 = this.ranges[index5].to;
+      for (let index4 = this.rangeIndex; ; ) {
+        let rangeEnd2 = this.ranges[index4].to;
         if (rangeEnd2 >= end)
           break;
         line = line.slice(0, rangeEnd2 - (end - line.length));
-        index5++;
-        if (index5 == this.ranges.length)
+        index4++;
+        if (index4 == this.ranges.length)
           break;
-        let rangeStart = this.ranges[index5].from;
+        let rangeStart = this.ranges[index4].from;
         let after = this.lineAfter(rangeStart);
         line += after;
         end = rangeStart + after.length;
@@ -26445,20 +26413,20 @@
         this.rangeIndex++;
     }
     emitToken(id3, from2, to, offset) {
-      let size6 = 4;
+      let size5 = 4;
       if (this.ranges.length > 1) {
         offset = this.skipGapsTo(from2, offset, 1);
         from2 += offset;
         let len0 = this.chunk.length;
         offset = this.skipGapsTo(to, offset, -1);
         to += offset;
-        size6 += this.chunk.length - len0;
+        size5 += this.chunk.length - len0;
       }
       let last4 = this.chunk.length - 4;
-      if (this.lang.streamParser.mergeTokens && size6 == 4 && last4 >= 0 && this.chunk[last4] == id3 && this.chunk[last4 + 2] == from2)
+      if (this.lang.streamParser.mergeTokens && size5 == 4 && last4 >= 0 && this.chunk[last4] == id3 && this.chunk[last4 + 2] == from2)
         this.chunk[last4 + 2] = to;
       else
-        this.chunk.push(id3, from2, to, size6);
+        this.chunk.push(id3, from2, to, size5);
       return offset;
     }
     parseLine(context) {
@@ -26806,8 +26774,8 @@
     toJSON(value13) {
       return { done: value13.done.map((e) => e.toJSON()), undone: value13.undone.map((e) => e.toJSON()) };
     },
-    fromJSON(json3) {
-      return new HistoryState(json3.done.map(HistEvent.fromJSON), json3.undone.map(HistEvent.fromJSON));
+    fromJSON(json2) {
+      return new HistoryState(json2.done.map(HistEvent.fromJSON), json2.undone.map(HistEvent.fromJSON));
     }
   });
   function history2(config = {}) {
@@ -26863,8 +26831,8 @@
         selectionsAfter: this.selectionsAfter.map((s) => s.toJSON())
       };
     }
-    static fromJSON(json3) {
-      return new _HistEvent(json3.changes && ChangeSet.fromJSON(json3.changes), [], json3.mapped && ChangeDesc.fromJSON(json3.mapped), json3.startSelection && EditorSelection.fromJSON(json3.startSelection), json3.selectionsAfter.map(EditorSelection.fromJSON));
+    static fromJSON(json2) {
+      return new _HistEvent(json2.changes && ChangeSet.fromJSON(json2.changes), [], json2.mapped && ChangeDesc.fromJSON(json2.mapped), json2.startSelection && EditorSelection.fromJSON(json2.startSelection), json2.selectionsAfter.map(EditorSelection.fromJSON));
     }
     // This does not check `addToHistory` and such, it assumes the
     // transaction needs to be converted to an item. Returns null when
@@ -27433,15 +27401,15 @@
       if (forward2 ? block.to == state3.doc.length : block.from == 0)
         continue;
       let nextLine = state3.doc.lineAt(forward2 ? block.to + 1 : block.from - 1);
-      let size6 = nextLine.length + 1;
+      let size5 = nextLine.length + 1;
       if (forward2) {
         changes.push({ from: block.to, to: nextLine.to }, { from: block.from, insert: nextLine.text + state3.lineBreak });
         for (let r of block.ranges)
-          ranges.push(EditorSelection.range(Math.min(state3.doc.length, r.anchor + size6), Math.min(state3.doc.length, r.head + size6)));
+          ranges.push(EditorSelection.range(Math.min(state3.doc.length, r.anchor + size5), Math.min(state3.doc.length, r.head + size5)));
       } else {
         changes.push({ from: nextLine.from, to: block.from }, { from: block.to, insert: state3.lineBreak + nextLine.text });
         for (let r of block.ranges)
-          ranges.push(EditorSelection.range(r.anchor - size6, r.head - size6));
+          ranges.push(EditorSelection.range(r.anchor - size5, r.head - size5));
       }
     }
     if (!changes.length)
@@ -28191,7 +28159,7 @@
   var get3 = /* @__PURE__ */ get(monadStateHalogenM);
   var discard5 = /* @__PURE__ */ discard(discardUnit)(bindHalogenM);
   var pure11 = /* @__PURE__ */ pure(applicativeHalogenM);
-  var map28 = /* @__PURE__ */ map(functorEmitter);
+  var map27 = /* @__PURE__ */ map(functorEmitter);
   var modify_3 = /* @__PURE__ */ modify_2(monadStateHalogenM);
   var Changed = /* @__PURE__ */ (function() {
     function Changed2(value0) {
@@ -28259,7 +28227,7 @@
             if (mEl instanceof Just) {
               var el = toElement(mEl.value0);
               return bind6(liftEffect7(create3))(function(v1) {
-                return bind6(subscribe2(map28(HandleChange.create)(v1.emitter)))(function() {
+                return bind6(subscribe2(map27(HandleChange.create)(v1.emitter)))(function() {
                   return bind6(liftEffect7(createEditor(el)(state3.input.initialDoc)(notify(v1.listener))))(function(view) {
                     return modify_3(function(v2) {
                       var $32 = {};
@@ -30824,9 +30792,9 @@
       };
     }
   };
-  var map29 = /* @__PURE__ */ map(functorLex);
+  var map28 = /* @__PURE__ */ map(functorLex);
   var spaceComment = /* @__PURE__ */ (function() {
-    return map29(length5)(regex2(LexExpected.create("spaces"))(" +"));
+    return map28(length5)(regex2(LexExpected.create("spaces"))(" +"));
   })();
   var fromCharCode4 = function(dict) {
     return dict.fromCharCode;
@@ -31266,7 +31234,7 @@
       return applyLex;
     }
   };
-  var pure15 = /* @__PURE__ */ pure(applicativeLex);
+  var pure14 = /* @__PURE__ */ pure(applicativeLex);
   var altLex = {
     alt: function(v) {
       return function(v1) {
@@ -31300,12 +31268,12 @@
     return alt6(regex2(LexExpected.create("block comment"))("\\{-(-(?!\\})|[^-]+)*(-\\}|$)"))(regex2(LexExpected.create("line comment"))("--[^\\r\\n]*"));
   })();
   var lineComment = /* @__PURE__ */ (function() {
-    return alt6(map29((function() {
+    return alt6(map28((function() {
       var $324 = Line2.create(LF.value);
       return function($325) {
         return $324(length7($325));
       };
-    })())(regex2(LexExpected.create("newline"))("\n+")))(map29((function() {
+    })())(regex2(LexExpected.create("newline"))("\n+")))(map28((function() {
       var $326 = Line2.create(CRLF.value);
       return function($327) {
         return $326((function(v) {
@@ -31315,7 +31283,7 @@
     })())(regex2(LexExpected.create("newline"))("(?:\r\n)+")));
   })();
   var leadingComments = /* @__PURE__ */ (function() {
-    return many(alt6(map29(Comment.create)(comment2))(alt6(map29(Space.create)(spaceComment))(lineComment)));
+    return many(alt6(map28(Comment.create)(comment2))(alt6(map28(Space.create)(spaceComment))(lineComment)));
   })();
   var token = /* @__PURE__ */ (function() {
     var tokenTick = char$prime(LexExpected.create("backtick"))(TokTick.value)("`");
@@ -31331,7 +31299,7 @@
     var stringCharsRegex = regex2(LexExpected.create("string characters"))('[^"\\\\]+');
     var rawStringCharsRegex = regex2(LexExpected.create("raw string characters"))('""""{0,2}([^"]+"{1,2})*[^"]*"""');
     var parseSymbolIdent = regex2(LexExpected.create("symbol"))("(?:[:!#$%&*+./<=>?@\\\\^|~-]|(?!\\p{P})\\p{S})+");
-    var parseSymbol = map29(function(v) {
+    var parseSymbol = map28(function(v) {
       return function(v1) {
         if (v1 instanceof Nothing) {
           if (v === "->") {
@@ -31348,24 +31316,24 @@
         return new TokSymbolName(v1, v);
       };
     })($$try4(applyFirst2(applySecond2(tokenLeftParen)(parseSymbolIdent))(tokenRightParen)));
-    var parseStringSpaceEscape = map29(function(v) {
+    var parseStringSpaceEscape = map28(function(v) {
       return {
         raw: v,
         string: ""
       };
     })(stringSpaceEscapeRegex);
-    var parseStringChars = map29(function(v) {
+    var parseStringChars = map28(function(v) {
       return {
         raw: v,
         string: v
       };
     })(stringCharsRegex);
-    var parseRawString = map29(function(v) {
+    var parseRawString = map28(function(v) {
       return new TokRawString(dropRight(3)(drop2(3)(v)));
     })(rawStringCharsRegex);
     var parseProper = regex2(LexExpected.create("proper name"))("\\p{Lu}[\\p{L}0-9_']*");
-    var parseUpper = map29(flip(TokUpperName.create))(parseProper);
-    var parseOperator = map29(function(v) {
+    var parseUpper = map28(flip(TokUpperName.create))(parseProper);
+    var parseOperator = map28(function(v) {
       return function(v1) {
         if (v1 instanceof Nothing) {
           if (v === "<-") {
@@ -31436,7 +31404,7 @@
     })(parseSymbolIdent);
     var parseModuleNamePrefix = regex2(LexExpected.create("module name"))("(?:(?:\\p{Lu}[\\p{L}0-9_']*)\\.)*");
     var parseIdent2 = regex2(LexExpected.create("ident"))("[\\p{Ll}_][\\p{L}0-9_']*");
-    var parseLower = map29(function(v) {
+    var parseLower = map28(function(v) {
       return function(v1) {
         if (v1 instanceof Nothing) {
           if (v === "forall") {
@@ -31454,14 +31422,14 @@
       };
     })(parseIdent2);
     var parseName = alt6(parseLower)(alt6(parseUpper)(alt6(parseOperator)(parseSymbol)));
-    var parseModuleName = apply3(map29(function(v) {
+    var parseModuleName = apply3(map28(function(v) {
       return function(v1) {
         return v1(toModuleName(v));
       };
     })(parseModuleNamePrefix))(parseName);
     var parseExponentSign = alt6(string4(LexExpected.create("negative"))("-"))(string4(LexExpected.create("positive"))("+"));
     var intPartRegex = regex2(LexExpected.create("int part"))("(0|[1-9][0-9_]*)");
-    var parseExponentPart = apply3(map29(function(v) {
+    var parseExponentPart = apply3(map28(function(v) {
       return function(v1) {
         return {
           sign: v,
@@ -31474,11 +31442,11 @@
     var parseHexInt = bind15(applySecond2(hexIntPrefix)(hexIntRegex))(function(raw) {
       var v = fromStringAs(hexadecimal)(raw);
       if (v instanceof Just) {
-        return pure15(new TokInt("0x" + raw, new SmallInt(v.value0)));
+        return pure14(new TokInt("0x" + raw, new SmallInt(v.value0)));
       }
       ;
       if (v instanceof Nothing) {
-        return pure15(new TokInt("0x" + raw, new BigHex(raw)));
+        return pure14(new TokInt("0x" + raw, new BigHex(raw)));
       }
       ;
       throw new Error("Failed pattern match at PureScript.CST.Lexer (line 631, column 5 - line 635, column 49): " + [v.constructor.name]);
@@ -31489,7 +31457,7 @@
       return bind15(hexEscapeRegex)(function(esc) {
         var v = bindFlipped11(fromCharCode1)(fromStringAs(hexadecimal)(esc));
         if (v instanceof Just) {
-          return pure15({
+          return pure14({
             raw: "\\x" + esc,
             "char": v.value0
           });
@@ -31506,7 +31474,7 @@
     var charSingleQuote = $$char(LexExpected.create("single quote"))("'");
     var charQuote = $$char(LexExpected.create("quote"))('"');
     var charQuestionMark = $$char(LexExpected.create("question mark"))("?");
-    var parseHole2 = map29(function(v) {
+    var parseHole2 = map28(function(v) {
       return new TokHole(v);
     })($$try4(applySecond2(charQuestionMark)(alt6(parseIdent2)(parseProper))));
     var charExponent = $$char(LexExpected.create("exponent"))("e");
@@ -31521,11 +31489,11 @@
             var intVal = stripUnderscores(intPart);
             var v = fromString2(intVal);
             if (v instanceof Just) {
-              return pure15(new TokInt(intPart, new SmallInt(v.value0)));
+              return pure14(new TokInt(intPart, new SmallInt(v.value0)));
             }
             ;
             if (v instanceof Nothing) {
-              return pure15(new TokInt(intPart, new BigInt(intVal)));
+              return pure14(new TokInt(intPart, new BigInt(intVal)));
             }
             ;
             throw new Error("Failed pattern match at PureScript.CST.Lexer (line 643, column 7 - line 647, column 48): " + [v.constructor.name]);
@@ -31538,7 +31506,7 @@
           })(exponentPart));
           var v = fromString(stripUnderscores(raw));
           if (v instanceof Just) {
-            return pure15(new TokNumber(raw, v.value0));
+            return pure14(new TokNumber(raw, v.value0));
           }
           ;
           if (v instanceof Nothing) {
@@ -31557,42 +31525,42 @@
       var parseHexEscape1 = parseHexEscape(dictIsChar);
       return bind15(charAny)(function(ch) {
         if (ch === "t") {
-          return pure15({
+          return pure14({
             raw: "\\t",
             "char": fromChar1("	")
           });
         }
         ;
         if (ch === "r") {
-          return pure15({
+          return pure14({
             raw: "\\r",
             "char": fromChar1("\r")
           });
         }
         ;
         if (ch === "n") {
-          return pure15({
+          return pure14({
             raw: "\\n",
             "char": fromChar1("\n")
           });
         }
         ;
         if (ch === '"') {
-          return pure15({
+          return pure14({
             raw: '\\"',
             "char": fromChar1('"')
           });
         }
         ;
         if (ch === "'") {
-          return pure15({
+          return pure14({
             raw: "\\'",
             "char": fromChar1("'")
           });
         }
         ;
         if (ch === "\\") {
-          return pure15({
+          return pure14({
             raw: "\\\\",
             "char": fromChar1("\\")
           });
@@ -31615,22 +31583,22 @@
         return fail3(new LexExpected("character", "empty character literal"));
       }
       ;
-      return pure15({
+      return pure14({
         raw: singleton6(ch),
         "char": ch
       });
     });
-    var parseCharLiteral = map29(function(v) {
+    var parseCharLiteral = map28(function(v) {
       return new TokChar(v.raw, v["char"]);
     })(applyFirst2(applySecond2(charSingleQuote)(parseChar))(charSingleQuote));
-    var parseStringEscape = map29(function(v) {
+    var parseStringEscape = map28(function(v) {
       return {
         raw: v.raw,
         string: singleton8(v["char"])
       };
     })(applySecond2(charBackslash)(parseEscape(isCharCodePoint)));
     var parseStringPart = alt6(parseStringChars)(alt6(parseStringSpaceEscape)(parseStringEscape));
-    var parseString2 = map29(function(v) {
+    var parseString2 = map28(function(v) {
       var v1 = fold12(v);
       return new TokString(v1.raw, v1.string);
     })(applyFirst2(applySecond2(charQuote)(many(parseStringPart)))(charQuote));
@@ -31638,10 +31606,10 @@
     return alt6(parseHole2)(alt6(parseModuleName)(alt6(parseCharLiteral)(alt6(parseStringLiteral)(alt6(parseNumericLiteral)(alt6(tokenLeftParen)(alt6(tokenRightParen)(alt6(tokenLeftBrace)(alt6(tokenRightBrace)(alt6(tokenLeftSquare)(alt6(tokenRightSquare)(alt6(tokenTick)(tokenComma))))))))))));
   })();
   var trailingComments = /* @__PURE__ */ (function() {
-    return many(alt6(map29(Comment.create)(comment2))(map29(Space.create)(spaceComment)));
+    return many(alt6(map28(Comment.create)(comment2))(map28(Space.create)(spaceComment)));
   })();
   var lexWithState$prime = function(lexLeadingComments) {
-    var token$prime = apply3(apply3(map29(function(v) {
+    var token$prime = apply3(apply3(map28(function(v) {
       return function(v1) {
         return function(v2) {
           return {
@@ -31804,7 +31772,7 @@
       };
     }
   };
-  var map30 = /* @__PURE__ */ map(functorParser);
+  var map29 = /* @__PURE__ */ map(functorParser);
   var applyParser = {
     apply: function(v) {
       return function(v1) {
@@ -31850,7 +31818,7 @@
       return applyParser;
     }
   };
-  var pure16 = /* @__PURE__ */ pure(applicativeParser);
+  var pure15 = /* @__PURE__ */ pure(applicativeParser);
   var altParser = {
     alt: function(v) {
       return function(v1) {
@@ -31965,7 +31933,7 @@
     };
   };
   var optional2 = function(p2) {
-    return alt7(map30(Just.create)(p2))(pure16(Nothing.value));
+    return alt7(map29(Just.create)(p2))(pure15(Nothing.value));
   };
   var many2 = function(v) {
     return function(state1, more, resume, done) {
@@ -32036,9 +32004,9 @@
     };
   };
   var bind7 = /* @__PURE__ */ bind(bindParser);
-  var pure17 = /* @__PURE__ */ pure(applicativeParser);
+  var pure16 = /* @__PURE__ */ pure(applicativeParser);
   var apply4 = /* @__PURE__ */ apply(applyParser);
-  var map31 = /* @__PURE__ */ map(functorParser);
+  var map30 = /* @__PURE__ */ map(functorParser);
   var member5 = /* @__PURE__ */ member2(ordString);
   var alt8 = /* @__PURE__ */ alt(altParser);
   var defer4 = /* @__PURE__ */ defer(lazyParser);
@@ -32048,7 +32016,7 @@
         return bind7(openTok)(function(open) {
           return bind7(valueParser)(function(value13) {
             return bind7(closeTok)(function(close2) {
-              return pure17({
+              return pure16({
                 open,
                 value: value13,
                 close: close2
@@ -32061,19 +32029,19 @@
   };
   var separated = function(sepParser) {
     return function(valueParser) {
-      return apply4(map31(function(v) {
+      return apply4(map30(function(v) {
         return function(v1) {
           return {
             head: v,
             tail: v1
           };
         };
-      })(valueParser))(many2(apply4(map31(Tuple.create)(sepParser))(valueParser)));
+      })(valueParser))(many2(apply4(map30(Tuple.create)(sepParser))(valueParser)));
     };
   };
   var reservedKeywords = /* @__PURE__ */ fromFoldable6(foldableArray)(ordString)(["ado", "case", "class", "data", "derive", "do", "else", "false", "foreign", "if", "import", "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "true", "type", "where"]);
   var many1 = function(parser) {
-    return apply4(map31(cons$prime)(parser))(many2(parser));
+    return apply4(map30(cons$prime)(parser))(many2(parser));
   };
   var expectMap = function(k) {
     return take5(function(tok) {
@@ -32239,7 +32207,7 @@
     });
   };
   var parseTypeNegative = /* @__PURE__ */ bind7(/* @__PURE__ */ tokKeyOperator("-"))(function(negative) {
-    return map31(uncurry(TypeInt.create(new Just(negative))))($$parseInt);
+    return map30(uncurry(TypeInt.create(new Just(negative))))($$parseInt);
   });
   var tokLeftBrace = /* @__PURE__ */ expect(function(v) {
     if (v instanceof TokLeftBrace) {
@@ -32293,7 +32261,7 @@
   var parens = /* @__PURE__ */ wrapped(tokLeftParen)(tokRightParen);
   var parseEmptyRow = function(open) {
     return bind7(tokRightParen)(function(close2) {
-      return pure17(new TypeRow({
+      return pure16(new TypeRow({
         open,
         value: {
           labels: Nothing.value,
@@ -32319,10 +32287,10 @@
   });
   var braces = /* @__PURE__ */ wrapped(tokLeftBrace)(tokRightBrace);
   var parseTypeVarKinded = function(parseBindingName) {
-    return map31(TypeVarKinded.create)(parens(bind7(parseBindingName)(function(label5) {
+    return map30(TypeVarKinded.create)(parens(bind7(parseBindingName)(function(label5) {
       return bind7(tokDoubleColon)(function(separator) {
         return bind7($lazy_parseType(550))(function(value13) {
-          return pure17({
+          return pure16({
             label: label5,
             separator,
             value: value13
@@ -32332,12 +32300,12 @@
     })));
   };
   var parseTypeVarBinding = function(parseBindingName) {
-    return alt8(parseTypeVarKinded(parseBindingName))(map31(TypeVarName.create)(parseBindingName));
+    return alt8(parseTypeVarKinded(parseBindingName))(map30(TypeVarName.create)(parseBindingName));
   };
   var parseTypeParen = function(open) {
     return bind7($lazy_parseType(507))(function(value13) {
       return bind7(tokRightParen)(function(close2) {
-        return pure17(new TypeParens({
+        return pure16(new TypeParens({
           open,
           value: value13,
           close: close2
@@ -32346,9 +32314,9 @@
     });
   };
   var parseRowTailParen = function(open) {
-    return bind7(apply4(map31(Tuple.create)(tokPipe))($lazy_parseType(477)))(function(tail2) {
+    return bind7(apply4(map30(Tuple.create)(tokPipe))($lazy_parseType(477)))(function(tail2) {
       return bind7(tokRightParen)(function(close2) {
-        return pure17(new TypeRow({
+        return pure16(new TypeRow({
           open,
           value: {
             labels: Nothing.value,
@@ -32360,12 +32328,12 @@
     });
   };
   var parseRowParen = function(open) {
-    return bind7($$try5(apply4(map31(Tuple.create)(parseLabel))(tokDoubleColon)))(function(v) {
+    return bind7($$try5(apply4(map30(Tuple.create)(parseLabel))(tokDoubleColon)))(function(v) {
       return bind7($lazy_parseType(459))(function(value13) {
-        return bind7(many2(apply4(map31(Tuple.create)(tokComma))($lazy_parseRowLabel(460))))(function(rest) {
-          return bind7(optional2(apply4(map31(Tuple.create)(tokPipe))($lazy_parseType(461))))(function(tail2) {
+        return bind7(many2(apply4(map30(Tuple.create)(tokComma))($lazy_parseRowLabel(460))))(function(rest) {
+          return bind7(optional2(apply4(map30(Tuple.create)(tokPipe))($lazy_parseType(461))))(function(tail2) {
             return bind7(tokRightParen)(function(close2) {
-              return pure17(new TypeRow({
+              return pure16(new TypeRow({
                 open,
                 value: {
                   labels: new Just({
@@ -32387,10 +32355,10 @@
     });
   };
   var parseKindedVar = function(open) {
-    return bind7($$try5(apply4(map31(Tuple.create)(parens(map31(TypeVar.create)(parseIdent))))(tokDoubleColon)))(function(v) {
+    return bind7($$try5(apply4(map30(Tuple.create)(parens(map30(TypeVar.create)(parseIdent))))(tokDoubleColon)))(function(v) {
       return bind7($lazy_parseType(497))(function(kind2) {
         return bind7(tokRightParen)(function(close2) {
-          return pure17(new TypeParens({
+          return pure16(new TypeParens({
             open,
             value: new TypeKinded(new TypeParens(v.value0), v.value1, kind2),
             close: close2
@@ -32401,14 +32369,14 @@
   };
   var $lazy_parseForall = /* @__PURE__ */ $runtime_lazy12("parseForall", "PureScript.CST.Parser", function() {
     return defer4(function(v) {
-      return apply4(apply4(apply4(map31(TypeForall.create)(tokForall))(many1($lazy_parseTypeVarBindingWithVisibility(528))))(tokDot))($lazy_parseType1(530));
+      return apply4(apply4(apply4(map30(TypeForall.create)(tokForall))(many1($lazy_parseTypeVarBindingWithVisibility(528))))(tokDot))($lazy_parseType1(530));
     });
   });
   var $lazy_parseRow = /* @__PURE__ */ $runtime_lazy12("parseRow", "PureScript.CST.Parser", function() {
     return defer4(function(v) {
       return bind7(optional2(separated(tokComma)($lazy_parseRowLabel(513))))(function(labels9) {
-        return bind7(optional2(apply4(map31(Tuple.create)(tokPipe))($lazy_parseType(514))))(function(tail2) {
-          return pure17({
+        return bind7(optional2(apply4(map30(Tuple.create)(tokPipe))($lazy_parseType(514))))(function(tail2) {
+          return pure16({
             labels: labels9,
             tail: tail2
           });
@@ -32420,7 +32388,7 @@
     return bind7(parseLabel)(function(label5) {
       return bind7(tokDoubleColon)(function(separator) {
         return bind7($lazy_parseType(521))(function(value13) {
-          return pure17({
+          return pure16({
             label: label5,
             separator,
             value: value13
@@ -32432,7 +32400,7 @@
   var $lazy_parseType = /* @__PURE__ */ $runtime_lazy12("parseType", "PureScript.CST.Parser", function() {
     return defer4(function(v) {
       return bind7($lazy_parseType1(393))(function(ty) {
-        return alt8(apply4(map31(TypeKinded.create(ty))(tokDoubleColon))($lazy_parseType(394)))(pure17(ty));
+        return alt8(apply4(map30(TypeKinded.create(ty))(tokDoubleColon))($lazy_parseType(394)))(pure16(ty));
       });
     });
   });
@@ -32444,15 +32412,15 @@
   var $lazy_parseType2 = /* @__PURE__ */ $runtime_lazy12("parseType2", "PureScript.CST.Parser", function() {
     return defer4(function(v) {
       return bind7($lazy_parseType3(404))(function(ty) {
-        return alt8(apply4(map31(TypeArrow.create(ty))(tokRightArrow))($lazy_parseType1(405)))(alt8(apply4(map31(TypeConstrained.create(ty))(tokRightFatArrow))($lazy_parseType1(406)))(pure17(ty)));
+        return alt8(apply4(map30(TypeArrow.create(ty))(tokRightArrow))($lazy_parseType1(405)))(alt8(apply4(map30(TypeConstrained.create(ty))(tokRightFatArrow))($lazy_parseType1(406)))(pure16(ty)));
       });
     });
   });
   var $lazy_parseType3 = /* @__PURE__ */ $runtime_lazy12("parseType3", "PureScript.CST.Parser", function() {
     return defer4(function(v) {
       return bind7($lazy_parseType4(411))(function(ty) {
-        return bind7(many2(apply4(map31(Tuple.create)(parseQualifiedOperator))($lazy_parseType4(412))))(function(ops) {
-          return pure17((function() {
+        return bind7(many2(apply4(map30(Tuple.create)(parseQualifiedOperator))($lazy_parseType4(412))))(function(ops) {
+          return pure16((function() {
             var v1 = fromArray(ops);
             if (v1 instanceof Nothing) {
               return ty;
@@ -32477,7 +32445,7 @@
     return defer4(function(v) {
       return bind7($lazy_parseTypeAtom(423))(function(ty) {
         return bind7(many2($lazy_parseTypeAtom(424)))(function(args) {
-          return pure17((function() {
+          return pure16((function() {
             var v1 = fromArray(args);
             if (v1 instanceof Nothing) {
               return ty;
@@ -32495,7 +32463,7 @@
   });
   var $lazy_parseTypeAtom = /* @__PURE__ */ $runtime_lazy12("parseTypeAtom", "PureScript.CST.Parser", function() {
     return defer4(function(v) {
-      return alt8(map31(TypeVar.create)(parseIdent))(alt8(map31(TypeConstructor.create)(parseQualifiedProper))(alt8(map31(uncurry(TypeString.create))(parseString))(alt8(map31(uncurry(TypeInt.create(Nothing.value)))($$parseInt))(alt8($lazy_parseTypeParens(435))(alt8(map31(TypeRecord.create)(braces($lazy_parseRow(436))))(alt8(map31(TypeOpName.create)(parseQualifiedSymbol))(alt8(map31(TypeHole.create)(parseHole))(alt8(map31(TypeWildcard.create)(tokUnderscore))(map31(TypeArrowName.create)(tokSymbolArrow))))))))));
+      return alt8(map30(TypeVar.create)(parseIdent))(alt8(map30(TypeConstructor.create)(parseQualifiedProper))(alt8(map30(uncurry(TypeString.create))(parseString))(alt8(map30(uncurry(TypeInt.create(Nothing.value)))($$parseInt))(alt8($lazy_parseTypeParens(435))(alt8(map30(TypeRecord.create)(braces($lazy_parseRow(436))))(alt8(map30(TypeOpName.create)(parseQualifiedSymbol))(alt8(map30(TypeHole.create)(parseHole))(alt8(map30(TypeWildcard.create)(tokUnderscore))(map30(TypeArrowName.create)(tokSymbolArrow))))))))));
     });
   });
   var $lazy_parseTypeParens = /* @__PURE__ */ $runtime_lazy12("parseTypeParens", "PureScript.CST.Parser", function() {
@@ -32505,7 +32473,7 @@
   });
   var $lazy_parseTypeVarBindingWithVisibility = /* @__PURE__ */ $runtime_lazy12("parseTypeVarBindingWithVisibility", "PureScript.CST.Parser", function() {
     return defer4(function(v) {
-      return parseTypeVarBinding(apply4(map31(function(v1) {
+      return parseTypeVarBinding(apply4(map30(function(v1) {
         return function(v2) {
           return {
             prefix: v1,
@@ -32588,7 +32556,7 @@
   })();
 
   // output/Sigil.Parse/index.js
-  var map32 = /* @__PURE__ */ map(functorArray);
+  var map31 = /* @__PURE__ */ map(functorArray);
   var append13 = /* @__PURE__ */ append(semigroupArray);
   var extractBinderName = function(v) {
     if (v instanceof TypeVarName) {
@@ -32609,7 +32577,7 @@
         }
         ;
         if (v.labels instanceof Just) {
-          return cons(simplifyLabel(v.labels.value0.head))(map32(function($171) {
+          return cons(simplifyLabel(v.labels.value0.head))(map31(function($171) {
             return simplifyLabel(snd($171));
           })(v.labels.value0.tail));
         }
@@ -32646,7 +32614,7 @@
       if (v1 instanceof TCon) {
         return {
           className: v1.value0,
-          args: map32(simplify)(toArray3(v.value1))
+          args: map31(simplify)(toArray3(v.value1))
         };
       }
       ;
@@ -32726,7 +32694,7 @@
     }
     ;
     if (v instanceof TypeApp) {
-      return new TApp(simplify(v.value0), map32(simplify)(toArray3(v.value1)));
+      return new TApp(simplify(v.value0), map31(simplify)(toArray3(v.value1)));
     }
     ;
     if (v instanceof TypeOp) {
@@ -32792,7 +32760,7 @@
   var put3 = /* @__PURE__ */ put(monadStateHalogenM);
   var bind8 = /* @__PURE__ */ bind(bindHalogenM);
   var get4 = /* @__PURE__ */ get(monadStateHalogenM);
-  var pure18 = /* @__PURE__ */ pure(applicativeHalogenM);
+  var pure17 = /* @__PURE__ */ pure(applicativeHalogenM);
   var identity14 = /* @__PURE__ */ identity(categoryFn);
   var Render = /* @__PURE__ */ (function() {
     function Render2() {
@@ -32828,7 +32796,7 @@
         return bind8(get4)(function(state3) {
           return bind8(getHTMLElementRef(containerRef2))(function(mEl) {
             if (mEl instanceof Nothing) {
-              return pure18(unit);
+              return pure17(unit);
             }
             ;
             if (mEl instanceof Just) {
@@ -33011,116 +32979,6 @@
     });
   };
 
-  // output/Data.Codec.Argonaut.Sum/index.js
-  var pure19 = /* @__PURE__ */ pure(applicativeST);
-  var lmap3 = /* @__PURE__ */ lmap(bifunctorEither);
-  var bind16 = /* @__PURE__ */ bind(bindEither);
-  var pure110 = /* @__PURE__ */ pure(applicativeEither);
-  var taggedSum = function(name17) {
-    return function(printTag) {
-      return function(parseTag) {
-        return function(f) {
-          return function(g) {
-            var encodeCase = function(a2) {
-              var v = g(a2);
-              return encode2(jobject)(runST(function __do2() {
-                var obj = newImpl();
-                poke2("tag")(encode2(string2)(printTag(v.value0)))(obj)();
-                return maybe(pure19(obj))(function(v1) {
-                  return poke2("value")(v1)(obj);
-                })(v.value1)();
-              }));
-            };
-            var decodeCase = function(j) {
-              return lmap3(Named.create(name17))(bind16(decode(jobject)(j))(function(obj) {
-                return bind16(decode(prop3("tag")(string2))(obj))(function(tag) {
-                  var v = parseTag(tag);
-                  if (v instanceof Nothing) {
-                    return new Left(new AtKey("tag", new UnexpectedValue(id2(tag))));
-                  }
-                  ;
-                  if (v instanceof Just) {
-                    var v1 = f(v.value0);
-                    if (v1 instanceof Left) {
-                      return pure110(v1.value0);
-                    }
-                    ;
-                    if (v1 instanceof Right) {
-                      return bind16(decode(prop3("value")(json2))(obj))(function(value13) {
-                        return lmap3(AtKey.create("value"))(v1.value0(value13));
-                      });
-                    }
-                    ;
-                    throw new Error("Failed pattern match at Data.Codec.Argonaut.Sum (line 59, column 9 - line 63, column 52): " + [v1.constructor.name]);
-                  }
-                  ;
-                  throw new Error("Failed pattern match at Data.Codec.Argonaut.Sum (line 56, column 5 - line 63, column 52): " + [v.constructor.name]);
-                });
-              }));
-            };
-            return codec(decodeCase)(encodeCase);
-          };
-        };
-      };
-    };
-  };
-
-  // output/Data.Codec.Argonaut.Common/index.js
-  var map210 = /* @__PURE__ */ map(functorEither);
-  var maybe2 = function(codec2) {
-    var printTag = function(v) {
-      if (!v) {
-        return "Nothing";
-      }
-      ;
-      if (v) {
-        return "Just";
-      }
-      ;
-      throw new Error("Failed pattern match at Data.Codec.Argonaut.Common (line 45, column 14 - line 47, column 18): " + [v.constructor.name]);
-    };
-    var parseTag = function(v) {
-      if (v === "Nothing") {
-        return new Just(false);
-      }
-      ;
-      if (v === "Just") {
-        return new Just(true);
-      }
-      ;
-      return Nothing.value;
-    };
-    var enc = function(v) {
-      if (v instanceof Nothing) {
-        return new Tuple(false, Nothing.value);
-      }
-      ;
-      if (v instanceof Just) {
-        return new Tuple(true, new Just(encode2(codec2)(v.value0)));
-      }
-      ;
-      throw new Error("Failed pattern match at Data.Codec.Argonaut.Common (line 55, column 9 - line 57, column 48): " + [v.constructor.name]);
-    };
-    var dec2 = function(v) {
-      if (!v) {
-        return new Left(Nothing.value);
-      }
-      ;
-      if (v) {
-        return new Right((function() {
-          var $60 = map210(Just.create);
-          var $61 = decode(codec2);
-          return function($62) {
-            return $60($61($62));
-          };
-        })());
-      }
-      ;
-      throw new Error("Failed pattern match at Data.Codec.Argonaut.Common (line 52, column 9 - line 54, column 47): " + [v.constructor.name]);
-    };
-    return taggedSum("Maybe")(printTag)(parseTag)(dec2)(enc);
-  };
-
   // output/Record/index.js
   var get5 = function(dictIsSymbol) {
     var reflectSymbol2 = reflectSymbol(dictIsSymbol);
@@ -33213,18 +33071,52 @@
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("UserModule")(function($62) {
-      return Just.create(UserModule($62));
+    return prismaticCodec("UserModule")(function($69) {
+      return Just.create(UserModule($69));
     })(un2)(object4(rowListCodecCons1)("UserModule")({
       source: string2
     }));
+  })();
+  var nullableStringCodec = /* @__PURE__ */ (function() {
+    var encode3 = function(v) {
+      if (v instanceof Nothing) {
+        return jsonNull;
+      }
+      ;
+      if (v instanceof Just) {
+        return id2(v.value0);
+      }
+      ;
+      throw new Error("Failed pattern match at Playground.Session (line 99, column 12 - line 101, column 30): " + [v.constructor.name]);
+    };
+    var decode3 = function(json2) {
+      if (isNull2(json2)) {
+        return new Right(Nothing.value);
+      }
+      ;
+      if (otherwise) {
+        var v = toString(json2);
+        if (v instanceof Just) {
+          return new Right(new Just(v.value0));
+        }
+        ;
+        if (v instanceof Nothing) {
+          return new Left(new TypeMismatch2("string or null"));
+        }
+        ;
+        throw new Error("Failed pattern match at Playground.Session (line 96, column 19 - line 98, column 59): " + [v.constructor.name]);
+      }
+      ;
+      throw new Error("Failed pattern match at Playground.Session (line 94, column 3 - line 98, column 59): " + [json2.constructor.name]);
+    };
+    return codec$prime(decode3)(encode3);
   })();
   var cellTypeCodec = /* @__PURE__ */ (function() {
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("CellType")(function($63) {
-      return Just.create(CellType($63));
+    return prismaticCodec("CellType")(function($70) {
+      return Just.create(CellType($70));
     })(un2)(object4(rowListCodecCons(rowListCodecCons2({
       reflectSymbol: function() {
         return "signature";
@@ -33238,8 +33130,8 @@
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("CompileResponse")(function($64) {
-      return Just.create(CompileResponse($64));
+    return prismaticCodec("CompileResponse")(function($71) {
+      return Just.create(CompileResponse($71));
     })(un2)(object4(rowListCodecCons(rowListCodecCons(rowListCodecCons(rowListCodecCons2({
       reflectSymbol: function() {
         return "warnings";
@@ -33257,7 +33149,7 @@
         return "errors";
       }
     }))("CompileResponse")({
-      js: maybe2(string2),
+      js: nullableStringCodec,
       warnings: array(string2),
       errors: array(string2),
       types: array(cellTypeCodec)
@@ -33267,8 +33159,8 @@
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("Cell")(function($65) {
-      return Just.create(Cell($65));
+    return prismaticCodec("Cell")(function($72) {
+      return Just.create(Cell($72));
     })(un2)(object4(rowListCodecCons(rowListCodecCons(rowListCodecCons1)()()({
       reflectSymbol: function() {
         return "kind";
@@ -33283,8 +33175,8 @@
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("CompileRequest")(function($66) {
-      return Just.create(CompileRequest($66));
+    return prismaticCodec("CompileRequest")(function($73) {
+      return Just.create(CompileRequest($73));
     })(un2)(object4(rowListCodecCons(rowListCodecCons2({
       reflectSymbol: function() {
         return "module";
@@ -33303,15 +33195,15 @@
   var bind10 = /* @__PURE__ */ bind(bindHalogenM);
   var get6 = /* @__PURE__ */ get(monadStateHalogenM);
   var discard7 = /* @__PURE__ */ discard(discardUnit)(bindHalogenM);
-  var pure20 = /* @__PURE__ */ pure(applicativeHalogenM);
+  var pure18 = /* @__PURE__ */ pure(applicativeHalogenM);
   var modify_4 = /* @__PURE__ */ modify_2(monadStateHalogenM);
-  var map34 = /* @__PURE__ */ map(functorArray);
+  var map32 = /* @__PURE__ */ map(functorArray);
   var append14 = /* @__PURE__ */ append(semigroupArray);
   var map112 = /* @__PURE__ */ map(functorEmitter);
-  var bind17 = /* @__PURE__ */ bind(bindMaybe);
+  var bind16 = /* @__PURE__ */ bind(bindMaybe);
   var show4 = /* @__PURE__ */ show(showInt);
-  var $$delete6 = /* @__PURE__ */ $$delete(ordString);
-  var fromFoldable10 = /* @__PURE__ */ fromFoldable(ordString)(foldableArray);
+  var $$delete5 = /* @__PURE__ */ $$delete(ordString);
+  var fromFoldable8 = /* @__PURE__ */ fromFoldable(ordString)(foldableArray);
   var insert9 = /* @__PURE__ */ insert(ordString);
   var show13 = /* @__PURE__ */ show(showMilliseconds);
   var lookup7 = /* @__PURE__ */ lookup(ordString);
@@ -33412,7 +33304,7 @@
         }
         ;
         if (s.worker instanceof Nothing) {
-          return pure20(unit);
+          return pure18(unit);
         }
         ;
         throw new Error("Failed pattern match at Playground.Frontend.Shell (line 227, column 3 - line 229, column 25): " + [s.worker.constructor.name]);
@@ -33423,7 +33315,7 @@
           }
           ;
           if (s.workerSub instanceof Nothing) {
-            return pure20(unit);
+            return pure18(unit);
           }
           ;
           throw new Error("Failed pattern match at Playground.Frontend.Shell (line 230, column 3 - line 232, column 25): " + [s.workerSub.constructor.name]);
@@ -33434,7 +33326,7 @@
             }
             ;
             if (s.workerTimeout instanceof Nothing) {
-              return pure20(unit);
+              return pure18(unit);
             }
             ;
             throw new Error("Failed pattern match at Playground.Frontend.Shell (line 233, column 3 - line 235, column 25): " + [s.workerTimeout.constructor.name]);
@@ -33511,7 +33403,7 @@
       ;
       throw new Error("Failed pattern match at Playground.Frontend.Shell (line 395, column 20 - line 397, column 20): " + [state3.transportError.constructor.name]);
     })();
-    var compileRows = map34(errorRow("compile"))(state3.errors);
+    var compileRows = map32(errorRow("compile"))(state3.errors);
     var rows4 = append14(transportRow)(compileRows);
     if (rows4.length === 0) {
       return text5("");
@@ -33591,7 +33483,7 @@
     var updateCell = function(id3) {
       return function(src9) {
         return function(cells2) {
-          return fromMaybe(cells2)(bind17(findIndex(function($201) {
+          return fromMaybe(cells2)(bind16(findIndex(function($201) {
             return /* @__PURE__ */ (function(v) {
               return v === id3;
             })((function(v) {
@@ -33697,7 +33589,7 @@
               return v2.id;
             })($202));
           })(s.cells);
-          $143.cellResults = $$delete6(v.value0)(s.cellResults);
+          $143.cellResults = $$delete5(v.value0)(s.cellResults);
           return $143;
         }))(function() {
           return handleAction2(dictMonadAff)(ScheduleCompile.value);
@@ -33712,7 +33604,7 @@
             }
             ;
             if (s.pendingCompile instanceof Nothing) {
-              return pure20(unit);
+              return pure18(unit);
             }
             ;
             throw new Error("Failed pattern match at Playground.Frontend.Shell (line 157, column 5 - line 159, column 27): " + [s.pendingCompile.constructor.name]);
@@ -33758,7 +33650,7 @@
               module: {
                 source: s.moduleSource
               },
-              cells: map34(mkCell)(s.cells)
+              cells: map32(mkCell)(s.cells)
             };
             var bodyJson = stringify(encode2(compileRequestCodec)(req));
             return bind10(liftAff2(request3({
@@ -33807,7 +33699,7 @@
                 }
                 ;
                 if (v1 instanceof Right) {
-                  var typesMap = fromFoldable10(map34(function(v2) {
+                  var typesMap = fromFoldable8(map32(function(v2) {
                     return new Tuple(v2.id, v2.signature);
                   })(v1.value0.types));
                   return discard7(modify_4(function(v2) {
@@ -33964,7 +33856,7 @@
   var renderResults = function(dictMonadAff) {
     var renderCellResult1 = renderCellResult(dictMonadAff);
     return function(state3) {
-      return div2([class_("gutter-rows")])(append14(map34(renderCellResult1(state3))(state3.cells))(renderRuntimeError(state3.runtimeError)));
+      return div2([class_("gutter-rows")])(append14(map32(renderCellResult1(state3))(state3.cells))(renderRuntimeError(state3.runtimeError)));
     };
   };
   var renderGutterColumn = function(dictMonadAff) {
@@ -34006,7 +33898,7 @@
   var renderCellsColumn = function(dictMonadAff) {
     var renderCellRow1 = renderCellRow(dictMonadAff);
     return function(state3) {
-      return section([class_("pane pane-cells")])(append14([h2_([text5("Cells")])])(append14(map34(renderCellRow1)(state3.cells))([button([class_("add-cell-btn"), onClick(function(v) {
+      return section([class_("pane pane-cells")])(append14([h2_([text5("Cells")])])(append14(map32(renderCellRow1)(state3.cells))([button([class_("add-cell-btn"), onClick(function(v) {
         return AddCell.value;
       })])([text5("+ add cell")])])));
     };
@@ -34042,10 +33934,10 @@
   // output/Playground.Frontend.Main/index.js
   var bind11 = /* @__PURE__ */ bind(bindAff);
   var component4 = /* @__PURE__ */ component3(monadAffAff);
-  var pure21 = /* @__PURE__ */ pure(applicativeAff);
+  var pure19 = /* @__PURE__ */ pure(applicativeAff);
   var main2 = /* @__PURE__ */ runHalogenAff(/* @__PURE__ */ bind11(awaitBody)(function(body2) {
     return bind11(runUI2(component4)(unit)(body2))(function() {
-      return pure21(unit);
+      return pure19(unit);
     });
   }));
 

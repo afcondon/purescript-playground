@@ -2,10 +2,11 @@ module Playground.Session where
 
 import Prelude
 
+import Data.Argonaut.Core as AJ
 import Data.Codec.Argonaut (JsonCodec)
 import Data.Codec.Argonaut as CA
-import Data.Codec.Argonaut.Common as CAC
 import Data.Codec.Argonaut.Record as CAR
+import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 
 -- | A user module — a PureScript source fragment edited in the LHS panel.
@@ -76,9 +77,25 @@ cellTypeCodec = CA.prismaticCodec "CellType" (Just <<< CellType) un $
 compileResponseCodec :: JsonCodec CompileResponse
 compileResponseCodec = CA.prismaticCodec "CompileResponse" (Just <<< CompileResponse) un $
   CAR.object "CompileResponse"
-    { js: CAC.maybe CA.string
+    { js: nullableStringCodec
     , warnings: CA.array CA.string
     , errors: CA.array CA.string
     , types: CA.array cellTypeCodec
     }
   where un (CompileResponse r) = r
+
+-- | `Maybe String` with a plain `null | string` wire representation,
+-- | matching how our backend serialises the `js` field. The standard
+-- | `Data.Codec.Argonaut.Common.maybe` uses a tagged-object form
+-- | (`{"tag":"Just","value":…}`), which isn't what we want here.
+nullableStringCodec :: JsonCodec (Maybe String)
+nullableStringCodec = CA.codec' decode encode
+  where
+  decode json
+    | AJ.isNull json = Right Nothing
+    | otherwise = case AJ.toString json of
+        Just s -> Right (Just s)
+        Nothing -> Left (CA.TypeMismatch "string or null")
+  encode = case _ of
+    Nothing -> AJ.jsonNull
+    Just s -> AJ.fromString s
