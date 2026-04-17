@@ -602,7 +602,7 @@ New questions will land here as they surface during M0–M6.)
       shells out to `spago bundle`, and returns `{ js, warnings, errors }`.
 - [x] Verify the workspace's full package set is reachable: a compile
       that `import`s e.g. `Data.Array` should succeed.
-- [ ] Frontend posts a fixed payload and renders the JS as text in a
+- [x] Frontend posts a fixed payload and renders the JS as text in a
       pane. No execution yet.
 
 **M2 — synthesis from user input (2–3 days)**
