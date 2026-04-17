@@ -24,6 +24,7 @@
             "ordered-collections",
             "playground-shared",
             "prelude",
+            "sigil",
             "strings",
             "transformers",
             "tuples",
@@ -1462,6 +1463,39 @@
         "typelevel-prelude"
       ]
     },
+    "language-cst-parser": {
+      "type": "registry",
+      "version": "0.14.1",
+      "integrity": "sha256-tnue0oM2/EmyNJmLoJDnmUDfinKLJHi2fcSGt7d6ewU=",
+      "dependencies": [
+        "arrays",
+        "const",
+        "control",
+        "either",
+        "enums",
+        "foldable-traversable",
+        "free",
+        "functions",
+        "functors",
+        "identity",
+        "integers",
+        "lazy",
+        "lists",
+        "maybe",
+        "newtype",
+        "numbers",
+        "ordered-collections",
+        "partial",
+        "prelude",
+        "st",
+        "strings",
+        "transformers",
+        "tuples",
+        "typelevel-prelude",
+        "unfoldable",
+        "unsafe-coerce"
+      ]
+    },
     "lazy": {
       "type": "registry",
       "version": "6.0.0",
@@ -1897,6 +1931,24 @@
       "integrity": "sha256-EJrxtKt5xC7TYjBZrSBO/J7Aw3DmtilYjt4olpAXWVc=",
       "dependencies": [
         "unsafe-coerce"
+      ]
+    },
+    "sigil": {
+      "type": "registry",
+      "version": "0.3.0",
+      "integrity": "sha256-AkxQmeLWPwjls15NBh6PieKztZd14NA/5ySGBkEVurE=",
+      "dependencies": [
+        "arrays",
+        "effect",
+        "integers",
+        "language-cst-parser",
+        "maybe",
+        "ordered-collections",
+        "prelude",
+        "strings",
+        "tuples",
+        "unsafe-coerce",
+        "web-dom"
       ]
     },
     "st": {

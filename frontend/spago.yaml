@@ -26,6 +26,7 @@ package:
     - maybe
     - playground-shared
     - prelude
+    - sigil
     - strings
     - tuples
     - web-dom

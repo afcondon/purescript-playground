@@ -13,6 +13,7 @@ import Data.HTTP.Method (Method(..))
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Tuple (Tuple(..))
 import Data.Time.Duration (Milliseconds(..))
 import Effect.Aff (delay)
 import Effect.Aff.Class (class MonadAff)
@@ -24,10 +25,12 @@ import Halogen.Subscription as HS
 import Type.Proxy (Proxy(..))
 
 import Playground.Frontend.Editor as Editor
+import Playground.Frontend.SigilView as SigilView
 import Playground.Frontend.Worker (Worker, WorkerMessage(..))
 import Playground.Frontend.Worker as Worker
 import Playground.Session
   ( Cell(..)
+  , CellType(..)
   , CompileRequest(..)
   , CompileResponse(..)
   , UserModule(..)
@@ -46,6 +49,7 @@ type State =
   , transportError :: Maybe String
   , runtimeError :: Maybe String
   , cellResults :: Map String String
+  , cellTypes :: Map String String
   , pendingCompile :: Maybe H.ForkId
   , worker :: Maybe Worker
   , workerSub :: Maybe H.SubscriptionId
@@ -55,6 +59,7 @@ type State =
 type Slots =
   ( moduleEditor :: H.Slot Editor.Query Editor.Output Unit
   , cellEditor :: H.Slot Editor.Query Editor.Output String
+  , sigil :: forall q. H.Slot q Void String
   )
 
 _moduleEditor :: Proxy "moduleEditor"
@@ -62,6 +67,9 @@ _moduleEditor = Proxy
 
 _cellEditor :: Proxy "cellEditor"
 _cellEditor = Proxy
+
+_sigil :: Proxy "sigil"
+_sigil = Proxy
 
 data Action
   = Compile
@@ -97,6 +105,7 @@ initialState _ =
   , transportError: Nothing
   , runtimeError: Nothing
   , cellResults: Map.empty
+  , cellTypes: Map.empty
   , pendingCompile: Nothing
   , worker: Nothing
   , workerSub: Nothing
@@ -183,7 +192,9 @@ handleAction = case _ of
             , transportError = Just ("decode: " <> CA.printJsonDecodeError decodeErr)
             }
         Right (CompileResponse r) -> do
-          H.modify_ _ { compiling = false, errors = r.errors }
+          let typesMap = Map.fromFoldable
+                ( map (\(CellType ct) -> Tuple ct.id ct.signature) r.types )
+          H.modify_ _ { compiling = false, errors = r.errors, cellTypes = typesMap }
           case r.js of
             Nothing -> teardownExecution
             Just js -> startExecution js
@@ -320,7 +331,7 @@ renderCellRow c =
         (\(Editor.Changed src) -> CellChanged c.id src)
     ]
 
-renderGutterColumn :: forall m. State -> H.ComponentHTML Action Slots m
+renderGutterColumn :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
 renderGutterColumn state =
   HH.section [ HP.class_ (H.ClassName "pane pane-gutter") ]
     [ HH.h2_ [ HH.text "Values" ]
@@ -340,23 +351,34 @@ renderGutterColumn state =
               )
     ]
 
-renderResults :: forall m. State -> H.ComponentHTML Action Slots m
+renderResults :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
 renderResults state =
   HH.div [ HP.class_ (H.ClassName "gutter-rows") ]
     ( map (renderCellResult state) state.cells
         <> renderRuntimeError state.runtimeError
     )
 
-renderCellResult :: forall m. State -> CellRec -> H.ComponentHTML Action Slots m
+renderCellResult :: forall m. MonadAff m => State -> CellRec -> H.ComponentHTML Action Slots m
 renderCellResult state c =
   HH.div [ HP.class_ (H.ClassName "gutter-row") ]
     [ HH.span [ HP.class_ (H.ClassName "gutter-cell-id") ] [ HH.text c.id ]
-    , case Map.lookup c.id state.cellResults of
-        Just v ->
-          HH.pre [ HP.class_ (H.ClassName "gutter-value") ] [ HH.text v ]
-        Nothing ->
-          HH.span [ HP.class_ (H.ClassName "muted") ] [ HH.text "—" ]
+    , HH.div [ HP.class_ (H.ClassName "gutter-body") ]
+        [ renderType state c
+        , renderValue state c
+        ]
     ]
+  where
+  renderType st cell = case Map.lookup cell.id st.cellTypes of
+    Just sig ->
+      HH.div [ HP.class_ (H.ClassName "gutter-type") ]
+        [ HH.slot_ _sigil cell.id SigilView.component { typeString: sig } ]
+    Nothing ->
+      HH.span [ HP.class_ (H.ClassName "muted gutter-type") ] [ HH.text "—" ]
+  renderValue st cell = case Map.lookup cell.id st.cellResults of
+    Just v ->
+      HH.pre [ HP.class_ (H.ClassName "gutter-value") ] [ HH.text v ]
+    Nothing ->
+      HH.span [ HP.class_ (H.ClassName "muted") ] [ HH.text "—" ]
 
 renderRuntimeError :: forall m. Maybe String -> Array (H.ComponentHTML Action Slots m)
 renderRuntimeError = case _ of

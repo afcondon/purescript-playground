@@ -198,11 +198,51 @@ body {
   align-items: start;
 }
 
+.gutter-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 .gutter-cell-id {
   font-family: var(--mono);
   font-size: 0.75rem;
   color: var(--muted);
-  padding-top: 0.35rem;
+  padding-top: 0.2rem;
+}
+
+.gutter-type {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.3;
+}
+
+/* Sigil's semantic elements. Keep styling understated; the point is
+   visual hierarchy, not decoration. */
+.sigil-view var {
+  font-style: normal;
+  color: var(--accent);
+}
+
+.sigil-view code {
+  font-family: inherit;
+  color: var(--fg);
+}
+
+.sigil-view small {
+  color: #b6b6b0;
+}
+
+.sigil-view ol {
+  display: inline;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sigil-view ol li {
+  display: inline;
 }
 
 .gutter-value {
