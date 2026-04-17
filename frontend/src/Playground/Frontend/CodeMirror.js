@@ -23,8 +23,9 @@ export const _createEditor = (parent) => (initialDoc) => (onChange) => () => {
         // dedicated PureScript grammar lands as a later upgrade.
         StreamLanguage.define(haskell),
         EditorView.updateListener.of((update) => {
+          // onChange is an EffectFn1 — call once, no trailing thunk.
           if (update.docChanged) {
-            onChange(update.state.doc.toString())();
+            onChange(update.state.doc.toString());
           }
         }),
         EditorView.theme({

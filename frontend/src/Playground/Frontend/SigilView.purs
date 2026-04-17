@@ -15,7 +15,7 @@ import Halogen.HTML.Properties as HP
 import Web.DOM.Element (Element)
 import Web.HTML.HTMLElement (toElement)
 
-import Sigil.Html (renderSiglet)
+import Sigil.Html (renderBody)
 import Sigil.Parse (parseToRenderType)
 
 type Input = { typeString :: String }
@@ -62,8 +62,11 @@ component = H.mkComponent
         Just htmlEl -> do
           let el = toElement htmlEl
               html = case parseToRenderType state.typeString of
-                Just ast -> renderSiglet { ast }
-                -- If Sigil can't parse it, leave the Halogen-rendered
-                -- text content in place by not touching innerHTML.
-                Nothing -> state.typeString
+                Just ast -> renderBody { ast }
+                -- If Sigil can't parse the purs ide output, show the
+                -- raw string as a simple code fallback.
+                Nothing ->
+                  "<code class=\"sigil-parse-fail\">"
+                    <> state.typeString
+                    <> "</code>"
           liftEffect (_setInnerHTML el html)

@@ -225,31 +225,10 @@ body {
   line-height: 1.3;
 }
 
-/* Sigil's semantic elements. Keep styling understated; the point is
-   visual hierarchy, not decoration. */
-.sigil-view var {
-  font-style: normal;
-  color: var(--accent);
-}
-
-.sigil-view code {
-  font-family: inherit;
-  color: var(--fg);
-}
-
-.sigil-view small {
-  color: #b6b6b0;
-}
-
-.sigil-view ol {
-  display: inline;
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.sigil-view ol li {
-  display: inline;
+/* Sigil ships its own stylesheet (sigil.css, loaded above). We only
+   carve out a spot for its output here; Sigil handles the rest. */
+.sigil-view {
+  display: inline-block;
 }
 
 .error-panel {

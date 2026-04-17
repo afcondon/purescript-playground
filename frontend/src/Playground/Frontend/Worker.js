@@ -25,8 +25,11 @@ export const _spawnWorker = (onMessage) => () => {
   const blob = new Blob([WORKER_SRC], { type: 'application/javascript' });
   const url = URL.createObjectURL(blob);
   const worker = new Worker(url);
+  // onMessage is an EffectFn1 (via mkEffectFn1 on the PS side), i.e. a
+  // JS function (data) => Unit that synchronously runs the effect.
+  // Call once, no trailing thunk.
   worker.addEventListener('message', (event) => {
-    onMessage(event.data)();
+    onMessage(event.data);
   });
   URL.revokeObjectURL(url);
   return worker;
