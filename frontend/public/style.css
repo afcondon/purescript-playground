@@ -102,6 +102,95 @@ body {
   font-size: 0.85rem;
 }
 
+/* Module + cells panes contain live editors: let them flex to the pane. */
+.pane-module, .pane-cells {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pane-module > .cm-host,
+.cell-row > .cm-host {
+  flex: 1 1 auto;
+  min-height: 0;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.pane-module > .cm-host {
+  min-height: 200px;
+}
+
+.pane-cells .cell-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 0.75rem;
+  min-height: 80px;
+}
+
+.cell-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.cell-id {
+  font-family: var(--mono);
+}
+
+.remove-cell-btn {
+  font: inherit;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 0.35rem;
+  line-height: 1;
+}
+
+.remove-cell-btn:hover {
+  color: #5c2a1c;
+  border-color: #e8c8c2;
+  background: #fdf2f0;
+  border-radius: 2px;
+}
+
+.add-cell-btn {
+  font: inherit;
+  padding: 0.4rem 0.75rem;
+  margin-top: 0.25rem;
+  align-self: flex-start;
+  background: transparent;
+  color: var(--accent);
+  border: 1px dashed var(--rule);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.add-cell-btn:hover {
+  border-color: var(--accent);
+}
+
+/* Override the output pane's vertical stretch so js-output fills. */
+.pane-output {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pane-output pre {
+  flex: 0 0 auto;
+  max-height: calc(100vh - 200px);
+  overflow: auto;
+}
+
 .columns {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
