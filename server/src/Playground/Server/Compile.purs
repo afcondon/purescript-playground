@@ -6,14 +6,13 @@ import Control.Promise (Promise, toAffE)
 import Effect (Effect)
 import Effect.Aff (Aff)
 
--- Drives `spago bundle` against runtime-workspace/ after rewriting its
--- `src/Main.purs` with the supplied PureScript source. The returned string
--- is already JSON-encoded: `{ js, warnings, errors }` with `js` nullable.
---
--- We return the JSON verbatim so the router can hand it to `ok` without
--- a round-trip through a PureScript ADT for M1. Phase 2 will decode it
--- into structured results once we start using the warnings/errors fields.
-foreign import _compileMainPromise :: String -> Effect (Promise String)
+-- Drives `spago bundle` against runtime-workspace/ after rewriting both
+-- `src/Playground/User.purs` and `src/Main.purs` with the supplied
+-- synthesised sources. The returned string is already JSON-encoded:
+-- `{ js, warnings, errors, types }` with `js` nullable and `types`
+-- always `[]` until M4.
+foreign import _compileSourcesPromise
+  :: String -> String -> Effect (Promise String)
 
-compileMain :: String -> Aff String
-compileMain src = toAffE (_compileMainPromise src)
+compileSources :: { userSource :: String, mainSource :: String } -> Aff String
+compileSources s = toAffE (_compileSourcesPromise s.userSource s.mainSource)

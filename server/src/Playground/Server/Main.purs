@@ -2,15 +2,26 @@ module Playground.Server.Main where
 
 import Prelude
 
+import Data.Argonaut.Core (stringify)
+import Data.Argonaut.Parser (jsonParser)
+import Data.Codec.Argonaut as CA
+import Data.Either (Either(..))
 import Data.Generic.Rep (class Generic)
+import Data.Maybe (Maybe(..))
 import Effect.Aff.Class (liftAff)
-import HTTPurple (Method(..), ServerM, ok', serve)
+import HTTPurple (Method(..), ServerM, ok', serve, toString)
 import HTTPurple.Headers (headers)
 import Routing.Duplex (RouteDuplex', root)
 import Routing.Duplex.Generic (noArgs, sum)
 import Routing.Duplex.Generic.Syntax ((/))
 
 import Playground.Server.Compile as Compile
+import Playground.Server.Synthesize (synthesize)
+import Playground.Session
+  ( CompileResponse(..)
+  , compileRequestCodec
+  , compileResponseCodec
+  )
 
 data Route = Health | SessionCompile
 
@@ -22,22 +33,20 @@ route = root $ sum
   , "SessionCompile": "session" / "compile" / noArgs
   }
 
--- For M1 we ignore the request body and always compile a fixed Main.purs.
--- Synthesis from (module + cells) arrives in M2.
-fixedMainSource :: String
-fixedMainSource =
-  "module Main where\n\n\
-  \import Prelude\n\n\
-  \import Effect (Effect)\n\
-  \import Effect.Console (log)\n\
-  \import Data.Array (length, range)\n\n\
-  \main :: Effect Unit\n\
-  \main = log (\"range 1..10 has length \" <> show (length (range 1 10)))\n"
+errorJson :: String -> String
+errorJson msg =
+  stringify $ CA.encode compileResponseCodec $
+    CompileResponse
+      { js: Nothing
+      , warnings: []
+      , errors: [ msg ]
+      , types: []
+      }
 
 main :: ServerM
 main = serve { port: 3050, hostname: "localhost" }
   { route
-  , router: \{ route: r, method } ->
+  , router: \{ route: r, method, body } ->
       let plainCors = headers
             { "Access-Control-Allow-Origin": "*"
             , "Access-Control-Allow-Methods": "GET, POST, OPTIONS"
@@ -54,6 +63,16 @@ main = serve { port: 3050, hostname: "localhost" }
         _ -> case r of
           Health -> ok' plainCors "ok"
           SessionCompile -> do
-            body <- liftAff $ Compile.compileMain fixedMainSource
-            ok' jsonCors body
+            bodyStr <- toString body
+            case jsonParser bodyStr of
+              Left parseErr ->
+                ok' jsonCors (errorJson ("bad JSON: " <> parseErr))
+              Right json -> case CA.decode compileRequestCodec json of
+                Left decodeErr ->
+                  ok' jsonCors
+                    (errorJson ("bad request: " <> CA.printJsonDecodeError decodeErr))
+                Right req -> do
+                  let synth = synthesize req
+                  out <- liftAff $ Compile.compileSources synth
+                  ok' jsonCors out
   }
