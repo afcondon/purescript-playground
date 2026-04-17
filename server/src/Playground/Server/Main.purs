@@ -3,12 +3,14 @@ module Playground.Server.Main where
 import Prelude
 
 import Data.Generic.Rep (class Generic)
-import Effect (Effect)
-import Effect.Console (log)
-import HTTPurple (ServerM, ok, serve)
+import Effect.Aff.Class (liftAff)
+import HTTPurple (ServerM, ok, ok', serve)
+import HTTPurple.Headers (headers)
 import Routing.Duplex (RouteDuplex', root)
 import Routing.Duplex.Generic (noArgs, sum)
 import Routing.Duplex.Generic.Syntax ((/))
+
+import Playground.Server.Compile as Compile
 
 data Route = Health | SessionCompile
 
@@ -20,10 +22,24 @@ route = root $ sum
   , "SessionCompile": "session" / "compile" / noArgs
   }
 
+-- For M1 we ignore the request body and always compile a fixed Main.purs.
+-- Synthesis from (module + cells) arrives in M2.
+fixedMainSource :: String
+fixedMainSource =
+  "module Main where\n\n\
+  \import Prelude\n\n\
+  \import Effect (Effect)\n\
+  \import Effect.Console (log)\n\
+  \import Data.Array (length, range)\n\n\
+  \main :: Effect Unit\n\
+  \main = log (\"range 1..10 has length \" <> show (length (range 1 10)))\n"
+
 main :: ServerM
 main = serve { port: 3050, hostname: "localhost" }
   { route
   , router: \{ route: r } -> case r of
       Health -> ok "ok"
-      SessionCompile -> ok "{\"stub\":true}"
+      SessionCompile -> do
+        body <- liftAff $ Compile.compileMain fixedMainSource
+        ok' (headers { "Content-Type": "application/json" }) body
   }

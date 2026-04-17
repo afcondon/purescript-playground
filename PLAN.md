@@ -4,7 +4,7 @@
 **Slug:** `papa-whiskey-uniform-lima` (marginalia id 158)
 **Location:** `/Users/afc/work/afc-work/purescript-playground` (own repo, TBD remote)
 **Parent in marginalia:** WebApps (`victor-xray-golf-bravo`)
-**Related:** `ShapedSteer` (stepping stone — sibling showcase, not a subsystem), `GitHub/trypurescript` (reuse via its compile server)
+**Related:** `ShapedSteer` (stepping stone — sibling showcase, not a subsystem), `GitHub/trypurescript` (reference only — we used to plan to proxy its compile server; now we drive `purs` ourselves, see the "Compile service — why not trypurescript" note below)
 
 ## Vision
 
@@ -100,30 +100,54 @@ cheaply.
 │                                                                │
 │   POST /session/compile                                        │
 │     ├─ synthesize Main.purs from (module + cells)              │
-│     ├─ forward to trypurescript compile server                 │
-│     ├─ (Phase 2) ask sidecar for cell types                    │
+│     ├─ write into runtime-workspace/src/Main.purs              │
+│     ├─ shell out to `spago bundle` against that workspace      │
+│     ├─ (Phase 2) ask purs-ide sidecar for cell types           │
 │     └─ return { js, warnings, errors, types }                  │
 │                                                                │
 │   GET  /output/:module/(index.js|foreign.js)                   │
-│     └─ proxy to trypurescript so the Worker's require shim     │
-│        resolves library modules                                │
-└──────────────┬───────────────────────────────┬─────────────────┘
-               │                               │
-               ▼                               ▼
-    ┌─────────────────────┐        ┌───────────────────────────┐
-    │ trypurescript       │        │  Type sidecar (Phase 2)   │
-    │ compile server      │        │                           │
-    │ (local, full        │        │  purs ide server +        │
-    │  package set from   │        │  purescript-language-     │
-    │  staging/)          │        │  cst-parser for cell      │
-    │  POST /compile      │        │  identifier extraction    │
-    └─────────────────────┘        └───────────────────────────┘
+│     └─ static route over runtime-workspace/output/ so the      │
+│        Worker's require shim resolves library modules          │
+└────────┬───────────────────────────────────┬───────────────────┘
+         │                                   │
+         ▼                                   ▼
+┌──────────────────────────┐    ┌───────────────────────────┐
+│ runtime-workspace/       │    │  Type sidecar (Phase 2)   │
+│                          │    │                           │
+│  spago.yaml pinned to    │    │  purs ide server rooted   │
+│  registry: 73.3.0        │    │  at runtime-workspace/ +  │
+│  src/Main.purs is the    │    │  purescript-language-     │
+│  synthesised module,     │    │  cst-parser for cell      │
+│  rewritten on every POST │    │  identifier extraction    │
+│  output/ served statically│   └───────────────────────────┘
+└──────────────────────────┘
 ```
 
 Backend and frontend follow the Minard / Marginalia pattern: HTTPurple
 backend in its own process, Halogen frontend in its own process, wired
-together over HTTP + CORS. Running locally means the user has the full
-trypurescript package set available (not a curated subset).
+together over HTTP + CORS. We run `spago` / `purs` ourselves against a
+modern-tooling workspace checked in at `runtime-workspace/` — no
+external compile server, no legacy Dhall tooling in the hot path.
+
+### Compile service — why not trypurescript?
+
+We briefly planned to proxy trypurescript's compile server (a Haskell
+binary that wraps `purs` and returns `{ js, warnings }` or `{ errors }`).
+Two things changed that plan:
+
+1. Upstream trypurescript (last commit 2023-12-22) still uses
+   pre-registry spago with `spago.dhall` / `packages.dhall`. Modern
+   `spago` can't build its `staging/` package set, so we'd need a
+   modernisation PR just to stand the server up locally.
+2. Our backend was already going to own a `purs ide` sidecar, the
+   `Main.purs` synthesis, the source-map, and the Worker protocol. The
+   trypurescript binary's remaining contribution (spawning `purs`,
+   static-serving output, CORS, timeouts) is small in our Node/HTTPurple
+   backend.
+
+So we absorbed the compile-server role. A modernisation PR against
+upstream trypurescript is now a potential good-citizen follow-up (see
+"Stretch — upstream contributions"), not a dependency.
 
 ### Compile flow (MVP)
 
@@ -131,14 +155,17 @@ trypurescript package set available (not a curated subset).
 2. After a ~400ms debounce, the frontend POSTs `{ module, cells }` to
    the backend.
 3. Backend synthesizes a single `Main.purs` (see "Synthesis design"
-   below) and forwards it to the trypurescript compile server.
-4. Backend returns the JS blob + warnings/errors to the frontend.
-5. Frontend posts the JS into a Web Worker. The Worker runs it with a
+   below) and writes it into `runtime-workspace/src/Main.purs`.
+4. Backend shells out to `spago bundle -p playground-runtime --platform browser`
+   (or an equivalent `purs compile` + post-processing) against the
+   workspace; captures the bundle JS, warnings, and errors.
+5. Backend returns `{ js, warnings, errors }` to the frontend.
+6. Frontend posts the JS into a Web Worker. The Worker runs it with a
    (say) 3-second timeout and pushes cell-result events back via
    `postMessage`.
-6. Frontend renders each cell's result in the gutter, aligned to the
+7. Frontend renders each cell's result in the gutter, aligned to the
    cell's position.
-7. If compilation failed, show the error(s) prominently somewhere
+8. If compilation failed, show the error(s) prominently somewhere
    (MVP = single panel, post-MVP = inline on the originating cell/line).
 
 ### Execution model
@@ -147,8 +174,11 @@ Web Worker is the execution sandbox. Reasons:
 
 - Infinite loops don't freeze the main thread.
 - We can terminate the worker on new compilations or on timeout.
-- `require` shim (à la trypurescript's require1k) fetches library JS
-  from our backend which proxies trypurescript's `/output/:module/…`.
+- The `spago bundle` output is a single self-contained browser module;
+  no `require` shim needed to pull in library JS at runtime. (If we
+  later switch to `purs compile` without bundling for finer control,
+  we'll serve `/output/:module/…` as static files over HTTPurple and
+  wire up a require-1k shim in the Worker.)
 
 The Worker receives the compiled JS + a list of cell ids. The
 synthesized `main` calls a side-channel function we inject (e.g.
@@ -331,9 +361,9 @@ and the inferred type for each cell, all updating live.
 **In scope:**
 
 - Halogen frontend, CM6 editors (two: module, cells).
-- HTTPurple backend that synthesises `Main.purs`, forwards to the
-  trypurescript compile server, and manages a `purs ide` subprocess
-  for type queries.
+- HTTPurple backend that synthesises `Main.purs`, shells out to `spago
+  bundle` against `runtime-workspace/`, and manages a `purs ide`
+  subprocess for type queries.
 - `purescript-language-cst-parser` on the backend to enumerate cell
   identifiers for type lookup.
 - Web Worker execution with timeout.
@@ -344,7 +374,11 @@ and the inferred type for each cell, all updating live.
   types in the gutter.
 - `expr` cells and `let` cells.
 - Single user module, hard-coded starter content on first load.
-- Full package set (trypurescript's `staging/spago.yaml`) available.
+- Full package set in `runtime-workspace/spago.yaml`, pinned to
+  `registry: 73.3.0`, curated on our own cadence. Broad starter deps
+  (`prelude`, `effect`, `console`, `aff`, `arrays`, `foldable-traversable`,
+  `maybe`, `tuples`, `strings`, `integers`, `numbers`, `ordered-collections`,
+  `random`, plus a dose of `halogen`-adjacent stuff if we want UI demos).
 
 **Out of scope (Phase 1):**
 
@@ -368,7 +402,8 @@ and the inferred type for each cell, all updating live.
 
 ## Phase 3 — Broaden
 
-- URL-encoded state for sharing (compressed, like trypurescript).
+- URL-encoded state for sharing (compressed — the same trick
+  trypurescript uses for its `code=` query parameter).
 - File tree in the left margin: multiple user modules, cross-references
   allowed.
 - Persistence of sessions (probably filesystem-first, SQLite later).
@@ -438,8 +473,8 @@ mind so Phase 4 isn't a rewrite:
   across Halogen components.** Already true given the backend round-trip
   model; keep it so.
 - **Compile results carry structured errors**, not just rendered
-  strings. trypurescript's JSON error format already gives us this;
-  don't throw it away on the way to the frontend.
+  strings. `purs`'s `--json-errors` format gives us this; don't throw
+  it away on the way to the frontend.
 - **Cell ids are stable across edits.** Already a commitment for type
   correlation; the Claude panel leans on the same property.
 - **Edits-via-tool-use**: when we add the panel, Claude's edit
@@ -476,6 +511,21 @@ to `63`. `let xs = 1..10` demonstrates a `let`-cell binding visible
 to the cell below it. Enough shape to communicate the model in a
 single screen; nothing the user has to install or understand first.
 
+## Stretch — upstream contributions
+
+Good-citizen follow-ups, unlocked once the Playground itself is
+functional:
+
+- **Modernise trypurescript's build toolchain**: PR upstream to replace
+  `staging/spago.dhall` + `staging/packages.dhall` with a modern
+  `spago.yaml` pinned to a registry package set; update the README run
+  recipe, update CI. Repo has been quiet since late 2023; the PR
+  probably lands but may take a while. We can keep the Playground
+  independent of whether it merges.
+- **Push lessons from the Playground runtime back to trypurescript**:
+  e.g. if our synthesis pipeline or type-sidecar design is reusable,
+  make it so.
+
 ## Stretch — the Bret Victor corner
 
 If and only if Phases 1–3 land and still want more:
@@ -497,26 +547,27 @@ Locked in (2026-04-17):
 - **Type sidecar** — `purs ide server` subprocess managed by the
   backend. Heavier than externs-file reads, but reusable for hover
   types, completion, and go-to-definition in later phases.
-- **Editor framework** — CodeMirror 6. Commits us to more client
-  plumbing than lifting trypurescript's Ace wholesale, but the
-  inline-widget APIs are essential for the result gutter.
-- **Backend process model** — two processes (the Playground backend
-  and the trypurescript compile server), matching the Minard /
-  Marginalia pattern and the trypurescript README's recipe.
+- **Editor framework** — CodeMirror 6. More client plumbing than
+  lifting an existing Ace-based editor, but the inline-widget APIs
+  are essential for the result gutter.
+- **Backend process model** — one Playground backend process (HTTPurple,
+  Node), which owns the compile workspace and shells out to `spago` /
+  `purs` on demand. No separate compile-server sibling process.
 - **Inline types in Phase 1** — yes. Since the `purs ide` sidecar is
   running from day one, the MVP shows the cell's inferred type in the
-  gutter (rendered by Sigil) alongside the value. Without types the
-  MVP is just trypurescript with extra steps.
+  gutter (rendered by Sigil) alongside the value.
 - **Starter content** — a minimal `double x = x * 2` module and three
   cells that exercise it. Prelude-only, no library imports. Loads fast
   and demonstrates shared-scope liveness in the first keystroke.
-- **Package set + compile service** — keep `GitHub/trypurescript`
-  checked out unchanged, run its `stack exec trypurescript …` server
-  locally, and have the Playground backend proxy to it. Full package
-  set, zero fork cost, registered in marginalia as a dependency.
-- **Repo layout** — `frontend/` + `server/` + `shared/` at the root,
-  matching Minard. `shared/` holds the request/response codecs used by
-  both sides. Root `Makefile` for orchestration.
+- **Package set + compile service** — `runtime-workspace/` inside this
+  repo is a modern-tooling spago workspace pinned to
+  `packageSet: { registry: 73.3.0 }`. The Playground backend drives
+  `purs` / `spago` against it directly. trypurescript is no longer a
+  runtime dependency; the upstream repo is reference material only,
+  and modernising it is a potential good-citizen PR (Stretch).
+- **Repo layout** — `frontend/` + `server/` + `shared/` + `runtime-workspace/`
+  at the root, matching Minard conventions for the first three. Root
+  `Makefile` for orchestration.
 - **Visibility** — public GitHub repo from day one, but unadvertised
   (not linked from the polyglot site, blog, Discord, etc.) until MVP
   ships. Rough commits are fine; they just don't get promoted.
@@ -530,24 +581,29 @@ New questions will land here as they surface during M0–M6.)
 
 **M0 — scaffolding (half day)**
 
-- [ ] Initialise public (but unadvertised) git repo on GitHub.
-- [ ] `frontend/` (Halogen + CM6), `server/` (HTTPurple), `shared/`
+- [x] Initialise public (but unadvertised) git repo on GitHub.
+- [x] `frontend/` (Halogen + CM6), `server/` (HTTPurple), `shared/`
       (codecs/types) skeletons at the root, matching Minard. Root
       `Makefile` orchestrates builds.
-- [ ] Register marginalia server entries for the frontend and backend
+- [x] Register marginalia server entries for the frontend and backend
       processes once each has a known-good start command.
-- [ ] Register the trypurescript compile server as its own marginalia
-      entry (via its `stack exec` recipe) — playground's backend
-      depends on it running on a known local port.
+- [ ] Scaffold `runtime-workspace/`: modern `spago.yaml` pinned to
+      `registry: 73.3.0`, a broad starter-dependency list, and a
+      placeholder `src/Main.purs` (covered by M1's first task).
 
 **M1 — compile round-trip (1–2 days)**
 
-- [ ] Backend `/session/compile` that naïvely echoes a hard-coded
-      synthesised module to `trypurescript` and returns the JS.
+- [x] Runtime workspace: hard-coded `Main.purs` that prints
+      `"hello from runtime-workspace"`; verify `spago bundle -p
+      playground-runtime --platform browser` produces a runnable
+      browser bundle.
+- [x] Backend `/session/compile` that, for now, ignores the request
+      body, rewrites a fixed `Main.purs` into `runtime-workspace/src/Main.purs`,
+      shells out to `spago bundle`, and returns `{ js, warnings, errors }`.
+- [x] Verify the workspace's full package set is reachable: a compile
+      that `import`s e.g. `Data.Array` should succeed.
 - [ ] Frontend posts a fixed payload and renders the JS as text in a
       pane. No execution yet.
-- [ ] Verify the trypurescript server is hitting the full package set
-      (import e.g. `Data.Array` from the payload and see it succeed).
 
 **M2 — synthesis from user input (2–3 days)**
 
@@ -587,7 +643,7 @@ New questions will land here as they surface during M0–M6.)
 
 **M5 — error panel, compile-state display (1 day)**
 
-- [ ] Errors from trypurescript surface in a dedicated panel.
+- [ ] Errors from `purs` (via the backend) surface in a dedicated panel.
 - [ ] "Compiling…" indicator while requests are in flight.
 - [ ] Last-good values + types stay visible (faded) while a new
       compile is pending.
@@ -604,8 +660,10 @@ richer Sigil-rendered values, hover types) to be detailed after M6.
 
 ## References
 
-- `/Users/afc/work/afc-work/GitHub/trypurescript/` — compile server
-  + client we're building on.
+- `/Users/afc/work/afc-work/GitHub/trypurescript/` — reference for
+  package-set composition, JSON error format expectations, URL-encoded
+  sharing. No longer a runtime dependency; see "Compile service — why
+  not trypurescript" in Architecture.
 - `/Users/afc/work/afc-work/purescript-hylograph-libs/purescript-sigil/`
   — type-signature renderer for Phase 2.
 - Haskell for Mac: <http://haskellformac.com/> (product inspiration).

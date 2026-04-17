@@ -1,0 +1,24 @@
+package:
+  name: playground-runtime
+  description: Workspace the Playground backend compiles user code against. Its `src/Main.purs` is rewritten on every /session/compile request.
+  bundle:
+    module: Main
+    platform: browser
+    outfile: output/bundle.js
+  dependencies:
+    - aff
+    - arrays
+    - console
+    - effect
+    - either
+    - foldable-traversable
+    - integers
+    - maybe
+    - newtype
+    - numbers
+    - ordered-collections
+    - prelude
+    - random
+    - strings
+    - tuples
+    - unfoldable

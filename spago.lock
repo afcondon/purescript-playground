@@ -31,11 +31,38 @@
           "dependencies": []
         }
       },
+      "playground-runtime": {
+        "path": "runtime-workspace",
+        "core": {
+          "dependencies": [
+            "aff",
+            "arrays",
+            "console",
+            "effect",
+            "either",
+            "foldable-traversable",
+            "integers",
+            "maybe",
+            "newtype",
+            "numbers",
+            "ordered-collections",
+            "prelude",
+            "random",
+            "strings",
+            "tuples",
+            "unfoldable"
+          ]
+        },
+        "test": {
+          "dependencies": []
+        }
+      },
       "playground-server": {
         "path": "server",
         "core": {
           "dependencies": [
             "aff",
+            "aff-promise",
             "argonaut-codecs",
             "argonaut-core",
             "arrays",
@@ -692,6 +719,21 @@
         "tailrec",
         "transformers",
         "unsafe-coerce"
+      ]
+    },
+    "aff-promise": {
+      "type": "registry",
+      "version": "4.0.0",
+      "integrity": "sha256-Jgp3y+NWuuAmwz2V3LlWoX+AvxqfVglY77N5zTw8xnI=",
+      "dependencies": [
+        "aff",
+        "control",
+        "effect",
+        "either",
+        "exceptions",
+        "foreign",
+        "prelude",
+        "transformers"
       ]
     },
     "affjax": {
@@ -1778,6 +1820,16 @@
         "newtype",
         "prelude",
         "tuples"
+      ]
+    },
+    "random": {
+      "type": "registry",
+      "version": "6.0.0",
+      "integrity": "sha256-7sZRo6P9UIiXDZ9s2QL9T8h3wlIwLdQrR4+oZKOijQw=",
+      "dependencies": [
+        "effect",
+        "integers",
+        "prelude"
       ]
     },
     "record": {

@@ -3,6 +3,7 @@ package:
   description: HTTPurple backend — synthesises Main.purs from (module + cells), proxies to trypurescript, manages the purs ide sidecar.
   dependencies:
     - aff
+    - aff-promise
     - argonaut-codecs
     - argonaut-core
     - arrays
