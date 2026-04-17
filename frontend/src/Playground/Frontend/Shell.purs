@@ -264,13 +264,21 @@ startExecution js = do
 
 render :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
 render state =
-  HH.div [ HP.class_ (H.ClassName "playground-shell") ]
+  HH.div
+    [ HP.class_
+        ( H.ClassName
+            ( "playground-shell"
+                <> (if state.compiling then " is-compiling" else "")
+            )
+        )
+    ]
     [ renderHeader state
     , HH.main [ HP.class_ (H.ClassName "columns") ]
         [ renderModuleColumn state
         , renderCellsColumn state
         , renderGutterColumn state
         ]
+    , renderErrorPanel state
     ]
 
 renderHeader :: forall m. State -> H.ComponentHTML Action Slots m
@@ -331,24 +339,14 @@ renderCellRow c =
         (\(Editor.Changed src) -> CellChanged c.id src)
     ]
 
+-- | Gutter always shows the last-known values + types. On a failed
+-- | compile the previous values stay put; errors are surfaced in the
+-- | bottom panel. While a new compile is pending, CSS fades this column.
 renderGutterColumn :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
 renderGutterColumn state =
   HH.section [ HP.class_ (H.ClassName "pane pane-gutter") ]
     [ HH.h2_ [ HH.text "Values" ]
-    , case state.transportError of
-        Just err ->
-          HH.pre [ HP.class_ (H.ClassName "transport-error") ] [ HH.text err ]
-        Nothing -> case state.errors of
-          [] -> renderResults state
-          errs ->
-            HH.div [ HP.class_ (H.ClassName "compile-errors") ]
-              ( map
-                  ( \e ->
-                      HH.pre [ HP.class_ (H.ClassName "compile-error") ]
-                        [ HH.text e ]
-                  )
-                  errs
-              )
+    , renderResults state
     ]
 
 renderResults :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
@@ -387,3 +385,27 @@ renderRuntimeError = case _ of
     [ HH.pre [ HP.class_ (H.ClassName "runtime-error") ]
         [ HH.text ("runtime: " <> err) ]
     ]
+
+-- | Bottom panel: absent when clean, shows transport + compile errors
+-- | when there's something to say. The gutter column keeps rendering
+-- | the last-good values + types regardless.
+renderErrorPanel :: forall m. State -> H.ComponentHTML Action Slots m
+renderErrorPanel state =
+  let
+    transportRow = case state.transportError of
+      Just err -> [ errorRow "transport" err ]
+      Nothing -> []
+    compileRows = map (errorRow "compile") state.errors
+    rows = transportRow <> compileRows
+  in
+    case rows of
+      [] -> HH.text ""
+      _ ->
+        HH.section [ HP.class_ (H.ClassName "error-panel") ]
+          ( [ HH.h2_ [ HH.text "Errors" ] ] <> rows )
+  where
+  errorRow kind msg =
+    HH.div [ HP.class_ (H.ClassName ("error-row error-" <> kind)) ]
+      [ HH.span [ HP.class_ (H.ClassName "error-kind") ] [ HH.text kind ]
+      , HH.pre [ HP.class_ (H.ClassName "error-msg") ] [ HH.text msg ]
+      ]

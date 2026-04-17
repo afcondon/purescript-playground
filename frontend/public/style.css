@@ -24,8 +24,15 @@ body {
 
 .playground-shell {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto 1fr auto;
   height: 100vh;
+}
+
+/* Fade the gutter while a new compile is in flight so last-good
+   values look "stale" rather than authoritative. */
+.playground-shell.is-compiling .pane-gutter {
+  opacity: 0.55;
+  transition: opacity 0.1s ease-in;
 }
 
 .playground-header {
@@ -243,6 +250,49 @@ body {
 
 .sigil-view ol li {
   display: inline;
+}
+
+.error-panel {
+  border-top: 1px solid var(--rule);
+  background: #fdf2f0;
+  padding: 0.75rem 1.5rem;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+
+.error-panel h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #5c2a1c;
+}
+
+.error-row {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  column-gap: 0.75rem;
+  align-items: start;
+  padding: 0.25rem 0;
+}
+
+.error-kind {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: #5c2a1c;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-top: 0.15rem;
+}
+
+.error-msg {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #5c2a1c;
 }
 
 .gutter-value {
