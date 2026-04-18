@@ -3,6 +3,7 @@ module Playground.Runtime
   , toPlaygroundValue
   , PlaygroundValue(..)
   , emit
+  , done
   ) where
 
 import Prelude
@@ -110,3 +111,10 @@ emit :: String -> PlaygroundValue -> Effect Unit
 emit id value = _emit id (stringify (encode value))
 
 foreign import _emit :: String -> String -> Effect Unit
+
+-- | Signal the host that all Aff-driven emissions have been
+-- | delivered. Called at the end of `runAff_`'s callback in the
+-- | synthesised main so the browser Worker / Node child knows it's
+-- | safe to close. Without this, a Worker running an Aff cell would
+-- | be terminated before its `delay` settles.
+foreign import done :: Effect Unit

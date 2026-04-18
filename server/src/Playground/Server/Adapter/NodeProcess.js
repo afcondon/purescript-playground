@@ -18,9 +18,15 @@ const BUNDLE_PATH = pathResolve(WORKSPACE, 'output', 'bundle-node.js');
 // Node runner wrapper — installed around the compiled bundle before
 // it's executed. Overrides globalThis.__playground_emit so that cell
 // emissions turn into stdout JSONL, which the parent reads back.
+// __playground_done signals the end of execution so we can exit
+// cleanly when the bundle's Aff computation settles.
 const NODE_WRAPPER = `
 globalThis.__playground_emit = (id, value) => {
   process.stdout.write(JSON.stringify({ type: 'emit', id: id, value: value }) + '\\n');
+};
+globalThis.__playground_done = () => {
+  process.stdout.write(JSON.stringify({ type: 'done' }) + '\\n');
+  process.exit(0);
 };
 process.on('uncaughtException', (e) => {
   process.stdout.write(JSON.stringify({

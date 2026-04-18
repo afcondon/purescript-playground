@@ -25297,6 +25297,106 @@
       scope: scope2
     };
   }
+  function highlightTags(highlighters, tags2) {
+    let result = null;
+    for (let highlighter of highlighters) {
+      let value13 = highlighter.style(tags2);
+      if (value13)
+        result = result ? result + " " + value13 : value13;
+    }
+    return result;
+  }
+  function highlightTree(tree, highlighter, putStyle, from2 = 0, to = tree.length) {
+    let builder = new HighlightBuilder(from2, Array.isArray(highlighter) ? highlighter : [highlighter], putStyle);
+    builder.highlightRange(tree.cursor(), from2, to, "", builder.highlighters);
+    builder.flush(to);
+  }
+  var HighlightBuilder = class {
+    constructor(at, highlighters, span5) {
+      this.at = at;
+      this.highlighters = highlighters;
+      this.span = span5;
+      this.class = "";
+    }
+    startSpan(at, cls) {
+      if (cls != this.class) {
+        this.flush(at);
+        if (at > this.at)
+          this.at = at;
+        this.class = cls;
+      }
+    }
+    flush(to) {
+      if (to > this.at && this.class)
+        this.span(this.at, to, this.class);
+    }
+    highlightRange(cursor, from2, to, inheritedClass, highlighters) {
+      let { type, from: start2, to: end } = cursor;
+      if (start2 >= to || end <= from2)
+        return;
+      if (type.isTop)
+        highlighters = this.highlighters.filter((h) => !h.scope || h.scope(type));
+      let cls = inheritedClass;
+      let rule = getStyleTags(cursor) || Rule.empty;
+      let tagCls = highlightTags(highlighters, rule.tags);
+      if (tagCls) {
+        if (cls)
+          cls += " ";
+        cls += tagCls;
+        if (rule.mode == 1)
+          inheritedClass += (inheritedClass ? " " : "") + tagCls;
+      }
+      this.startSpan(Math.max(from2, start2), cls);
+      if (rule.opaque)
+        return;
+      let mounted = cursor.tree && cursor.tree.prop(NodeProp.mounted);
+      if (mounted && mounted.overlay) {
+        let inner = cursor.node.enter(mounted.overlay[0].from + start2, 1);
+        let innerHighlighters = this.highlighters.filter((h) => !h.scope || h.scope(mounted.tree.type));
+        let hasChild2 = cursor.firstChild();
+        for (let i2 = 0, pos = start2; ; i2++) {
+          let next = i2 < mounted.overlay.length ? mounted.overlay[i2] : null;
+          let nextPos = next ? next.from + start2 : end;
+          let rangeFrom2 = Math.max(from2, pos), rangeTo2 = Math.min(to, nextPos);
+          if (rangeFrom2 < rangeTo2 && hasChild2) {
+            while (cursor.from < rangeTo2) {
+              this.highlightRange(cursor, rangeFrom2, rangeTo2, inheritedClass, highlighters);
+              this.startSpan(Math.min(rangeTo2, cursor.to), cls);
+              if (cursor.to >= nextPos || !cursor.nextSibling())
+                break;
+            }
+          }
+          if (!next || nextPos > to)
+            break;
+          pos = next.to + start2;
+          if (pos > from2) {
+            this.highlightRange(inner.cursor(), Math.max(from2, next.from + start2), Math.min(to, pos), "", innerHighlighters);
+            this.startSpan(Math.min(to, pos), cls);
+          }
+        }
+        if (hasChild2)
+          cursor.parent();
+      } else if (cursor.firstChild()) {
+        if (mounted)
+          inheritedClass = "";
+        do {
+          if (cursor.to <= from2)
+            continue;
+          if (cursor.from >= to)
+            break;
+          this.highlightRange(cursor, from2, to, inheritedClass, highlighters);
+          this.startSpan(Math.min(to, cursor.to), cls);
+        } while (cursor.nextSibling());
+        cursor.parent();
+      }
+    }
+  };
+  function getStyleTags(node) {
+    let rule = node.type.prop(ruleNodeProp);
+    while (rule && rule.context && !node.matchContext(rule.context))
+      rule = rule.next;
+    return rule || null;
+  }
   var t = Tag.define;
   var comment = t();
   var name16 = t();
@@ -26538,6 +26638,68 @@
       return new _HighlightStyle(specs, options2 || {});
     }
   };
+  var highlighterFacet = /* @__PURE__ */ Facet.define();
+  var fallbackHighlighter = /* @__PURE__ */ Facet.define({
+    combine(values) {
+      return values.length ? [values[0]] : null;
+    }
+  });
+  function getHighlighters(state3) {
+    let main3 = state3.facet(highlighterFacet);
+    return main3.length ? main3 : state3.facet(fallbackHighlighter);
+  }
+  function syntaxHighlighting(highlighter, options2) {
+    let ext = [treeHighlighter], themeType;
+    if (highlighter instanceof HighlightStyle) {
+      if (highlighter.module)
+        ext.push(EditorView.styleModule.of(highlighter.module));
+      themeType = highlighter.themeType;
+    }
+    if (options2 === null || options2 === void 0 ? void 0 : options2.fallback)
+      ext.push(fallbackHighlighter.of(highlighter));
+    else if (themeType)
+      ext.push(highlighterFacet.computeN([EditorView.darkTheme], (state3) => {
+        return state3.facet(EditorView.darkTheme) == (themeType == "dark") ? [highlighter] : [];
+      }));
+    else
+      ext.push(highlighterFacet.of(highlighter));
+    return ext;
+  }
+  var TreeHighlighter = class {
+    constructor(view) {
+      this.markCache = /* @__PURE__ */ Object.create(null);
+      this.tree = syntaxTree(view.state);
+      this.decorations = this.buildDeco(view, getHighlighters(view.state));
+      this.decoratedTo = view.viewport.to;
+    }
+    update(update) {
+      let tree = syntaxTree(update.state), highlighters = getHighlighters(update.state);
+      let styleChange = highlighters != getHighlighters(update.startState);
+      let { viewport } = update.view, decoratedToMapped = update.changes.mapPos(this.decoratedTo, 1);
+      if (tree.length < viewport.to && !styleChange && tree.type == this.tree.type && decoratedToMapped >= viewport.to) {
+        this.decorations = this.decorations.map(update.changes);
+        this.decoratedTo = decoratedToMapped;
+      } else if (tree != this.tree || update.viewportChanged || styleChange) {
+        this.tree = tree;
+        this.decorations = this.buildDeco(update.view, highlighters);
+        this.decoratedTo = viewport.to;
+      }
+    }
+    buildDeco(view, highlighters) {
+      if (!highlighters || !this.tree.length)
+        return Decoration.none;
+      let builder = new RangeSetBuilder();
+      for (let { from: from2, to } of view.visibleRanges) {
+        highlightTree(this.tree, highlighters, (from3, to2, style2) => {
+          builder.add(from3, to2, this.markCache[style2] || (this.markCache[style2] = Decoration.mark({ class: style2 })));
+        }, from2, to);
+      }
+      return builder.finish();
+    }
+  };
+  var treeHighlighter = /* @__PURE__ */ Prec.high(/* @__PURE__ */ ViewPlugin.fromClass(TreeHighlighter, {
+    decorations: (v) => v.decorations
+  }));
   var defaultHighlightStyle = /* @__PURE__ */ HighlightStyle.define([
     {
       tag: tags.meta,
@@ -28852,6 +29014,30 @@
   };
 
   // output/Playground.Frontend.CodeMirror/foreign.js
+  var playgroundHighlightStyle = HighlightStyle.define([
+    { tag: tags.comment, color: "#6b7a8a", fontStyle: "italic" },
+    { tag: tags.lineComment, color: "#6b7a8a", fontStyle: "italic" },
+    { tag: tags.blockComment, color: "#6b7a8a", fontStyle: "italic" },
+    { tag: tags.keyword, color: "#2b5f75", fontWeight: "600" },
+    { tag: tags.controlKeyword, color: "#2b5f75", fontWeight: "600" },
+    { tag: tags.definitionKeyword, color: "#2b5f75", fontWeight: "600" },
+    { tag: tags.operatorKeyword, color: "#2b5f75" },
+    { tag: tags.operator, color: "#1d1d1b" },
+    { tag: tags.string, color: "#9e5a3c" },
+    { tag: tags.number, color: "#1d1d1b" },
+    { tag: tags.bool, color: "#6b4c8a", fontWeight: "600" },
+    { tag: tags.null, color: "#6b4c8a", fontStyle: "italic" },
+    { tag: tags.className, color: "#3d7a72", fontWeight: "600" },
+    { tag: tags.typeName, color: "#3d7a72", fontWeight: "600" },
+    { tag: tags.variableName, color: "#1d1d1b" },
+    { tag: tags.function(tags.variableName), color: "#1d1d1b" },
+    { tag: tags.propertyName, color: "#1d1d1b" },
+    { tag: tags.labelName, color: "#8a6a2b" },
+    { tag: tags.meta, color: "#6b7a8a" },
+    { tag: tags.punctuation, color: "#6b6b66" },
+    { tag: tags.bracket, color: "#6b6b66" },
+    { tag: tags.namespace, color: "#3d7a72" }
+  ]);
   var BACKEND_URL = typeof window !== "undefined" && window.location && window.location.hostname ? `http://${window.location.hostname}:3050` : "http://localhost:3050";
   var IDE_TYPE_URL = `${BACKEND_URL}/ide/type`;
   function isWordChar(ch) {
@@ -28915,6 +29101,7 @@
           // Haskell's lexer is close enough for PureScript for now; a
           // dedicated PureScript grammar lands as a later upgrade.
           StreamLanguage.define(haskell),
+          syntaxHighlighting(playgroundHighlightStyle),
           typeHover,
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
@@ -34034,13 +34221,18 @@
     globalThis.__playground_emit = (id, value) => {
       self.postMessage({ type: 'emit', id, value });
     };
-    try {
-      // Spago's bundle is an IIFE \u2014 evaluating it kicks off main() which
-      // in turn calls __playground_emit for each cell. New Function
-      // puts us in a fresh function scope, so top-level bindings in the
-      // bundle don't leak back into the worker's own closures.
-      new Function(js)();
+    globalThis.__playground_done = () => {
       self.postMessage({ type: 'done' });
+    };
+    try {
+      // Spago's bundle is an IIFE \u2014 evaluating it kicks off main()
+      // which calls runAff_ with a done-callback. launchAff_ returns
+      // synchronously; we do NOT send 'done' here because any Aff
+      // computation (delay, setTimeout-based work) is still pending.
+      // The synthesised main calls Playground.Runtime.done at the
+      // end of its runAff_ continuation, which reaches us via the
+      // __playground_done hook above.
+      new Function(js)();
     } catch (e) {
       self.postMessage({ type: 'error', message: String(e && e.stack || e) });
     }

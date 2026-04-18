@@ -8,13 +8,18 @@ const WORKER_SRC = `
     globalThis.__playground_emit = (id, value) => {
       self.postMessage({ type: 'emit', id, value });
     };
-    try {
-      // Spago's bundle is an IIFE — evaluating it kicks off main() which
-      // in turn calls __playground_emit for each cell. New Function
-      // puts us in a fresh function scope, so top-level bindings in the
-      // bundle don't leak back into the worker's own closures.
-      new Function(js)();
+    globalThis.__playground_done = () => {
       self.postMessage({ type: 'done' });
+    };
+    try {
+      // Spago's bundle is an IIFE — evaluating it kicks off main()
+      // which calls runAff_ with a done-callback. launchAff_ returns
+      // synchronously; we do NOT send 'done' here because any Aff
+      // computation (delay, setTimeout-based work) is still pending.
+      // The synthesised main calls Playground.Runtime.done at the
+      // end of its runAff_ continuation, which reaches us via the
+      // __playground_done hook above.
+      new Function(js)();
     } catch (e) {
       self.postMessage({ type: 'error', message: String(e && e.stack || e) });
     }

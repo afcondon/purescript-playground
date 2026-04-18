@@ -131,9 +131,9 @@ buildMain userImports cells =
       <> "import Data.Maybe (Maybe(..))\n"
       <> "import Data.Tuple (Tuple(..))\n"
       <> "import Effect (Effect)\n"
-      <> "import Effect.Aff (launchAff_)\n"
+      <> "import Effect.Aff (runAff_)\n"
       <> "import Effect.Class (liftEffect)\n"
-      <> "import Playground.Runtime (class ToPlaygroundValue, emit, toPlaygroundValue)\n"
+      <> "import Playground.Runtime (class ToPlaygroundValue, done, emit, toPlaygroundValue)\n"
       <> "import Playground.User\n"
       <> (if Str.trim userImports == "" then "" else userImports <> "\n")
       <> "\n"
@@ -142,7 +142,7 @@ buildMain userImports cells =
       <> "\n-- expr-cells (top-level bindings)\n"
       <> foldMap cellBinding exprCells
       <> "\nmain :: Effect Unit\n"
-      <> "main = launchAff_ do\n"
+      <> "main = runAff_ (\\_ -> done) do\n"
       <> (if Array.null exprCells then "  pure unit\n" else foldMap emitLine exprCells)
   where
   isExpr (Cell c) = c.kind == "expr"
