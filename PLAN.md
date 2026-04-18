@@ -399,8 +399,14 @@ and the inferred type for each cell, all updating live.
       rather than plain `show`. Landed 2026-04-18: `PlaygroundValue`
       ADT on the wire, `Playground.Frontend.ValueView` walks the
       tree, constructors get accent colour and parenthesised args.
-      Record handling still via `Show` fallback — Generic-derived
-      record rendering is deferred.
+      Records landed 2026-04-18 via `RowToList` — `PVRecord` case,
+      renders in `{ field: value }` PureScript surface syntax.
+      Nullary constructors (`Africa`, `LT`, `Nothing`) landed same
+      day via a Show-output heuristic — bare upper-case identifiers
+      get emitted as `PVCtor s []` uniformly with hand-written
+      instances. Multi-arg user ADTs without a hand-written
+      instance still fall to `PVRaw` (Generic-based fallback
+      deferred — see EVAL-NOTES).
 - [x] Warnings surfaced (same panel, amber treatment). Landed
       2026-04-17.
 - [x] Hover-type popovers on identifiers inside the editors. Landed
@@ -424,97 +430,205 @@ and the inferred type for each cell, all updating live.
       same scope the user's module does.
 - [x] Tailscale-reachable: backend binds to `0.0.0.0`, frontend
       resolves backend URL from `window.location.hostname`.
+- [x] Inline error decoration on the CM6 editor — `errorsField`
+      StateField + `setErrorsEffect` StateEffect paint red squiggles
+      on the offending cell/line; errors are partitioned by
+      filename (module vs cell) and remapped from Main-relative
+      lines to cell-relative using `cellRanges`.
+- [x] Records and nullary constructors as structured values — see
+      Phase 2's ToPlaygroundValue bullet above.
+- [x] Monads-crossing starter content — `monadsCross` exercises
+      Maybe / Array / Either / Tuple via the structural renderer;
+      `monadsWithAff` for async; `erlangProcesses` for Purerl
+      actors.
 
 ### Still queued (post-MVP polish, optional)
 
-- Inline error decoration on the CM6 editor (red squiggle on the
-  offending cell/line rather than just the bottom panel).
-- Generic-derived record rendering for `ToPlaygroundValue`.
 - A proper PureScript grammar for CM6 (currently using the legacy-
   modes Haskell mode; good enough but not PureScript-exact).
-- Showcase starter content that exercises the structural renderer
-  (Maybe/Tuple demos).
+- Generic-based `ToPlaygroundValue` for multi-arg user ADTs —
+  records and nullary ctors are already structured; this would
+  close the loop for `data Result = Ok Int | Err String` and
+  similar. Deferred because PureScript instance chains don't fall
+  through on constraint failure cleanly.
+- Session mutex + IDE-query reliability: timeout + finally bracket
+  landed 2026-04-18; still open is whether to proactively
+  health-check the `purs ide` server rather than relying on
+  per-query timeouts.
 
-## Phase 3 — Broaden
+## Post-eval evolution (Phases A–E)
 
-- URL-encoded state for sharing (compressed — the same trick
-  trypurescript uses for its `code=` query parameter).
-- File tree in the left margin: multiple user modules, cross-references
-  allowed.
-- Persistence of sessions (probably filesystem-first, SQLite later).
-- Export: save session as a runnable PureScript project.
-- Starter galleries (e.g. "Hylograph-libs walkthrough", "PureScript
-  101").
+Phases 3 and 4 as originally sketched are superseded by what the
+2026-04-18 Claude-pair evaluation revealed
+([CLAUDE-PAIR-EVAL-2026-04-18.md](./CLAUDE-PAIR-EVAL-2026-04-18.md)).
+The old "Phase 4 Claude panel" — a chat sidebar where the human
+accepts/rejects Claude's edits — is dropped: the HTTP API *is* the
+channel between agent and system, and the reframe to "REPL for
+agents with a window for humans" makes the sidebar superfluous. Old
+Phase 3's items (persistence, multi-module, export) survive but
+reshuffled across the phases below. Lettered A–E to signal the
+pivot point from "build the MVP" to "evolve the useful tool we now
+have."
 
-## Phase 4 — The Claude panel
+Phases are ordered by dependency depth, not calendar. A compounds
+the agent's existing workflows (days); B opens a new output
+dimension (weeks); C is an architectural shift (weeks); D can run
+parallel to C; E is the longest horizon.
 
-A fourth surface in the UI: a conversational pane on the right where
-Claude can observe the session and collaborate with the user. Not
-committed to before Phase 3, but worth designing around now so we
-don't foreclose it.
+### Phase A — Finish the agent REPL's ergonomics
 
-```
-┌──────────────┬──────────────┬────────────┬──────────────────┐
-│ Module       │ Playground   │ Value+type │ Claude panel     │
-│ editor       │ cells        │ gutter     │ (chat +          │
-│              │              │            │  proposed edits) │
-└──────────────┴──────────────┴────────────┴──────────────────┘
-```
+Pure additions, no architectural change. Closes the practitioner
+friction other Claude flagged in the eval.
 
-What Claude gets to see (via Anthropic API, one backend-mediated
-endpoint):
+- `PATCH /session/module` — structured edits: `{addImport: "X"}`,
+  `{appendBody: "..."}`, `{replaceRange: {startLine, endLine, text}}`.
+  Replaces the current full-body POST for small changes; kills the
+  "GET, string-replace in Python, POST back" lurch.
+- `POST /session/export` + `POST /session/import`, plus
+  `GET /sessions` history. First-class checkpointing; eliminates the
+  hand-rolled `checkpoint.json`/`replay.py` reflex.
+- `GET /session/types` — narrow read for tight type-checking loops
+  where `js` (~80KB) is pure overhead.
+- Doc additions: shell-quoting warning (`\` in POST bodies, Python
+  raw-string prefix), let-cell composability example, the emit wire
+  format (already landed in CLAUDE-PAIR.md).
+- Browser-runtime evaluator-liveness signal: surface in the snapshot
+  whether a tab is actually evaluating, so the agent doesn't wait
+  on emits that will never arrive.
 
-- The user module source.
-- The full cell list (ids + kind + source).
-- Per-cell inferred types (already computed by the `purs ide` sidecar).
-- Per-cell rendered values (already emitted by the Web Worker).
-- The current set of compile errors and warnings, in the same JSON
-  shape the compiler produces.
-- A conversation history scoped to this session.
+Done in this phase: session state remains a single in-memory
+`SessionStore` with the AVar-mutex + finally-bracket we added on
+2026-04-18.
 
-What Claude can do:
+### Phase B — Human observatory: dual-axis output
 
-- **Explain** an error or a type, grounded in the actual current code.
-- **Propose cells** — e.g. "five small examples of `Data.Array.fold`"
-  — that the user can accept into the playground as real cells.
-- **Propose edits** to the module or an existing cell, surfaced as a
-  diff the user accepts or rejects. Edits round-trip through the
-  normal compile/eval loop, so the user sees the new value+type before
-  committing.
-- **Teach** — for the learner audience, walk through what's happening,
-  suggest next exercises, calibrate to the user's stated level.
+Open the pluggable render pane. Keep the type axis we already have
+(`types: [{id, signature}]`), add a representations axis (Jupyter's
+MIME idea, minus the type-flattening sin).
 
-### Why this isn't just "a chat sidebar"
+Phase B representations are **cell-kind declared**, not
+**type-inferred**. That is: a cell is marked `kind: svg` or
+`kind: hats` or `kind: canvas`, and its source returns something
+appropriate for that representation. Explicit is legible to the
+agent ("this cell emits SVG") and avoids the design-cost of a
+type-driven mime-dispatch upfront. If we later want type-driven
+representations (records get a table view automatically, etc.),
+promote the machinery from cell-kind to type-indexed without
+breaking the wire format.
 
-The thing that makes the Claude panel distinctive in the Playground
-context is that Claude has the **compiler's view** of the code — every
-cell's actual inferred type and actual runtime value — not just the
-source text. That's a richer grounding than a normal IDE assistant has.
-Suggestions can be calibrated against what the code *currently does*,
-not what it *textually says*.
+- Values optionally carry
+  `representations :: Array { mime :: String, data :: String }`
+  alongside the existing `emits` field.
+- Initial backends: `text/html`, `image/svg+xml`, `text/x-hats+json`
+  (Hylograph AST for native integration with the rest of the
+  ecosystem), `application/x-canvas-ops` (a log of 2D canvas calls
+  for replay).
+- Fourth pane in the UI: swappable based on the active cell's
+  representations and what the pane's renderer supports. When no
+  representation is available, falls back to the existing
+  values+types gutter.
+- Agent still reads the underlying data from `emits`; the render
+  pane is purely for the human. Both sides see what they need.
+- "Promote cell → module function" affordance lands here — it's
+  render-agnostic and belongs with the "move work out of the
+  scratchpad into real code" theme.
 
-The corollary: the session-state shape we're building for Phase 1
-(module + cells + types + values + errors) is already the right
-payload for this. No retrofit needed. Prompt caching works naturally:
-the cached block is (module source + imports + package set context),
-the turn-varying block is (cells + results + user message).
+### Phase C — Streaming / effectful things in the world
 
-### Design principles to preserve now
+Shift from one-shot emit to multi-emit-over-time. Biggest lift in
+the plan; touches backend adapter, wire protocol, and UI.
 
-These don't change any Phase 1 work; they're just things we keep in
-mind so Phase 4 isn't a rewrite:
+- SSE stream from backend (`GET /session/events`, already sketched
+  in CLAUDE-PAIR.md); each event carries a `{cellId, value, at}`
+  triple. Cells can emit repeatedly; render pane animates; agent
+  reads the trace as structured data.
+- Long-lived cells: a cell's synthesised top-level binding can be
+  an `Aff Unit` or Erlang process that emits as state evolves,
+  rather than a single value. The runtime `emit` FFI is already a
+  per-call channel; this is mostly scheduler plumbing.
+- Use cases this unlocks: Lorenz attractor stepping, MIDI trace,
+  Erlang actor mailbox, reactive layout convergence, network
+  request timelines.
+- Agent-facing: read the full trace via a `GET /session/trace/:id`
+  endpoint that returns the cell's emit history. The agent can
+  reason about process behaviour, not just final state.
 
-- **Session state is a serialisable value, not UI state scattered
-  across Halogen components.** Already true given the backend round-trip
-  model; keep it so.
-- **Compile results carry structured errors**, not just rendered
-  strings. `purs`'s `--json-errors` format gives us this; don't throw
-  it away on the way to the frontend.
-- **Cell ids are stable across edits.** Already a commitment for type
-  correlation; the Claude panel leans on the same property.
-- **Edits-via-tool-use**: when we add the panel, Claude's edit
-  proposals land via a tool-use protocol (structured `{surface, cell,
-  newSource}`), not free-text diffs. Cleaner UX and safer to apply.
+### Phase D — Multi-module + project-binding
+
+Can run parallel to Phase C; different dependency set.
+
+- `POST /session/modules/:name`, `DELETE /session/modules/:name`.
+  Cells and other modules can `import` across them. The synthesis
+  pipeline generalises: one `Main.purs` splices cells from multiple
+  user modules instead of one `Scratch`.
+- Project-context binding: attach a Playground session to an
+  existing PureScript project's spago workspace. Package set comes
+  from the project; top-level identifiers from the project appear
+  in scope; `purs ide` repoints to the project's output directory.
+- Promote cell → project source tree: agent-mediated (it has the
+  context for naming and placement). Closes the loop where the
+  Playground is a staging surface and the agent carries cells into
+  real code.
+
+### Phase E — Inspiration for ShapedSteer
+
+The reframe to "REPL for agents" makes the Playground look like the
+simplest useful configuration of what ShapedSteer is aiming at
+(typed DAG workbench, multiple executors, multiple views). But we
+don't *grow the Playground into* ShapedSteer — ShapedSteer gets
+built fresh with its own architecture, and the Playground serves
+as a working, feature-rich reference to lift code and patterns
+from.
+
+What transfers cleanly:
+
+- Session-state shape (module + cells + derived types + derived
+  values) as a starting schema for DAG nodes.
+- Adapter abstraction (browser / node / purerl) as a template for
+  ShapedSteer's multiple executors; adding "human input" and "AI"
+  executor cell-kinds is a natural extension there.
+- The ToPlaygroundValue + MIME-representations machinery from
+  Phase B — same dual-axis idea transfers directly.
+- The Claude-pair HTTP API surface as a proof that
+  agent-driven-by-default works; ShapedSteer's analogue of this is
+  probably bigger surface but same shape.
+- Reliability patterns: AVar mutex + finally-bracket, process
+  timeouts, on-exit respawn of shared subprocesses.
+
+What we leave behind (don't port): the single-`Scratch` assumption,
+the synthesised-`Main.purs` trick (ShapedSteer won't compile one
+splat per cell-set; it'll compile a proper DAG), the
+cells-as-untyped-sources model (ShapedSteer cells have declared
+typed inputs and outputs, not implicit name-based deps).
+
+### Design principles we preserve across all phases
+
+Invariants from the original plan, still load-bearing:
+
+- **Session state is a serialisable value**, not UI state scattered
+  across Halogen components. Enables export/import, replay, and
+  the whole agent round-trip model.
+- **Compile results carry structured errors**, not rendered
+  strings. `purs --json-errors` format all the way through; don't
+  flatten on the way to the frontend.
+- **Cell ids are stable across edits.** Types and values correlate
+  by id; polling and streaming both depend on this.
+- **Edits round-trip through the compile/eval loop.** Agent's POST
+  becomes the human's observed state; no separate edit-preview
+  path that can drift from reality.
+
+### Explicitly not on the path
+
+- **Cloning Jupyter.** We keep the MIME-dispatch idea for
+  representations (Phase B), but the type axis is first-class and
+  distinct from representations — not flattened into
+  `application/json`.
+- **A "Claude panel" chat sidebar in the browser UI.** The old
+  Phase 4 idea. Superseded by the agent-REPL framing: the HTTP API
+  *is* the channel.
+- **Learner-oriented features.** Practitioner audience only; agents
+  are the other side of the practitioner relationship. Not a
+  learning tool.
 
 ## Starter content
 
@@ -551,6 +665,49 @@ single screen; nothing the user has to install or understand first.
 Captured 2026-04-18 — the framing that crystallised once the MVP was
 in front of us in Chrome. This is forward-looking; what's actually
 implemented is the MVP described in Phase 1.
+
+### Primary framing (post-eval, 2026-04-18): a REPL for agents with a window for humans
+
+After the first live Claude-pair evaluation
+([CLAUDE-PAIR-EVAL-2026-04-18.md](./CLAUDE-PAIR-EVAL-2026-04-18.md)),
+the right one-liner for what we're building is:
+
+> **A REPL for agents, with a window for humans.**
+
+Each piece earns its place:
+
+- **REPL** — typed input → stateful workspace → read-back. Cells are
+  prompts; the module is scope; `/ide/type` is `:t`; snapshot-on-write
+  is the read-back. The primitive shape is genuinely a REPL, just
+  structured and HTTP-addressable.
+- **For agents** — the HTTP API is the primary user interface, not a
+  secondary scripting layer. A Claude session is the one doing most
+  of the writing. Feature prioritisation follows from this: other
+  Claude's quick-wins (PATCH module, export/import, structured
+  record/ADT emits) are core REPL ergonomics for an agent, not polish.
+- **With a window for humans** — the browser UI is a transparent
+  observation pane, not a peer seat. The render column, the inline
+  error squiggles, and type-rendering typography are all *for the
+  human watching* what the agent is doing; they aren't where the
+  human drives from.
+
+This reverses the earlier "pair programming" metaphor's implication of
+two peers. There is one driver (the agent) and one observer (the
+human), though the human retains full authority and can interrupt.
+
+**Human input still matters — in the form best suited to humans.**
+Not volume but direction: pseudo-signatures sketched in English,
+ADT proposals phrased as descriptions, design-level constraints, the
+"no, that's the wrong shape" call. Claude will write far more code
+than any human can match or fully review line-by-line, so the human's
+contribution is intent, taste, and veto — expressed in the vocabulary
+the human is fastest in (English, hand-drawn types, rough sketches).
+Translating those into compilable PureScript is the agent's job.
+
+This reframe shapes the rest of this section: the existing "two
+practitioner use cases," the AI-mediated-lift argument, and the
+Claude-panel Phase 4 are all *downstream* of this one-liner. Keep
+them — they're still true — but read them under this header.
 
 ### Two practitioner use cases (no learners)
 
@@ -844,8 +1001,12 @@ New questions will land here as they surface during M0–M6.)
       marginalia; `make build` only touches the three workspace
       packages we maintain so stale scratch code can't wedge bootstrap.
 
-**After MVP** — Phase 2 milestones (inline error attribution,
-richer Sigil-rendered values, hover types) to be detailed after M6.
+**After MVP** — Phase 2 and Phase 2 follow-ups both shipped
+2026-04-17/18 (inline errors, hover types, structural values
+including records + nullary ctors, Aff support, let-cell toggle,
+Tailscale reach). The 2026-04-18 Claude-pair evaluation reset the
+horizon: subsequent work is tracked under Phases A–E in "Post-eval
+evolution" above, not re-planned here.
 
 ## References
 
