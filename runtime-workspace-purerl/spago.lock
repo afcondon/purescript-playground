@@ -18,6 +18,7 @@
             "integers",
             "maybe",
             "prelude",
+            "record",
             "strings",
             "tuples"
           ]
@@ -1885,6 +1886,16 @@
         "tuples"
       ]
     },
+    "record": {
+      "type": "git",
+      "url": "https://github.com/purerl/purescript-record.git",
+      "rev": "539eb726cd7bdfcd95bf8bca20b3aed993006919",
+      "dependencies": [
+        "functions",
+        "typelevel-prelude",
+        "unsafe-coerce"
+      ]
+    },
     "refs": {
       "type": "git",
       "url": "https://github.com/purerl/purescript-refs.git",
@@ -1976,6 +1987,15 @@
       "url": "https://github.com/purescript/purescript-type-equality.git",
       "rev": "f7644468f22ed267a15d398173d234fa6f45e2e0",
       "dependencies": []
+    },
+    "typelevel-prelude": {
+      "type": "git",
+      "url": "https://github.com/purescript/purescript-typelevel-prelude.git",
+      "rev": "83ddcdb23d06c8d5ea6196596a70438f42cd4afd",
+      "dependencies": [
+        "prelude",
+        "type-equality"
+      ]
     },
     "unfoldable": {
       "type": "git",

@@ -94,6 +94,32 @@ is `*`. There is no auth — this is a local-only tool for now.
 Note: `GET /session` returns the last compiled state. It does NOT
 force a recompile. To force a recompile, use `POST /session/compile`.
 
+### Emit wire format
+
+Each entry in `emits` is `{ id, value }` where `value` is a JSON **string** containing an encoded `PlaygroundValue`. The envelope is always a primitive, an array, or one of these tagged objects:
+
+```
+null
+true/false
+42 / 3.14
+"hello"
+[ <value>, ... ]
+{ "$ctor": "Just",   "args": [ <value> ] }   // structured constructor
+{ "$ctor": "Africa", "args": [] }            // nullary constructor
+{ "$record": { "field1": <value>, ... } }    // record
+{ "$raw":   "SomeShowOutput" }               // fallback — couldn't decompose
+```
+
+What gets what:
+
+- **Scalars** (Int, Number, Boolean, String, Char, Unit) → primitive JSON.
+- **Array, Maybe, Either, Tuple** → `PVArray` / `PVCtor`. These are hand-written instances.
+- **Records** → `{ "$record": { ... } }`. Automatic via `RowToList` — no user work needed.
+- **Nullary constructors** (e.g. `Africa`, `LT`, `None`) → `{ "$ctor": name, "args": [] }`. The runtime inspects the Show output; if it's a bare capitalised identifier it treats it as a nullary ctor.
+- **Multi-arg user ADTs** without a hand-written `ToPlaygroundValue` instance → `{ "$raw": "..." }` (surface-syntax string). This is the one "still dumb" case — if you want structure, write or derive the instance. (A `Generic`-based fallback is planned.)
+
+So an `emits` entry for a cell returning `Array { avgDensity :: Number, name :: String }` comes through as a parseable JSON tree you can walk field-by-field. Cell-composes-with-cell works because the runtime values do, and now the JSON surface agrees.
+
 `POST /ide/type` — body `{ "query": "map" }` → `{ "hits": [ { "identifier", "moduleName", "typeSignature" }, ... ] }`. Useful for "what's the type of map?"
 
 `POST /ide/complete` — same shape; returns prefix-completion candidates.

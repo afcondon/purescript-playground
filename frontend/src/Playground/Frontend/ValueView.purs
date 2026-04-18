@@ -8,6 +8,7 @@ import Data.Array (length)
 import Data.Array as Array
 import Data.Int (round, toNumber)
 import Data.Number.Format as Number
+import Data.Tuple (Tuple(..))
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
 
@@ -27,6 +28,7 @@ render = case _ of
       [ HH.text ("\"" <> s <> "\"") ]
   PVArray xs -> renderArray xs
   PVCtor name args -> renderCtor name args
+  PVRecord fields -> renderRecord fields
   PVRaw s ->
     HH.span [ HP.class_ (HH.ClassName "pv-raw") ] [ HH.text s ]
 
@@ -47,6 +49,22 @@ renderArray xs =
     ( [ punct "[" ] <> interspersed <> [ punct "]" ] )
   where
   interspersed = Array.intersperse (punct ", ") (map render xs)
+
+-- Records render in PureScript surface syntax: `{ field: value, ... }`.
+-- Field names get their own class so stylesheet can pick them out from
+-- string values etc.
+renderRecord :: forall w i. Array (Tuple String PlaygroundValue) -> HH.HTML w i
+renderRecord fields =
+  HH.span [ HP.class_ (HH.ClassName "pv-record") ]
+    ( [ punct "{ " ] <> interspersed <> [ punct " }" ] )
+  where
+  interspersed = Array.intersperse (punct ", ") (map renderField fields)
+  renderField (Tuple k v) =
+    HH.span [ HP.class_ (HH.ClassName "pv-field") ]
+      [ HH.span [ HP.class_ (HH.ClassName "pv-field-name") ] [ HH.text k ]
+      , punct ": "
+      , render v
+      ]
 
 renderCtor :: forall w i. String -> Array PlaygroundValue -> HH.HTML w i
 renderCtor name args =

@@ -1,6 +1,8 @@
 module Playground.Runtime
   ( class ToPlaygroundValue
   , toPlaygroundValue
+  , class RecordToPlaygroundValue
+  , recordToPlaygroundValue
   , PlaygroundValue(..)
   , emit
   , done
@@ -8,15 +10,22 @@ module Playground.Runtime
 
 import Prelude
 
+import Data.Char (toCharCode)
 import Data.Either (Either(..))
 import Data.Int (round, toNumber) as Int
 import Data.Maybe (Maybe(..))
-import Data.String.CodeUnits (singleton) as String
+import Data.String (contains) as Str
+import Data.String.CodeUnits (charAt, singleton) as String
 import Data.String.Common (joinWith, replaceAll) as Str
 import Data.String.Pattern (Pattern(..), Replacement(..))
+import Data.Symbol (class IsSymbol, reflectSymbol)
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
+import Prim.Row as Row
+import Prim.RowList as RL
+import Record (get) as Record
+import Type.Proxy (Proxy(..))
 
 -- | Same wire format as the JS runtime; hand-rolled JSON encoder
 -- | because the Purerl package set doesn't ship argonaut.
@@ -27,6 +36,7 @@ data PlaygroundValue
   | PVString String
   | PVArray (Array PlaygroundValue)
   | PVCtor String (Array PlaygroundValue)
+  | PVRecord (Array (Tuple String PlaygroundValue))
   | PVRaw String
 
 encode :: PlaygroundValue -> String
@@ -39,6 +49,11 @@ encode = case _ of
   PVCtor name args ->
     "{\"$ctor\":" <> jsonString name
       <> ",\"args\":[" <> Str.joinWith "," (map encode args) <> "]}"
+  PVRecord fields ->
+    "{\"$record\":{"
+      <> Str.joinWith "," (map encodeField fields)
+      <> "}}"
+    where encodeField (Tuple k v) = jsonString k <> ":" <> encode v
   PVRaw s -> "{\"$raw\":" <> jsonString s <> "}"
 
 showNumber :: Number -> String
@@ -110,8 +125,54 @@ else instance toPlaygroundValueTuple ::
     vb <- toPlaygroundValue b
     pure (PVCtor "Tuple" [ va, vb ])
 
+else instance toPlaygroundValueRecord ::
+  ( RL.RowToList row list
+  , RecordToPlaygroundValue list row
+  ) => ToPlaygroundValue (Record row) where
+  toPlaygroundValue rec = do
+    fields <- recordToPlaygroundValue (Proxy :: Proxy list) rec
+    pure (PVRecord fields)
+
 else instance toPlaygroundValueShow :: Show a => ToPlaygroundValue a where
-  toPlaygroundValue a = pure (PVRaw (show a))
+  toPlaygroundValue a = pure (classifyShow (show a))
+
+class RecordToPlaygroundValue (list :: RL.RowList Type) (row :: Row Type) where
+  recordToPlaygroundValue
+    :: Proxy list
+    -> Record row
+    -> Effect (Array (Tuple String PlaygroundValue))
+
+instance recordToPlaygroundValueNil :: RecordToPlaygroundValue RL.Nil row where
+  recordToPlaygroundValue _ _ = pure []
+
+instance recordToPlaygroundValueCons ::
+  ( IsSymbol name
+  , ToPlaygroundValue a
+  , Row.Cons name a tail row
+  , RecordToPlaygroundValue restList row
+  ) => RecordToPlaygroundValue (RL.Cons name a restList) row where
+  recordToPlaygroundValue _ rec = do
+    let nameProxy = Proxy :: Proxy name
+    pv <- toPlaygroundValue (Record.get nameProxy rec)
+    rest <- recordToPlaygroundValue (Proxy :: Proxy restList) rec
+    pure ([ Tuple (reflectSymbol nameProxy) pv ] <> rest)
+
+classifyShow :: String -> PlaygroundValue
+classifyShow s =
+  if isBareCtorIdent s then PVCtor s [] else PVRaw s
+
+isBareCtorIdent :: String -> Boolean
+isBareCtorIdent s = case String.charAt 0 s of
+  Nothing -> false
+  Just c ->
+    let n = toCharCode c
+        hasSpecial = Str.contains (Pattern " ") s
+          || Str.contains (Pattern "(") s
+          || Str.contains (Pattern "{") s
+          || Str.contains (Pattern "[") s
+          || Str.contains (Pattern "\"") s
+          || Str.contains (Pattern ",") s
+    in n >= 65 && n <= 90 && not hasSpecial
 
 emit :: String -> PlaygroundValue -> Effect Unit
 emit id value =

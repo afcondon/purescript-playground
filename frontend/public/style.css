@@ -615,6 +615,7 @@ body {
 .pv-punct   { color: var(--muted); }
 .pv-ctor-name { color: var(--accent); font-weight: 600; }
 .pv-parens  { color: var(--muted); }
+.pv-field-name { color: #2e5d4a; }
 
 .runtime-error {
   font-family: var(--mono);

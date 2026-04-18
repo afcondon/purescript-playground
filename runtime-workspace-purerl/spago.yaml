@@ -28,6 +28,7 @@ package:
     - integers
     - maybe
     - prelude
+    - record
     - strings
     - tuples
     - erl-process

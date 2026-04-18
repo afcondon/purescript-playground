@@ -12,6 +12,7 @@ import Data.Argonaut.Parser (jsonParser)
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.Traversable (traverse)
+import Data.Tuple (Tuple(..))
 import Foreign.Object (Object)
 import Foreign.Object as Object
 
@@ -25,6 +26,7 @@ data PlaygroundValue
   | PVString String
   | PVArray (Array PlaygroundValue)
   | PVCtor String (Array PlaygroundValue)
+  | PVRecord (Array (Tuple String PlaygroundValue))
   | PVRaw String
 
 -- | Parse a JSON string coming from the emit channel. Anything that
@@ -63,7 +65,14 @@ fromObject o =
       , Just args <- AJ.toArray aj ->
           PVCtor name <$> traverse fromJson args
     _, _ ->
-      -- { "$raw": "string" }
-      case Object.lookup "$raw" o of
-        Just rj | Just s <- AJ.toString rj -> Just (PVRaw s)
-        _ -> Nothing
+      -- { "$record": { "field1": <value>, "field2": <value>, ... } }
+      case Object.lookup "$record" o of
+        Just rj | Just inner <- AJ.toObject rj ->
+          PVRecord <$> traverse decodeField (Object.toUnfoldable inner)
+        _ ->
+          -- { "$raw": "string" }
+          case Object.lookup "$raw" o of
+            Just rj | Just s <- AJ.toString rj -> Just (PVRaw s)
+            _ -> Nothing
+  where
+  decodeField (Tuple k v) = Tuple k <$> fromJson v
