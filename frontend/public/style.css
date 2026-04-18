@@ -89,6 +89,152 @@ body {
   color: var(--fg);
 }
 
+.starter-dropdown {
+  position: relative;
+  font-size: 0.75rem;
+}
+
+.starter-btn, .in-scope-btn {
+  font: inherit;
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  padding: 0.35rem 0.75rem;
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  color: var(--fg);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.starter-btn:hover,
+.in-scope-btn:hover { background: #f4f4f1; }
+.in-scope-btn.active { background: var(--accent); color: #fdfdfc; border-color: var(--accent); }
+
+.starter-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  min-width: 420px;
+  background: #fdfdfc;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.starter-option {
+  font: inherit;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--rule);
+  padding: 0.6rem 0.8rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.starter-option:last-child { border-bottom: none; }
+
+.starter-option.current {
+  background: #f4f4f1;
+}
+
+.starter-option:hover { background: #ecece8; }
+
+.starter-label {
+  font-weight: 600;
+  color: var(--fg);
+  font-size: 0.85rem;
+}
+
+.starter-desc {
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.starter-compat {
+  display: flex;
+  gap: 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  margin-top: 0.25rem;
+}
+
+.compat-badge {
+  padding: 0.05rem 0.35rem;
+  border-radius: 2px;
+  border: 1px solid transparent;
+}
+
+.compat-badge.compat-yes { color: #3d7a72; }
+.compat-badge.compat-no { color: #b85470; }
+.compat-badge.compat-current {
+  border-color: currentColor;
+  font-weight: 600;
+}
+
+.in-scope-panel {
+  padding: 1rem 2rem;
+  background: #f8f8f5;
+  border-bottom: 1px solid var(--rule);
+  font-size: 0.8rem;
+}
+
+.in-scope-panel h2 {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.in-scope-panel .runtime-label {
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.in-scope-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+}
+
+.in-scope-section h3 {
+  margin: 0 0 0.35rem 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.in-scope-section ul {
+  margin: 0;
+  padding-left: 1rem;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: var(--fg);
+}
+
+.in-scope-notes {
+  margin: 0.75rem 0 0 0;
+  padding-left: 1rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-style: italic;
+  line-height: 1.5;
+}
+
 .compile-btn {
   font: inherit;
   padding: 0.35rem 1rem;

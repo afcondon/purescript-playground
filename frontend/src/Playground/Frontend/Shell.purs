@@ -28,7 +28,10 @@ import Type.Proxy (Proxy(..))
 
 import Playground.Frontend.Config (backendUrl)
 import Playground.Frontend.Editor as Editor
+import Playground.Frontend.InScope as InScope
 import Playground.Frontend.SigilView as SigilView
+import Playground.Frontend.Starter (Starter, compatFor, starters)
+import Playground.Frontend.Starter as Starter
 import Playground.Frontend.Value (PlaygroundValue)
 import Playground.Frontend.Value as Value
 import Playground.Frontend.ValueView as ValueView
@@ -54,7 +57,10 @@ type State =
   { moduleSource :: String
   , cells :: Array CellRec
   , nextCellId :: Int
-  , runtime :: String             -- "browser" | "node" — which adapter to use
+  , runtime :: String             -- "browser" | "node" | "purerl"
+  , starterKey :: String          -- key of the currently-loaded starter
+  , starterMenuOpen :: Boolean
+  , inScopeOpen :: Boolean
   , compiling :: Boolean
   , errors :: Array CompileError
   , warnings :: Array CompileError
@@ -93,129 +99,39 @@ data Action
   | RemoveCell String
   | ToggleCellKind String
   | SetRuntime String
+  | ToggleStarterMenu
+  | LoadStarter String
+  | ToggleInScope
   | HandleWorkerMessage WorkerMessage
   | WorkerTimeout
 
-starterModule :: String
-starterModule =
-  "module Scratch where\n\n\
-  \import Prelude\n\n\
-  \-- Cells automatically have these in scope; you only need to\n\
-  \-- import the ones you also want to reference *in this module*:\n\
-  \--\n\
-  \--   Prelude\n\
-  \--   Data.Array as Array\n\
-  \--   Data.Either (Either(..))\n\
-  \--   Data.Maybe (Maybe(..))\n\
-  \--   Data.Tuple (Tuple(..))\n\
-  \--   Effect (Effect)\n\
-  \--   Effect.Aff (launchAff_)\n\
-  \--   Effect.Class (liftEffect)\n\
-  \--   Playground.Runtime (class ToPlaygroundValue, emit, toPlaygroundValue)\n\
-  \--\n\
-  \-- The full runtime-workspace package set is available to import:\n\
-  \-- argonaut, affjax, parsing, transformers, etc.\n\n\
-  \import Data.Maybe (Maybe(..))\n\
-  \import Data.Time.Duration (Milliseconds(..))\n\
-  \import Effect.Aff (Aff, delay)\n\n\
-  \-- Safe division: Nothing on divide-by-zero, Just q otherwise.\n\
-  \divSafe :: Int -> Int -> Maybe Int\n\
-  \divSafe _ 0 = Nothing\n\
-  \divSafe n d = Just (n / d)\n\n\
-  \-- Async: pause 25ms then yield 100. Runs the same way under the\n\
-  \-- browser Worker and a Node child-process — flip the runtime\n\
-  \-- toggle and watch c6 produce the same value.\n\
-  \timedSum :: Aff Int\n\
-  \timedSum = do\n\
-  \  delay (Milliseconds 25.0)\n\
-  \  pure 100\n"
-
--- | Starter cells laid out as three short lessons:
--- |
--- |   c1            Just 20      — Maybe is "uncertainty made explicit"
--- |   c2  do-block   Just 30     ┐ same computation, two notations
--- |   c3  >>= form   Just 30     ┘ (do is sugar for chained bind)
--- |
--- |   c4  Array      [...]       ┐ same do-shape, three different
--- |   c5  Either     Right 30    │ Monad instances — uncertainty,
--- |   c1 above       Just 20     ┘ non-determinism, error-or-result
--- |
--- |   c6  Aff        200          — same do-shape again, this time
--- |                                 async. Works identically under
--- |                                 the Browser Worker and Node
--- |                                 child-process runtimes.
--- |
--- | The "click" moments: c2/c3 produce identical values (do is sugar
--- | for >>=), and c1/c4/c5/c6 are the same do-shape over Maybe /
--- | Array / Either / Aff, demonstrating the abstracted pattern. The
--- | *types* column tells the structural story; the values column
--- | shows the behavioural consequence.
-starterCells :: Array CellRec
-starterCells =
-  [ { id: "c1"
-    , kind: "expr"
-    , source: "divSafe 100 5"
-    }
-  , { id: "c2"
-    , kind: "expr"
-    , source:
-        "do\n\
-        \  a <- divSafe 100 5\n\
-        \  b <- divSafe 200 a\n\
-        \  pure (a + b)"
-    }
-  , { id: "c3"
-    , kind: "expr"
-    , source:
-        "divSafe 100 5 >>= \\a ->\n\
-        \  divSafe 200 a >>= \\b ->\n\
-        \    pure (a + b)"
-    }
-  , { id: "c4"
-    , kind: "expr"
-    , source:
-        "do\n\
-        \  x <- [1, 2, 3]\n\
-        \  y <- [10, 20]\n\
-        \  pure (x + y)"
-    }
-  , { id: "c5"
-    , kind: "expr"
-    , source:
-        "do\n\
-        \  x <- (Right 10 :: Either String Int)\n\
-        \  y <- Right 20\n\
-        \  pure (x + y)"
-    }
-  , { id: "c6"
-    , kind: "expr"
-    , source:
-        "do\n\
-        \  a <- timedSum\n\
-        \  b <- timedSum\n\
-        \  pure (a + b)"
-    }
-  ]
-
 initialState :: forall i. i -> State
 initialState _ =
-  { moduleSource: starterModule
-  , cells: starterCells
-  , nextCellId: 7
-  , runtime: "browser"
-  , compiling: false
-  , errors: []
-  , warnings: []
-  , cellRanges: []
-  , transportError: Nothing
-  , runtimeError: Nothing
-  , cellResults: Map.empty
-  , cellTypes: Map.empty
-  , pendingCompile: Nothing
-  , worker: Nothing
-  , workerSub: Nothing
-  , workerTimeout: Nothing
-  }
+  let s = Starter.defaultStarter
+  in { moduleSource: s.moduleSource
+     , cells: s.cells
+     , nextCellId: nextIdAfter s.cells
+     , runtime: "browser"
+     , starterKey: s.key
+     , starterMenuOpen: false
+     , inScopeOpen: false
+     , compiling: false
+     , errors: []
+     , warnings: []
+     , cellRanges: []
+     , transportError: Nothing
+     , runtimeError: Nothing
+     , cellResults: Map.empty
+     , cellTypes: Map.empty
+     , pendingCompile: Nothing
+     , worker: Nothing
+     , workerSub: Nothing
+     , workerTimeout: Nothing
+     }
+  where
+  -- Cell ids are "c1", "c2", …; pick an int strictly above the
+  -- highest used so new cells don't collide.
+  nextIdAfter cs = Array.length cs + 1
 
 debounceMs :: Milliseconds
 debounceMs = Milliseconds 400.0
@@ -271,6 +187,21 @@ handleAction = case _ of
     when (s0.runtime /= r) do
       H.modify_ _ { runtime = r, cellResults = Map.empty }
       handleAction ScheduleCompile
+  ToggleStarterMenu -> H.modify_ \s -> s { starterMenuOpen = not s.starterMenuOpen }
+  LoadStarter k -> case Starter.findByKey k of
+    Nothing -> pure unit
+    Just starter -> do
+      H.modify_ \s -> s
+        { moduleSource = starter.moduleSource
+        , cells = starter.cells
+        , nextCellId = Array.length starter.cells + 1
+        , starterKey = starter.key
+        , starterMenuOpen = false
+        , cellResults = Map.empty
+        , cellTypes = Map.empty
+        }
+      handleAction ScheduleCompile
+  ToggleInScope -> H.modify_ \s -> s { inScopeOpen = not s.inScopeOpen }
   ScheduleCompile -> do
     s <- H.get
     case s.pendingCompile of
@@ -412,6 +343,7 @@ render state =
         )
     ]
     [ renderHeader state
+    , if state.inScopeOpen then renderInScopePanel state else HH.text ""
     , HH.main [ HP.class_ (H.ClassName "columns") ]
         [ renderModuleColumn state
         , renderCellsColumn state
@@ -419,6 +351,30 @@ render state =
         ]
     , renderErrorPanel state
     ]
+
+renderInScopePanel :: forall m. State -> H.ComponentHTML Action Slots m
+renderInScopePanel state =
+  let sc = InScope.forRuntime state.runtime
+  in HH.section [ HP.class_ (H.ClassName "in-scope-panel") ]
+    [ HH.h2_
+        [ HH.text "In scope — "
+        , HH.span [ HP.class_ (H.ClassName "runtime-label") ]
+            [ HH.text sc.runtimeLabel ]
+        ]
+    , HH.div [ HP.class_ (H.ClassName "in-scope-grid") ]
+        [ renderList "Auto-imported (cells see these)" sc.autoImports
+        , renderList "Highlighted packages" sc.highlightedPackages
+        ]
+    , if Array.null sc.notes then HH.text ""
+      else HH.ul [ HP.class_ (H.ClassName "in-scope-notes") ]
+        (map (\n -> HH.li_ [ HH.text n ]) sc.notes)
+    ]
+  where
+  renderList title items =
+    HH.div [ HP.class_ (H.ClassName "in-scope-section") ]
+      [ HH.h3_ [ HH.text title ]
+      , HH.ul_ (map (\x -> HH.li_ [ HH.text x ]) items)
+      ]
 
 renderHeader :: forall m. State -> H.ComponentHTML Action Slots m
 renderHeader state =
@@ -430,11 +386,23 @@ renderHeader state =
                 "Edit the module and the cells; auto-compiles 400ms after you stop typing."
             ]
         ]
+    , renderStarterDropdown state
     , HH.div [ HP.class_ (H.ClassName "runtime-toggle") ]
         [ runtimeButton state "browser" "Browser"
         , runtimeButton state "node" "Node"
         , runtimeButton state "purerl" "Purerl"
         ]
+    , HH.button
+        [ HP.class_
+            ( H.ClassName
+                ( "in-scope-btn"
+                    <> (if state.inScopeOpen then " active" else "")
+                )
+            )
+        , HP.title "Show what's in scope for the current runtime"
+        , HE.onClick \_ -> ToggleInScope
+        ]
+        [ HH.text "ⓘ In scope" ]
     , HH.button
         [ HP.class_ (H.ClassName "compile-btn")
         , HP.disabled state.compiling
@@ -442,6 +410,62 @@ renderHeader state =
         ]
         [ HH.text (if state.compiling then "Compiling…" else "Compile") ]
     ]
+
+renderStarterDropdown :: forall m. State -> H.ComponentHTML Action Slots m
+renderStarterDropdown state =
+  HH.div [ HP.class_ (H.ClassName "starter-dropdown") ]
+    [ HH.button
+        [ HP.class_ (H.ClassName "starter-btn")
+        , HE.onClick \_ -> ToggleStarterMenu
+        ]
+        [ HH.text (currentLabel <> " ▾") ]
+    , if state.starterMenuOpen
+        then HH.div [ HP.class_ (H.ClassName "starter-menu") ]
+          (map (renderStarterOption state) starters)
+        else HH.text ""
+    ]
+  where
+  currentLabel = case Starter.findByKey state.starterKey of
+    Just s -> s.label
+    Nothing -> "Starter ▾"
+
+renderStarterOption :: forall m. State -> Starter -> H.ComponentHTML Action Slots m
+renderStarterOption state s =
+  HH.button
+    [ HP.class_
+        ( H.ClassName
+            ( "starter-option"
+                <> (if state.starterKey == s.key then " current" else "")
+            )
+        )
+    , HE.onClick \_ -> LoadStarter s.key
+    ]
+    [ HH.div [ HP.class_ (H.ClassName "starter-label") ] [ HH.text s.label ]
+    , HH.div [ HP.class_ (H.ClassName "starter-desc") ] [ HH.text s.description ]
+    , HH.div [ HP.class_ (H.ClassName "starter-compat") ]
+        [ compatBadge state.runtime "browser" s.compat.browser
+        , compatBadge state.runtime "node" s.compat.node
+        , compatBadge state.runtime "purerl" s.compat.purerl
+        ]
+    ]
+
+compatBadge
+  :: forall m
+   . String
+  -> String
+  -> Boolean
+  -> H.ComponentHTML Action Slots m
+compatBadge currentRuntime label ok =
+  HH.span
+    [ HP.class_
+        ( H.ClassName
+            ( "compat-badge compat-"
+                <> (if ok then "yes" else "no")
+                <> (if currentRuntime == label then " compat-current" else "")
+            )
+        )
+    ]
+    [ HH.text ((if ok then "✓ " else "✗ ") <> label) ]
 
 runtimeButton :: forall m. State -> String -> String -> H.ComponentHTML Action Slots m
 runtimeButton state value label =

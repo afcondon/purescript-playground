@@ -7619,12 +7619,18 @@
   var h1_ = /* @__PURE__ */ h1([]);
   var h2 = /* @__PURE__ */ element2("h2");
   var h2_ = /* @__PURE__ */ h2([]);
+  var h3 = /* @__PURE__ */ element2("h3");
+  var h3_ = /* @__PURE__ */ h3([]);
   var header = /* @__PURE__ */ element2("header");
+  var li = /* @__PURE__ */ element2("li");
+  var li_ = /* @__PURE__ */ li([]);
   var main = /* @__PURE__ */ element2("main");
   var p = /* @__PURE__ */ element2("p");
   var pre = /* @__PURE__ */ element2("pre");
   var section = /* @__PURE__ */ element2("section");
   var span3 = /* @__PURE__ */ element2("span");
+  var ul = /* @__PURE__ */ element2("ul");
+  var ul_ = /* @__PURE__ */ ul([]);
   var div2 = /* @__PURE__ */ element2("div");
   var button = /* @__PURE__ */ element2("button");
 
@@ -33876,6 +33882,39 @@
     });
   };
 
+  // output/Playground.Frontend.InScope/index.js
+  var purerlScope = {
+    runtimeLabel: "Purerl (BEAM)",
+    autoImports: ["Prelude", "Data.Array as Array", "Data.Either (Either(..))", "Data.Maybe (Maybe(..))", "Data.Tuple (Tuple(..))", "Effect (Effect)", "Playground.Runtime (toPlaygroundValue, emit, done)"],
+    highlightedPackages: ["arrays", "console", "effect", "either", "erl-atom", "erl-binary", "erl-kernel", "erl-lists", "erl-maps", "erl-process", "erl-tuples", "foldable-traversable", "integers", "maybe", "ordered-collections", "parsing", "prelude", "strings", "tuples"],
+    notes: ["No Effect.Aff \u2014 concurrency is the BEAM process model (erl-process).", "Cells that import Aff will fail to compile with an honest 'Module not found'.", "Compiles via purs-backend-erl \u2192 erlc \u2192 erl."]
+  };
+  var browserScope = {
+    runtimeLabel: "Browser (Web Worker)",
+    autoImports: ["Prelude", "Data.Array as Array", "Data.Either (Either(..))", "Data.Maybe (Maybe(..))", "Data.Tuple (Tuple(..))", "Effect (Effect)", "Effect.Aff (runAff_)", "Effect.Class (liftEffect)", "Playground.Runtime (toPlaygroundValue, emit, done)"],
+    highlightedPackages: ["aff", "affjax", "affjax-web", "arrays", "argonaut", "either", "foldable-traversable", "integers", "maybe", "numbers", "ordered-collections", "parsing", "random", "strings", "transformers", "tuples"],
+    notes: ["Cells run in a Web Worker; no DOM access, but setTimeout + Aff.delay work.", "fetch is available for HTTP; affjax wraps it."]
+  };
+  var nodeScope = /* @__PURE__ */ (function() {
+    return {
+      runtimeLabel: "Node (child-process)",
+      autoImports: browserScope.autoImports,
+      highlightedPackages: append(semigroupArray)(browserScope.highlightedPackages)(["node-fs", "node-buffer", "node-child-process", "node-stream"]),
+      notes: ["Cells run in a fresh Node child-process; full stdlib access (FS, sockets, DBs, native modules).", "Stdout captured as the emit channel \u2014 logs appear inline."]
+    };
+  })();
+  var forRuntime = function(v) {
+    if (v === "node") {
+      return nodeScope;
+    }
+    ;
+    if (v === "purerl") {
+      return purerlScope;
+    }
+    ;
+    return browserScope;
+  };
+
   // output/Playground.Frontend.SigilView/foreign.js
   var _setInnerHTML = (el) => (html2) => () => {
     el.innerHTML = html2;
@@ -33965,6 +34004,107 @@
       })
     });
   };
+
+  // output/Playground.Frontend.Starter/index.js
+  var monadsCross = {
+    key: "monads",
+    label: "Monads: Maybe / Array / Either",
+    description: "Five cells showing do/>>= equivalence and three Monad instances \u2014 the same do-shape over uncertainty, non-determinism, error-or-result.",
+    compat: {
+      browser: true,
+      node: true,
+      purerl: true
+    },
+    moduleSource: "module Scratch where\n\nimport Prelude\n\nimport Data.Maybe (Maybe(..))\n\n-- Safe division: Nothing on divide-by-zero, Just q otherwise.\ndivSafe :: Int -> Int -> Maybe Int\ndivSafe _ 0 = Nothing\ndivSafe n d = Just (n / d)\n",
+    cells: [{
+      id: "c1",
+      kind: "expr",
+      source: "divSafe 100 5"
+    }, {
+      id: "c2",
+      kind: "expr",
+      source: "do\n  a <- divSafe 100 5\n  b <- divSafe 200 a\n  pure (a + b)"
+    }, {
+      id: "c3",
+      kind: "expr",
+      source: "divSafe 100 5 >>= \\a ->\n  divSafe 200 a >>= \\b ->\n    pure (a + b)"
+    }, {
+      id: "c4",
+      kind: "expr",
+      source: "do\n  x <- [1, 2, 3]\n  y <- [10, 20]\n  pure (x + y)"
+    }, {
+      id: "c5",
+      kind: "expr",
+      source: "do\n  x <- (Right 10 :: Either String Int)\n  y <- Right 20\n  pure (x + y)"
+    }]
+  };
+  var monadsWithAff = /* @__PURE__ */ (function() {
+    return {
+      key: "monads-aff",
+      label: "Monads + Aff",
+      description: "Extends the Monads demo with an Aff cell \u2014 the same do-shape, this time async. Works identically on Browser and Node; Purerl has no Aff (BEAM concurrency is the process model).",
+      compat: {
+        browser: true,
+        node: true,
+        purerl: false
+      },
+      moduleSource: "module Scratch where\n\nimport Prelude\n\nimport Data.Maybe (Maybe(..))\nimport Data.Time.Duration (Milliseconds(..))\nimport Effect.Aff (Aff, delay)\n\ndivSafe :: Int -> Int -> Maybe Int\ndivSafe _ 0 = Nothing\ndivSafe n d = Just (n / d)\n\ntimedSum :: Aff Int\ntimedSum = do\n  delay (Milliseconds 25.0)\n  pure 100\n",
+      cells: append(semigroupArray)(monadsCross.cells)([{
+        id: "c6",
+        kind: "expr",
+        source: "do\n  a <- timedSum\n  b <- timedSum\n  pure (a + b)"
+      }])
+    };
+  })();
+  var starters = [monadsCross, monadsWithAff];
+  var findByKey = function(k) {
+    return find2(function(s) {
+      return s.key === k;
+    })(starters);
+  };
+  var defaultStarter = /* @__PURE__ */ (function() {
+    var unsafeHead = function($copy_v) {
+      var $tco_done = false;
+      var $tco_result;
+      function $tco_loop(v) {
+        if (v.length === 0) {
+          $tco_done = true;
+          return {
+            key: "empty",
+            label: "\u2014",
+            description: "",
+            compat: {
+              browser: false,
+              node: false,
+              purerl: false
+            },
+            moduleSource: "module Scratch where\n\nimport Prelude\n",
+            cells: []
+          };
+        }
+        ;
+        var v1 = find2($$const(true))(v);
+        if (v1 instanceof Just) {
+          $tco_done = true;
+          return v1.value0;
+        }
+        ;
+        if (v1 instanceof Nothing) {
+          $copy_v = [];
+          return;
+        }
+        ;
+        throw new Error("Failed pattern match at Playground.Frontend.Starter (line 59, column 11 - line 61, column 31): " + [v1.constructor.name]);
+      }
+      ;
+      while (!$tco_done) {
+        $tco_result = $tco_loop($copy_v);
+      }
+      ;
+      return $tco_result;
+    };
+    return fromMaybe(unsafeHead(starters))(findByKey("monads"));
+  })();
 
   // output/Playground.Frontend.Value/index.js
   var map33 = /* @__PURE__ */ map(functorMaybe);
@@ -34718,11 +34858,11 @@
   var discard7 = /* @__PURE__ */ discard(discardUnit)(bindHalogenM);
   var pure18 = /* @__PURE__ */ pure(applicativeHalogenM);
   var modify_4 = /* @__PURE__ */ modify_2(monadStateHalogenM);
-  var map36 = /* @__PURE__ */ map(functorEmitter);
+  var map36 = /* @__PURE__ */ map(functorArray);
+  var map112 = /* @__PURE__ */ map(functorEmitter);
   var bind18 = /* @__PURE__ */ bind(bindMaybe);
   var show5 = /* @__PURE__ */ show(showInt);
   var $$delete5 = /* @__PURE__ */ $$delete(ordString);
-  var map112 = /* @__PURE__ */ map(functorArray);
   var when5 = /* @__PURE__ */ when(applicativeHalogenM);
   var fromFoldable8 = /* @__PURE__ */ fromFoldable(ordString)(foldableArray);
   var insert9 = /* @__PURE__ */ insert(ordString);
@@ -34820,6 +34960,30 @@
     };
     return SetRuntime2;
   })();
+  var ToggleStarterMenu = /* @__PURE__ */ (function() {
+    function ToggleStarterMenu2() {
+    }
+    ;
+    ToggleStarterMenu2.value = new ToggleStarterMenu2();
+    return ToggleStarterMenu2;
+  })();
+  var LoadStarter = /* @__PURE__ */ (function() {
+    function LoadStarter2(value0) {
+      this.value0 = value0;
+    }
+    ;
+    LoadStarter2.create = function(value0) {
+      return new LoadStarter2(value0);
+    };
+    return LoadStarter2;
+  })();
+  var ToggleInScope = /* @__PURE__ */ (function() {
+    function ToggleInScope2() {
+    }
+    ;
+    ToggleInScope2.value = new ToggleInScope2();
+    return ToggleInScope2;
+  })();
   var HandleWorkerMessage = /* @__PURE__ */ (function() {
     function HandleWorkerMessage2(value0) {
       this.value0 = value0;
@@ -34850,7 +35014,7 @@
           return pure18(unit);
         }
         ;
-        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 366, column 3 - line 368, column 25): " + [s.worker.constructor.name]);
+        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 297, column 3 - line 299, column 25): " + [s.worker.constructor.name]);
       })())(function() {
         return discard7((function() {
           if (s.workerSub instanceof Just) {
@@ -34861,7 +35025,7 @@
             return pure18(unit);
           }
           ;
-          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 369, column 3 - line 371, column 25): " + [s.workerSub.constructor.name]);
+          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 300, column 3 - line 302, column 25): " + [s.workerSub.constructor.name]);
         })())(function() {
           return discard7((function() {
             if (s.workerTimeout instanceof Just) {
@@ -34872,59 +35036,33 @@
               return pure18(unit);
             }
             ;
-            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 372, column 3 - line 374, column 25): " + [s.workerTimeout.constructor.name]);
+            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 303, column 3 - line 305, column 25): " + [s.workerTimeout.constructor.name]);
           })())(function() {
             return modify_4(function(v) {
-              var $128 = {};
-              for (var $129 in v) {
-                if ({}.hasOwnProperty.call(v, $129)) {
-                  $128[$129] = v[$129];
+              var $136 = {};
+              for (var $137 in v) {
+                if ({}.hasOwnProperty.call(v, $137)) {
+                  $136[$137] = v[$137];
                 }
                 ;
               }
               ;
-              $128.worker = Nothing.value;
-              $128.workerSub = Nothing.value;
-              $128.workerTimeout = Nothing.value;
-              return $128;
+              $136.worker = Nothing.value;
+              $136.workerSub = Nothing.value;
+              $136.workerTimeout = Nothing.value;
+              return $136;
             });
           });
         });
       });
     });
   };
-  var starterModule = "module Scratch where\n\nimport Prelude\n\n-- Cells automatically have these in scope; you only need to\n-- import the ones you also want to reference *in this module*:\n--\n--   Prelude\n--   Data.Array as Array\n--   Data.Either (Either(..))\n--   Data.Maybe (Maybe(..))\n--   Data.Tuple (Tuple(..))\n--   Effect (Effect)\n--   Effect.Aff (launchAff_)\n--   Effect.Class (liftEffect)\n--   Playground.Runtime (class ToPlaygroundValue, emit, toPlaygroundValue)\n--\n-- The full runtime-workspace package set is available to import:\n-- argonaut, affjax, parsing, transformers, etc.\n\nimport Data.Maybe (Maybe(..))\nimport Data.Time.Duration (Milliseconds(..))\nimport Effect.Aff (Aff, delay)\n\n-- Safe division: Nothing on divide-by-zero, Just q otherwise.\ndivSafe :: Int -> Int -> Maybe Int\ndivSafe _ 0 = Nothing\ndivSafe n d = Just (n / d)\n\n-- Async: pause 25ms then yield 100. Runs the same way under the\n-- browser Worker and a Node child-process \u2014 flip the runtime\n-- toggle and watch c6 produce the same value.\ntimedSum :: Aff Int\ntimedSum = do\n  delay (Milliseconds 25.0)\n  pure 100\n";
-  var starterCells = [{
-    id: "c1",
-    kind: "expr",
-    source: "divSafe 100 5"
-  }, {
-    id: "c2",
-    kind: "expr",
-    source: "do\n  a <- divSafe 100 5\n  b <- divSafe 200 a\n  pure (a + b)"
-  }, {
-    id: "c3",
-    kind: "expr",
-    source: "divSafe 100 5 >>= \\a ->\n  divSafe 200 a >>= \\b ->\n    pure (a + b)"
-  }, {
-    id: "c4",
-    kind: "expr",
-    source: "do\n  x <- [1, 2, 3]\n  y <- [10, 20]\n  pure (x + y)"
-  }, {
-    id: "c5",
-    kind: "expr",
-    source: "do\n  x <- (Right 10 :: Either String Int)\n  y <- Right 20\n  pure (x + y)"
-  }, {
-    id: "c6",
-    kind: "expr",
-    source: "do\n  a <- timedSum\n  b <- timedSum\n  pure (a + b)"
-  }];
   var runtimeButton = function(state3) {
     return function(value13) {
       return function(label5) {
         return button([class_("runtime-btn" + (function() {
-          var $131 = state3.runtime === value13;
-          if ($131) {
+          var $139 = state3.runtime === value13;
+          if ($139) {
             return " runtime-active";
           }
           ;
@@ -34944,25 +35082,40 @@
       return [pre([class_("runtime-error")])([text5("runtime: " + v.value0)])];
     }
     ;
-    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 569, column 22 - line 574, column 6): " + [v.constructor.name]);
+    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 593, column 22 - line 598, column 6): " + [v.constructor.name]);
   };
-  var renderHeader = function(state3) {
-    return header([class_("playground-header")])([div2([class_("title-group")])([h1_([text5("PureScript Playground")]), p([class_("subtitle")])([text5("Edit the module and the cells; auto-compiles 400ms after you stop typing.")])]), div2([class_("runtime-toggle")])([runtimeButton(state3)("browser")("Browser"), runtimeButton(state3)("node")("Node"), runtimeButton(state3)("purerl")("Purerl")]), button([class_("compile-btn"), disabled10(state3.compiling), onClick(function(v) {
-      return Compile.value;
-    })])([text5((function() {
-      if (state3.compiling) {
-        return "Compiling\u2026";
+  var renderInScopePanel = function(state3) {
+    var renderList = function(title4) {
+      return function(items2) {
+        return div2([class_("in-scope-section")])([h3_([text5(title4)]), ul_(map36(function(x) {
+          return li_([text5(x)]);
+        })(items2))]);
+      };
+    };
+    var sc = forRuntime(state3.runtime);
+    return section([class_("in-scope-panel")])([h2_([text5("In scope \u2014 "), span3([class_("runtime-label")])([text5(sc.runtimeLabel)])]), div2([class_("in-scope-grid")])([renderList("Auto-imported (cells see these)")(sc.autoImports), renderList("Highlighted packages")(sc.highlightedPackages)]), (function() {
+      var $142 = $$null2(sc.notes);
+      if ($142) {
+        return text5("");
       }
       ;
-      return "Compile";
-    })())])]);
+      return ul([class_("in-scope-notes")])(map36(function(n) {
+        return li_([text5(n)]);
+      })(sc.notes));
+    })()]);
   };
   var initialState = function(v) {
+    var nextIdAfter = function(cs) {
+      return length3(cs) + 1 | 0;
+    };
     return {
-      moduleSource: starterModule,
-      cells: starterCells,
-      nextCellId: 7,
+      moduleSource: defaultStarter.moduleSource,
+      cells: defaultStarter.cells,
+      nextCellId: nextIdAfter(defaultStarter.cells),
       runtime: "browser",
+      starterKey: defaultStarter.key,
+      starterMenuOpen: false,
+      inScopeOpen: false,
       compiling: false,
       errors: [],
       warnings: [],
@@ -34985,37 +35138,37 @@
     return function(js) {
       return discard7(teardownExecution1)(function() {
         return discard7(modify_4(function(v) {
-          var $135 = {};
-          for (var $136 in v) {
-            if ({}.hasOwnProperty.call(v, $136)) {
-              $135[$136] = v[$136];
+          var $143 = {};
+          for (var $144 in v) {
+            if ({}.hasOwnProperty.call(v, $144)) {
+              $143[$144] = v[$144];
             }
             ;
           }
           ;
-          $135.cellResults = empty2;
-          return $135;
+          $143.cellResults = empty2;
+          return $143;
         }))(function() {
           return bind17(liftEffect7(create3))(function(v) {
-            return bind17(subscribe2(map36(HandleWorkerMessage.create)(v.emitter)))(function(subId) {
+            return bind17(subscribe2(map112(HandleWorkerMessage.create)(v.emitter)))(function(subId) {
               return bind17(liftEffect7(spawnWorker(notify(v.listener))))(function(worker) {
                 return discard7(liftEffect7(postJs(worker)(js)))(function() {
                   return bind17(fork2(discard7(liftAff2(delay(workerTimeoutMs)))(function() {
                     return handleAction2(dictMonadAff)(WorkerTimeout.value);
                   })))(function(timeoutId) {
                     return modify_4(function(v1) {
-                      var $139 = {};
-                      for (var $140 in v1) {
-                        if ({}.hasOwnProperty.call(v1, $140)) {
-                          $139[$140] = v1[$140];
+                      var $147 = {};
+                      for (var $148 in v1) {
+                        if ({}.hasOwnProperty.call(v1, $148)) {
+                          $147[$148] = v1[$148];
                         }
                         ;
                       }
                       ;
-                      $139.worker = new Just(worker);
-                      $139.workerSub = new Just(subId);
-                      $139.workerTimeout = new Just(timeoutId);
-                      return $139;
+                      $147.worker = new Just(worker);
+                      $147.workerSub = new Just(subId);
+                      $147.workerTimeout = new Just(timeoutId);
+                      return $147;
                     });
                   });
                 });
@@ -35032,24 +35185,24 @@
     var updateCell = function(id3) {
       return function(src9) {
         return function(cells2) {
-          return fromMaybe(cells2)(bind18(findIndex(function($256) {
+          return fromMaybe(cells2)(bind18(findIndex(function($286) {
             return /* @__PURE__ */ (function(v) {
               return v === id3;
             })((function(v) {
               return v.id;
-            })($256));
+            })($286));
           })(cells2))(function(idx) {
             return modifyAt(idx)(function(v) {
-              var $144 = {};
-              for (var $145 in v) {
-                if ({}.hasOwnProperty.call(v, $145)) {
-                  $144[$145] = v[$145];
+              var $152 = {};
+              for (var $153 in v) {
+                if ({}.hasOwnProperty.call(v, $153)) {
+                  $152[$153] = v[$153];
                 }
                 ;
               }
               ;
-              $144.source = src9;
-              return $144;
+              $152.source = src9;
+              return $152;
             })(cells2);
           }));
         };
@@ -35071,17 +35224,17 @@
     };
     return function(v) {
       if (v instanceof ModuleChanged) {
-        return discard7(modify_4(function(v1) {
-          var $149 = {};
-          for (var $150 in v1) {
-            if ({}.hasOwnProperty.call(v1, $150)) {
-              $149[$150] = v1[$150];
+        return discard7(modify_4(function(v12) {
+          var $157 = {};
+          for (var $158 in v12) {
+            if ({}.hasOwnProperty.call(v12, $158)) {
+              $157[$158] = v12[$158];
             }
             ;
           }
           ;
-          $149.moduleSource = v.value0;
-          return $149;
+          $157.moduleSource = v.value0;
+          return $157;
         }))(function() {
           return handleAction2(dictMonadAff)(ScheduleCompile.value);
         });
@@ -35089,16 +35242,16 @@
       ;
       if (v instanceof CellChanged) {
         return discard7(modify_4(function(s) {
-          var $153 = {};
-          for (var $154 in s) {
-            if ({}.hasOwnProperty.call(s, $154)) {
-              $153[$154] = s[$154];
+          var $161 = {};
+          for (var $162 in s) {
+            if ({}.hasOwnProperty.call(s, $162)) {
+              $161[$162] = s[$162];
             }
             ;
           }
           ;
-          $153.cells = updateCell(v.value0)(v.value1)(s.cells);
-          return $153;
+          $161.cells = updateCell(v.value0)(v.value1)(s.cells);
+          return $161;
         }))(function() {
           return handleAction2(dictMonadAff)(ScheduleCompile.value);
         });
@@ -35112,47 +35265,23 @@
             kind: "expr",
             source: ""
           };
-          var $158 = {};
-          for (var $159 in s) {
-            if ({}.hasOwnProperty.call(s, $159)) {
-              $158[$159] = s[$159];
+          var $166 = {};
+          for (var $167 in s) {
+            if ({}.hasOwnProperty.call(s, $167)) {
+              $166[$167] = s[$167];
             }
             ;
           }
           ;
-          $158.cells = snoc(s.cells)(newCell);
-          $158.nextCellId = s.nextCellId + 1 | 0;
-          return $158;
+          $166.cells = snoc(s.cells)(newCell);
+          $166.nextCellId = s.nextCellId + 1 | 0;
+          return $166;
         }))(function() {
           return handleAction2(dictMonadAff)(ScheduleCompile.value);
         });
       }
       ;
       if (v instanceof RemoveCell) {
-        return discard7(modify_4(function(s) {
-          var $161 = {};
-          for (var $162 in s) {
-            if ({}.hasOwnProperty.call(s, $162)) {
-              $161[$162] = s[$162];
-            }
-            ;
-          }
-          ;
-          $161.cells = filter(function($257) {
-            return (function(v2) {
-              return v2 !== v.value0;
-            })((function(v2) {
-              return v2.id;
-            })($257));
-          })(s.cells);
-          $161.cellResults = $$delete5(v.value0)(s.cellResults);
-          return $161;
-        }))(function() {
-          return handleAction2(dictMonadAff)(ScheduleCompile.value);
-        });
-      }
-      ;
-      if (v instanceof ToggleCellKind) {
         return discard7(modify_4(function(s) {
           var $169 = {};
           for (var $170 in s) {
@@ -35162,26 +35291,50 @@
             ;
           }
           ;
-          $169.cells = map112(function(c) {
-            var $165 = c.id === v.value0;
-            if ($165) {
-              var $166 = {};
-              for (var $167 in c) {
-                if ({}.hasOwnProperty.call(c, $167)) {
-                  $166[$167] = c[$167];
+          $169.cells = filter(function($287) {
+            return (function(v2) {
+              return v2 !== v.value0;
+            })((function(v2) {
+              return v2.id;
+            })($287));
+          })(s.cells);
+          $169.cellResults = $$delete5(v.value0)(s.cellResults);
+          return $169;
+        }))(function() {
+          return handleAction2(dictMonadAff)(ScheduleCompile.value);
+        });
+      }
+      ;
+      if (v instanceof ToggleCellKind) {
+        return discard7(modify_4(function(s) {
+          var $177 = {};
+          for (var $178 in s) {
+            if ({}.hasOwnProperty.call(s, $178)) {
+              $177[$178] = s[$178];
+            }
+            ;
+          }
+          ;
+          $177.cells = map36(function(c) {
+            var $173 = c.id === v.value0;
+            if ($173) {
+              var $174 = {};
+              for (var $175 in c) {
+                if ({}.hasOwnProperty.call(c, $175)) {
+                  $174[$175] = c[$175];
                 }
                 ;
               }
               ;
-              $166.kind = flipKind(c.kind);
-              return $166;
+              $174.kind = flipKind(c.kind);
+              return $174;
             }
             ;
             return c;
           })(s.cells);
-          $169.cellResults = $$delete5(v.value0)(s.cellResults);
-          $169.cellTypes = $$delete5(v.value0)(s.cellTypes);
-          return $169;
+          $177.cellResults = $$delete5(v.value0)(s.cellResults);
+          $177.cellTypes = $$delete5(v.value0)(s.cellTypes);
+          return $177;
         }))(function() {
           return handleAction2(dictMonadAff)(ScheduleCompile.value);
         });
@@ -35189,21 +35342,83 @@
       ;
       if (v instanceof SetRuntime) {
         return bind17(get6)(function(s0) {
-          return when5(s0.runtime !== v.value0)(discard7(modify_4(function(v1) {
-            var $173 = {};
-            for (var $174 in v1) {
-              if ({}.hasOwnProperty.call(v1, $174)) {
-                $173[$174] = v1[$174];
+          return when5(s0.runtime !== v.value0)(discard7(modify_4(function(v12) {
+            var $181 = {};
+            for (var $182 in v12) {
+              if ({}.hasOwnProperty.call(v12, $182)) {
+                $181[$182] = v12[$182];
               }
               ;
             }
             ;
-            $173.runtime = v.value0;
-            $173.cellResults = empty2;
-            return $173;
+            $181.runtime = v.value0;
+            $181.cellResults = empty2;
+            return $181;
           }))(function() {
             return handleAction2(dictMonadAff)(ScheduleCompile.value);
           }));
+        });
+      }
+      ;
+      if (v instanceof ToggleStarterMenu) {
+        return modify_4(function(s) {
+          var $185 = {};
+          for (var $186 in s) {
+            if ({}.hasOwnProperty.call(s, $186)) {
+              $185[$186] = s[$186];
+            }
+            ;
+          }
+          ;
+          $185.starterMenuOpen = !s.starterMenuOpen;
+          return $185;
+        });
+      }
+      ;
+      if (v instanceof LoadStarter) {
+        var v1 = findByKey(v.value0);
+        if (v1 instanceof Nothing) {
+          return pure18(unit);
+        }
+        ;
+        if (v1 instanceof Just) {
+          return discard7(modify_4(function(s) {
+            var $189 = {};
+            for (var $190 in s) {
+              if ({}.hasOwnProperty.call(s, $190)) {
+                $189[$190] = s[$190];
+              }
+              ;
+            }
+            ;
+            $189.moduleSource = v1.value0.moduleSource;
+            $189.cells = v1.value0.cells;
+            $189.nextCellId = length3(v1.value0.cells) + 1 | 0;
+            $189.starterKey = v1.value0.key;
+            $189.starterMenuOpen = false;
+            $189.cellResults = empty2;
+            $189.cellTypes = empty2;
+            return $189;
+          }))(function() {
+            return handleAction2(dictMonadAff)(ScheduleCompile.value);
+          });
+        }
+        ;
+        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 191, column 20 - line 203, column 35): " + [v1.constructor.name]);
+      }
+      ;
+      if (v instanceof ToggleInScope) {
+        return modify_4(function(s) {
+          var $194 = {};
+          for (var $195 in s) {
+            if ({}.hasOwnProperty.call(s, $195)) {
+              $194[$195] = s[$195];
+            }
+            ;
+          }
+          ;
+          $194.inScopeOpen = !s.inScopeOpen;
+          return $194;
         });
       }
       ;
@@ -35218,22 +35433,22 @@
               return pure18(unit);
             }
             ;
-            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 276, column 5 - line 278, column 27): " + [s.pendingCompile.constructor.name]);
+            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 207, column 5 - line 209, column 27): " + [s.pendingCompile.constructor.name]);
           })())(function() {
             return bind17(fork2(discard7(liftAff2(delay(debounceMs)))(function() {
               return handleAction2(dictMonadAff)(Compile.value);
             })))(function(fid) {
-              return modify_4(function(v1) {
-                var $179 = {};
-                for (var $180 in v1) {
-                  if ({}.hasOwnProperty.call(v1, $180)) {
-                    $179[$180] = v1[$180];
+              return modify_4(function(v12) {
+                var $199 = {};
+                for (var $200 in v12) {
+                  if ({}.hasOwnProperty.call(v12, $200)) {
+                    $199[$200] = v12[$200];
                   }
                   ;
                 }
                 ;
-                $179.pendingCompile = new Just(fid);
-                return $179;
+                $199.pendingCompile = new Just(fid);
+                return $199;
               });
             });
           });
@@ -35241,27 +35456,27 @@
       }
       ;
       if (v instanceof Compile) {
-        return discard7(modify_4(function(v1) {
-          var $182 = {};
-          for (var $183 in v1) {
-            if ({}.hasOwnProperty.call(v1, $183)) {
-              $182[$183] = v1[$183];
+        return discard7(modify_4(function(v12) {
+          var $202 = {};
+          for (var $203 in v12) {
+            if ({}.hasOwnProperty.call(v12, $203)) {
+              $202[$203] = v12[$203];
             }
             ;
           }
           ;
-          $182.compiling = true;
-          $182.transportError = Nothing.value;
-          $182.runtimeError = Nothing.value;
-          $182.pendingCompile = Nothing.value;
-          return $182;
+          $202.compiling = true;
+          $202.transportError = Nothing.value;
+          $202.runtimeError = Nothing.value;
+          $202.pendingCompile = Nothing.value;
+          return $202;
         }))(function() {
           return bind17(get6)(function(s) {
             var req = {
               module: {
                 source: s.moduleSource
               },
-              cells: map112(mkCell)(s.cells),
+              cells: map36(mkCell)(s.cells),
               runtime: s.runtime
             };
             var bodyJson = stringify(encode2(compileRequestCodec)(req));
@@ -35277,96 +35492,96 @@
               content: new Just(string(bodyJson))
             })))(function(result) {
               if (result instanceof Left) {
-                return modify_4(function(v12) {
-                  var $186 = {};
-                  for (var $187 in v12) {
-                    if ({}.hasOwnProperty.call(v12, $187)) {
-                      $186[$187] = v12[$187];
+                return modify_4(function(v13) {
+                  var $206 = {};
+                  for (var $207 in v13) {
+                    if ({}.hasOwnProperty.call(v13, $207)) {
+                      $206[$207] = v13[$207];
                     }
                     ;
                   }
                   ;
-                  $186.compiling = false;
-                  $186.transportError = new Just(printError(result.value0));
-                  return $186;
+                  $206.compiling = false;
+                  $206.transportError = new Just(printError(result.value0));
+                  return $206;
                 });
               }
               ;
               if (result instanceof Right) {
-                var v1 = decode(compileResponseCodec)(result.value0.body);
-                if (v1 instanceof Left) {
+                var v12 = decode(compileResponseCodec)(result.value0.body);
+                if (v12 instanceof Left) {
                   return modify_4(function(v2) {
-                    var $191 = {};
-                    for (var $192 in v2) {
-                      if ({}.hasOwnProperty.call(v2, $192)) {
-                        $191[$192] = v2[$192];
+                    var $211 = {};
+                    for (var $212 in v2) {
+                      if ({}.hasOwnProperty.call(v2, $212)) {
+                        $211[$212] = v2[$212];
                       }
                       ;
                     }
                     ;
-                    $191.compiling = false;
-                    $191.transportError = new Just("decode: " + printJsonDecodeError(v1.value0));
-                    return $191;
+                    $211.compiling = false;
+                    $211.transportError = new Just("decode: " + printJsonDecodeError(v12.value0));
+                    return $211;
                   });
                 }
                 ;
-                if (v1 instanceof Right) {
-                  var typesMap = fromFoldable8(map112(function(v2) {
+                if (v12 instanceof Right) {
+                  var typesMap = fromFoldable8(map36(function(v2) {
                     return new Tuple(v2.id, v2.signature);
-                  })(v1.value0.types));
+                  })(v12.value0.types));
                   return discard7(modify_4(function(v2) {
-                    var $196 = {};
-                    for (var $197 in v2) {
-                      if ({}.hasOwnProperty.call(v2, $197)) {
-                        $196[$197] = v2[$197];
+                    var $216 = {};
+                    for (var $217 in v2) {
+                      if ({}.hasOwnProperty.call(v2, $217)) {
+                        $216[$217] = v2[$217];
                       }
                       ;
                     }
                     ;
-                    $196.compiling = false;
-                    $196.errors = v1.value0.errors;
-                    $196.warnings = v1.value0.warnings;
-                    $196.cellRanges = v1.value0.cellLines;
-                    $196.cellTypes = typesMap;
-                    return $196;
+                    $216.compiling = false;
+                    $216.errors = v12.value0.errors;
+                    $216.warnings = v12.value0.warnings;
+                    $216.cellRanges = v12.value0.cellLines;
+                    $216.cellTypes = typesMap;
+                    return $216;
                   }))(function() {
-                    var $199 = !$$null2(v1.value0.emits);
-                    if ($199) {
+                    var $219 = !$$null2(v12.value0.emits);
+                    if ($219) {
                       return discard7(teardownExecution1)(function() {
                         return modify_4(function(s1) {
-                          var decoded = fromFoldable8(map112(function(v2) {
+                          var decoded = fromFoldable8(map36(function(v2) {
                             return new Tuple(v2.id, parse7(v2.value));
-                          })(v1.value0.emits));
-                          var $201 = {};
-                          for (var $202 in s1) {
-                            if ({}.hasOwnProperty.call(s1, $202)) {
-                              $201[$202] = s1[$202];
+                          })(v12.value0.emits));
+                          var $221 = {};
+                          for (var $222 in s1) {
+                            if ({}.hasOwnProperty.call(s1, $222)) {
+                              $221[$222] = s1[$222];
                             }
                             ;
                           }
                           ;
-                          $201.cellResults = decoded;
-                          return $201;
+                          $221.cellResults = decoded;
+                          return $221;
                         });
                       });
                     }
                     ;
-                    if (v1.value0.js instanceof Nothing) {
+                    if (v12.value0.js instanceof Nothing) {
                       return teardownExecution1;
                     }
                     ;
-                    if (v1.value0.js instanceof Just) {
-                      return startExecution(dictMonadAff)(v1.value0.js.value0);
+                    if (v12.value0.js instanceof Just) {
+                      return startExecution(dictMonadAff)(v12.value0.js.value0);
                     }
                     ;
-                    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 334, column 16 - line 336, column 41): " + [v1.value0.js.constructor.name]);
+                    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 265, column 16 - line 267, column 41): " + [v12.value0.js.constructor.name]);
                   });
                 }
                 ;
-                throw new Error("Failed pattern match at Playground.Frontend.Shell (line 308, column 25 - line 336, column 41): " + [v1.constructor.name]);
+                throw new Error("Failed pattern match at Playground.Frontend.Shell (line 239, column 25 - line 267, column 41): " + [v12.constructor.name]);
               }
               ;
-              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 304, column 5 - line 336, column 41): " + [result.constructor.name]);
+              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 235, column 5 - line 267, column 41): " + [result.constructor.name]);
             });
           });
         });
@@ -35375,16 +35590,16 @@
       if (v instanceof HandleWorkerMessage) {
         if (v.value0 instanceof Emit) {
           return modify_4(function(s) {
-            var $210 = {};
-            for (var $211 in s) {
-              if ({}.hasOwnProperty.call(s, $211)) {
-                $210[$211] = s[$211];
+            var $230 = {};
+            for (var $231 in s) {
+              if ({}.hasOwnProperty.call(s, $231)) {
+                $230[$231] = s[$231];
               }
               ;
             }
             ;
-            $210.cellResults = insert9(v.value0.value0)(parse7(v.value0.value1))(s.cellResults);
-            return $210;
+            $230.cellResults = insert9(v.value0.value0)(parse7(v.value0.value1))(s.cellResults);
+            return $230;
           });
         }
         ;
@@ -35393,59 +35608,141 @@
         }
         ;
         if (v.value0 instanceof WorkerError) {
-          return discard7(modify_4(function(v1) {
-            var $215 = {};
-            for (var $216 in v1) {
-              if ({}.hasOwnProperty.call(v1, $216)) {
-                $215[$216] = v1[$216];
+          return discard7(modify_4(function(v12) {
+            var $235 = {};
+            for (var $236 in v12) {
+              if ({}.hasOwnProperty.call(v12, $236)) {
+                $235[$236] = v12[$236];
               }
               ;
             }
             ;
-            $215.runtimeError = new Just(v.value0.value0);
-            return $215;
+            $235.runtimeError = new Just(v.value0.value0);
+            return $235;
           }))(function() {
             return teardownExecution1;
           });
         }
         ;
         if (v.value0 instanceof Unknown) {
-          return modify_4(function(v1) {
-            var $219 = {};
-            for (var $220 in v1) {
-              if ({}.hasOwnProperty.call(v1, $220)) {
-                $219[$220] = v1[$220];
+          return modify_4(function(v12) {
+            var $239 = {};
+            for (var $240 in v12) {
+              if ({}.hasOwnProperty.call(v12, $240)) {
+                $239[$240] = v12[$240];
               }
               ;
             }
             ;
-            $219.runtimeError = new Just("worker: unknown message " + v.value0.value0);
-            return $219;
+            $239.runtimeError = new Just("worker: unknown message " + v.value0.value0);
+            return $239;
           });
         }
         ;
-        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 337, column 30 - line 345, column 78): " + [v.value0.constructor.name]);
+        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 268, column 30 - line 276, column 78): " + [v.value0.constructor.name]);
       }
       ;
       if (v instanceof WorkerTimeout) {
-        return discard7(modify_4(function(v1) {
-          var $224 = {};
-          for (var $225 in v1) {
-            if ({}.hasOwnProperty.call(v1, $225)) {
-              $224[$225] = v1[$225];
+        return discard7(modify_4(function(v12) {
+          var $244 = {};
+          for (var $245 in v12) {
+            if ({}.hasOwnProperty.call(v12, $245)) {
+              $244[$245] = v12[$245];
             }
             ;
           }
           ;
-          $224.runtimeError = new Just("timeout after " + show13(workerTimeoutMs));
-          return $224;
+          $244.runtimeError = new Just("timeout after " + show13(workerTimeoutMs));
+          return $244;
         }))(function() {
           return teardownExecution1;
         });
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 241, column 16 - line 348, column 22): " + [v.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 157, column 16 - line 279, column 22): " + [v.constructor.name]);
     };
+  };
+  var compatBadge = function(currentRuntime) {
+    return function(label5) {
+      return function(ok) {
+        return span3([class_("compat-badge compat-" + ((function() {
+          if (ok) {
+            return "yes";
+          }
+          ;
+          return "no";
+        })() + (function() {
+          var $248 = currentRuntime === label5;
+          if ($248) {
+            return " compat-current";
+          }
+          ;
+          return "";
+        })()))])([text5((function() {
+          if (ok) {
+            return "\u2713 ";
+          }
+          ;
+          return "\u2717 ";
+        })() + label5)]);
+      };
+    };
+  };
+  var renderStarterOption = function(state3) {
+    return function(s) {
+      return button([class_("starter-option" + (function() {
+        var $250 = state3.starterKey === s.key;
+        if ($250) {
+          return " current";
+        }
+        ;
+        return "";
+      })()), onClick(function(v) {
+        return new LoadStarter(s.key);
+      })])([div2([class_("starter-label")])([text5(s.label)]), div2([class_("starter-desc")])([text5(s.description)]), div2([class_("starter-compat")])([compatBadge(state3.runtime)("browser")(s.compat.browser), compatBadge(state3.runtime)("node")(s.compat.node), compatBadge(state3.runtime)("purerl")(s.compat.purerl)])]);
+    };
+  };
+  var renderStarterDropdown = function(state3) {
+    var currentLabel = (function() {
+      var v = findByKey(state3.starterKey);
+      if (v instanceof Just) {
+        return v.value0.label;
+      }
+      ;
+      if (v instanceof Nothing) {
+        return "Starter \u25BE";
+      }
+      ;
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 428, column 18 - line 430, column 27): " + [v.constructor.name]);
+    })();
+    return div2([class_("starter-dropdown")])([button([class_("starter-btn"), onClick(function(v) {
+      return ToggleStarterMenu.value;
+    })])([text5(currentLabel + " \u25BE")]), (function() {
+      if (state3.starterMenuOpen) {
+        return div2([class_("starter-menu")])(map36(renderStarterOption(state3))(starters));
+      }
+      ;
+      return text5("");
+    })()]);
+  };
+  var renderHeader = function(state3) {
+    return header([class_("playground-header")])([div2([class_("title-group")])([h1_([text5("PureScript Playground")]), p([class_("subtitle")])([text5("Edit the module and the cells; auto-compiles 400ms after you stop typing.")])]), renderStarterDropdown(state3), div2([class_("runtime-toggle")])([runtimeButton(state3)("browser")("Browser"), runtimeButton(state3)("node")("Node"), runtimeButton(state3)("purerl")("Purerl")]), button([class_("in-scope-btn" + (function() {
+      if (state3.inScopeOpen) {
+        return " active";
+      }
+      ;
+      return "";
+    })()), title2("Show what's in scope for the current runtime"), onClick(function(v) {
+      return ToggleInScope.value;
+    })])([text5("\u24D8 In scope")]), button([class_("compile-btn"), disabled10(state3.compiling), onClick(function(v) {
+      return Compile.value;
+    })])([text5((function() {
+      if (state3.compiling) {
+        return "Compiling\u2026";
+      }
+      ;
+      return "Compile";
+    })())])]);
   };
   var cellColorClass = function(idx) {
     return "cell-color-" + show5(mod4(idx)(8));
@@ -35470,13 +35767,13 @@
         };
       };
       if (e.filename instanceof Just && e.position instanceof Just) {
-        var $231 = endsWith("Playground/User.purs")(e.filename.value0);
-        if ($231) {
+        var $260 = endsWith("Playground/User.purs")(e.filename.value0);
+        if ($260) {
           return "module \u25B8 line " + show5(e.position.value0.startLine);
         }
         ;
-        var $232 = endsWith("Main.purs")(e.filename.value0);
-        if ($232) {
+        var $261 = endsWith("Main.purs")(e.filename.value0);
+        if ($261) {
           var v = findCellAt(state3.cellRanges)(e.position.value0.startLine);
           if (v instanceof Just) {
             return "cell " + (v.value0.id + (" \u25B8 line " + show5((e.position.value0.startLine - v.value0.startLine | 0) + 1 | 0)));
@@ -35486,7 +35783,7 @@
             return "synthesis \u25B8 Main.purs line " + show5(e.position.value0.startLine);
           }
           ;
-          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 645, column 9 - line 650, column 71): " + [v.constructor.name]);
+          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 669, column 9 - line 674, column 71): " + [v.constructor.name]);
         }
         ;
         return e.filename.value0;
@@ -35505,15 +35802,15 @@
   var renderErrorPanel = function(state3) {
     var row = function(r) {
       return div2([class_("error-row error-" + r.kind)])([div2([class_("error-head")])([span3([class_("error-kind")])([text5(r.kind)]), span3([class_("error-target")])([text5(r.target)]), (function() {
-        var $240 = r.code === "";
-        if ($240) {
+        var $269 = r.code === "";
+        if ($269) {
           return text5("");
         }
         ;
         return span3([class_("error-code")])([text5(r.code)]);
       })()]), pre([class_("error-msg")])([text5(r.message)])]);
     };
-    var warningRows = map112(attributedRow(state3)("warning"))(state3.warnings);
+    var warningRows = map36(attributedRow(state3)("warning"))(state3.warnings);
     var transportRow = (function() {
       if (state3.transportError instanceof Just) {
         return [row({
@@ -35528,9 +35825,9 @@
         return [];
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 582, column 20 - line 585, column 20): " + [state3.transportError.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 606, column 20 - line 609, column 20): " + [state3.transportError.constructor.name]);
     })();
-    var compileRows = map112(attributedRow(state3)("compile"))(state3.errors);
+    var compileRows = map36(attributedRow(state3)("compile"))(state3.errors);
     var rows4 = append14(transportRow)(append14(compileRows)(warningRows));
     if (rows4.length === 0) {
       return text5("");
@@ -35557,7 +35854,7 @@
                 return span3([class_("muted")])([text5("\u2014")]);
               }
               ;
-              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 561, column 25 - line 566, column 66): " + [v.constructor.name]);
+              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 585, column 25 - line 590, column 66): " + [v.constructor.name]);
             };
           };
           var renderType = function(st) {
@@ -35573,7 +35870,7 @@
                 return span3([class_("muted gutter-type")])([text5("\u2014")]);
               }
               ;
-              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 555, column 24 - line 560, column 78): " + [v.constructor.name]);
+              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 579, column 24 - line 584, column 78): " + [v.constructor.name]);
             };
           };
           return div2([class_("gutter-row " + cellColorClass(idx))])([span3([class_("gutter-cell-id")])([text5(c.id)]), div2([class_("gutter-body")])([renderType(state3)(c), renderValue(state3)(c)])]);
@@ -35586,8 +35883,8 @@
     return function(state3) {
       var maybeRow = function(idx) {
         return function(c) {
-          var $248 = c.kind === "expr";
-          if ($248) {
+          var $277 = c.kind === "expr";
+          if ($277) {
             return new Just(renderCellResult1(state3)(idx)(c));
           }
           ;
@@ -35625,8 +35922,8 @@
     return function(idx) {
       return function(c) {
         return div2([class_("cell-row " + (cellColorClass(idx) + (function() {
-          var $251 = c.kind === "let";
-          if ($251) {
+          var $280 = c.kind === "let";
+          if ($280) {
             return " cell-row-let";
           }
           ;
@@ -35634,8 +35931,8 @@
         })()))])([div2([class_("cell-meta")])([span3([class_("cell-id")])([text5(c.id)]), button([class_("cell-kind-btn cell-kind-" + c.kind), onClick(function(v) {
           return new ToggleCellKind(c.id);
         }), title2((function() {
-          var $252 = c.kind === "let";
-          if ($252) {
+          var $281 = c.kind === "let";
+          if ($281) {
             return "let-cell (splices verbatim; no gutter output). Click to switch to expr.";
           }
           ;
@@ -35670,7 +35967,13 @@
         }
         ;
         return "";
-      })())])([renderHeader(state3), main([class_("columns")])([renderModuleColumn1(state3), renderCellsColumn1(state3), renderGutterColumn1(state3)]), renderErrorPanel(state3)]);
+      })())])([renderHeader(state3), (function() {
+        if (state3.inScopeOpen) {
+          return renderInScopePanel(state3);
+        }
+        ;
+        return text5("");
+      })(), main([class_("columns")])([renderModuleColumn1(state3), renderCellsColumn1(state3), renderGutterColumn1(state3)]), renderErrorPanel(state3)]);
     };
   };
   var component3 = function(dictMonadAff) {
