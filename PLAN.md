@@ -576,10 +576,26 @@ Two natural alternates:
   BEAM, backend supervises an Erlang process. A typed scratchpad with
   real OTP execution — interactive design for fault-tolerant systems.
 
-Either is "swap the runtime adapter," not a rewrite. The right move
-during Phase 2: **make `Compile.js`'s runtime adapter explicit** so
-the swap is mechanical when we want it. Today the browser/Worker
-shape is implicit in the bundling step + the worker plumbing.
+Either is "swap the runtime adapter," not a rewrite. **As of
+2026-04-18 the adapter abstraction is in place** — `Playground.Server.Adapter`
+declares the contract; `Playground.Server.Adapter.BrowserWorker` is the
+first impl. Adding Node or Purerl is one new file pair plus a router
+wire-up.
+
+#### A switchable demo as the anchor goal
+
+A strong public demo: a single playground UI with a "runtime: PureScript /
+Purerl" switch in the header. Same module, same cells, same gutter; one
+side runs your code on V8 in a Worker, the other ships it to BEAM in an
+Erlang process and reads back results. *try.purescript.org and
+try.purerl.org rolled into one*, with feature parity and the Sigil-
+rendered types working in both. Frames the project not as "trypurescript
+successor" alone but as "the typed-functional scratchpad," with the host
+runtime as a first-class choice.
+
+This validates the adapter abstraction, gives the Purerl ecosystem a
+Playground it has never had, and is a clean way to introduce the
+project to either community.
 
 ### Edges of the system as the AI-collaboration sweet spot
 

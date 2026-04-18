@@ -136,6 +136,8 @@ body {
   gap: 0.25rem;
   margin-bottom: 0.75rem;
   min-height: 80px;
+  border-left: 3px solid var(--cell-bar, var(--rule));
+  padding-left: 0.5rem;
 }
 
 .cell-meta {
@@ -239,6 +241,27 @@ body {
   grid-template-columns: 2.5rem 1fr;
   column-gap: 0.75rem;
   align-items: start;
+  border-left: 3px solid var(--cell-bar, var(--rule));
+  padding-left: 0.5rem;
+}
+
+/* Cell colour palette — 8 muted Swiss-style accents that cycle via
+   .cell-color-N classes. Both the cell row and its matching gutter
+   row carry the same class, so the colour visibly threads across the
+   page from edit surface to value/type display. */
+.cell-color-0 { --cell-bar: #2b5f75; }  /* petrol */
+.cell-color-1 { --cell-bar: #8a6a2b; }  /* ochre */
+.cell-color-2 { --cell-bar: #6f4a6f; }  /* plum */
+.cell-color-3 { --cell-bar: #5e7155; }  /* sage */
+.cell-color-4 { --cell-bar: #9e5a3c; }  /* terracotta */
+.cell-color-5 { --cell-bar: #5b6c7a; }  /* slate */
+.cell-color-6 { --cell-bar: #3d7a72; }  /* teal */
+.cell-color-7 { --cell-bar: #8a5e6a; }  /* mauve */
+
+.cell-row .cell-id,
+.gutter-row .gutter-cell-id {
+  color: var(--cell-bar, var(--muted));
+  font-weight: 600;
 }
 
 .gutter-body {

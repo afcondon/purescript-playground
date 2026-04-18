@@ -6,7 +6,7 @@ import Affjax.RequestBody as RB
 import Affjax.ResponseFormat as RF
 import Affjax.Web as AX
 import Data.Argonaut.Core (stringify)
-import Data.Array (filter, findIndex, modifyAt, snoc)
+import Data.Array (filter, findIndex, mapWithIndex, modifyAt, snoc)
 import Data.Array as Array
 import Data.String as Str
 import Data.Codec.Argonaut as CA
@@ -26,6 +26,7 @@ import Halogen.HTML.Properties as HP
 import Halogen.Subscription as HS
 import Type.Proxy (Proxy(..))
 
+import Playground.Frontend.Config (backendUrl)
 import Playground.Frontend.Editor as Editor
 import Playground.Frontend.SigilView as SigilView
 import Playground.Frontend.Worker (Worker, WorkerMessage(..))
@@ -186,7 +187,7 @@ handleAction = case _ of
       bodyJson = stringify (CA.encode compileRequestCodec req)
     result <- H.liftAff $ AX.request $ AX.defaultRequest
       { method = Left POST
-      , url = "http://localhost:3050/session/compile"
+      , url = backendUrl <> "/session/compile"
       , responseFormat = RF.json
       , content = Just (RB.string bodyJson)
       }
@@ -327,7 +328,7 @@ renderCellsColumn :: forall m. MonadAff m => State -> H.ComponentHTML Action Slo
 renderCellsColumn state =
   HH.section [ HP.class_ (H.ClassName "pane pane-cells") ]
     ( [ HH.h2_ [ HH.text "Cells" ] ]
-        <> map renderCellRow state.cells
+        <> mapWithIndex renderCellRow state.cells
         <>
           [ HH.button
               [ HP.class_ (H.ClassName "add-cell-btn")
@@ -337,9 +338,15 @@ renderCellsColumn state =
           ]
     )
 
-renderCellRow :: forall m. MonadAff m => CellRec -> H.ComponentHTML Action Slots m
-renderCellRow c =
-  HH.div [ HP.class_ (H.ClassName "cell-row") ]
+-- | Position-based color class (cycles every 8 cells). The same
+-- | class is also applied to the matching gutter row, so a cell and
+-- | its value/type entry visibly share an accent across the page.
+cellColorClass :: Int -> String
+cellColorClass idx = "cell-color-" <> show (idx `mod` 8)
+
+renderCellRow :: forall m. MonadAff m => Int -> CellRec -> H.ComponentHTML Action Slots m
+renderCellRow idx c =
+  HH.div [ HP.class_ (H.ClassName ("cell-row " <> cellColorClass idx)) ]
     [ HH.div [ HP.class_ (H.ClassName "cell-meta") ]
         [ HH.span [ HP.class_ (H.ClassName "cell-id") ] [ HH.text c.id ]
         , HH.button
@@ -367,13 +374,13 @@ renderGutterColumn state =
 renderResults :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
 renderResults state =
   HH.div [ HP.class_ (H.ClassName "gutter-rows") ]
-    ( map (renderCellResult state) state.cells
+    ( mapWithIndex (renderCellResult state) state.cells
         <> renderRuntimeError state.runtimeError
     )
 
-renderCellResult :: forall m. MonadAff m => State -> CellRec -> H.ComponentHTML Action Slots m
-renderCellResult state c =
-  HH.div [ HP.class_ (H.ClassName "gutter-row") ]
+renderCellResult :: forall m. MonadAff m => State -> Int -> CellRec -> H.ComponentHTML Action Slots m
+renderCellResult state idx c =
+  HH.div [ HP.class_ (H.ClassName ("gutter-row " <> cellColorClass idx)) ]
     [ HH.span [ HP.class_ (H.ClassName "gutter-cell-id") ] [ HH.text c.id ]
     , HH.div [ HP.class_ (H.ClassName "gutter-body") ]
         [ renderType state c
