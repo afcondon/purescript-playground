@@ -1,3 +1,0 @@
--module(data_string_nonEmpty@ps).
--export([]).
--compile(no_auto_import).

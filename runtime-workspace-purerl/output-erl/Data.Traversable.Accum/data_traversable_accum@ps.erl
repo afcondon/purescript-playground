@@ -1,3 +1,0 @@
--module(data_traversable_accum@ps).
--export([]).
--compile(no_auto_import).

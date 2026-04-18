@@ -1,4 +1,7 @@
 output/
+output-erl/
+ebin/
+*.beam
 .spago/
 node_modules/
 dist/
