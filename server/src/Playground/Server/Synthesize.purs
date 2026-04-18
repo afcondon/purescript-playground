@@ -5,29 +5,40 @@ module Playground.Server.Synthesize
 
 import Prelude
 
-import Data.Array (filter, mapMaybe, null)
+import Data.Array (filter, findIndex, length, mapMaybe, null) as Array
+import Data.Array (mapMaybe)
 import Data.Foldable (foldMap)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), isJust)
 import Data.String (length) as Str
 import Data.String as Str
 import Data.String.Pattern (Pattern(..))
 
 import Playground.Session
   ( Cell(..)
+  , CellRange(..)
   , CompileRequest(..)
   , UserModule(..)
   )
 
--- | The two source files produced on each compile: the user's module
--- | (renamed to `Playground.User`) and the synthesised `Main.purs` that
--- | binds every cell and emits their rendered values.
-type Synthesised = { userSource :: String, mainSource :: String }
+-- | The two source files produced on each compile, plus the per-cell
+-- | line ranges in `Main.purs`. The frontend uses the line ranges to
+-- | attribute compile errors back to the originating cell.
+type Synthesised =
+  { userSource :: String
+  , mainSource :: String
+  , cellLines :: Array CellRange
+  }
 
 synthesize :: CompileRequest -> Synthesised
 synthesize (CompileRequest { "module": UserModule { source }, cells }) =
-  { userSource: rewriteModuleHeader source
-  , mainSource: buildMain cells
-  }
+  let
+    mainSource = buildMain cells
+    cellLines = computeCellLines mainSource cells
+  in
+    { userSource: rewriteModuleHeader source
+    , mainSource
+    , cellLines
+    }
 
 -- | Replace the user's `module Foo where` (possibly with multi-line export
 -- | list) with `module Playground.User where`. If no module header is
@@ -56,7 +67,7 @@ rewriteModuleHeader src =
 buildMain :: Array Cell -> String
 buildMain cells =
   let
-    exprCells = filter isExpr cells
+    exprCells = Array.filter isExpr cells
     letSources = mapMaybe letSource cells
     cellBinding (Cell c) = "cell_" <> c.id <> " = " <> c.source <> "\n"
     emitLine (Cell c) =
@@ -73,7 +84,35 @@ buildMain cells =
       <> foldMap cellBinding exprCells
       <> "\nmain :: Effect Unit\n"
       <> "main = do\n"
-      <> (if null exprCells then "  pure unit\n" else foldMap emitLine exprCells)
+      <> (if Array.null exprCells then "  pure unit\n" else foldMap emitLine exprCells)
   where
   isExpr (Cell c) = c.kind == "expr"
   letSource (Cell c) = if c.kind == "let" then Just c.source else Nothing
+
+-- | For each expr cell, find the inclusive line range its
+-- | `cell_<id> = …` binding occupies in the synthesised Main.purs.
+-- | Robust against multi-line cell sources: we count newlines in the
+-- | cell's source to determine endLine.
+computeCellLines :: String -> Array Cell -> Array CellRange
+computeCellLines source cells =
+  let lines = Str.split (Pattern "\n") source
+  in mapMaybe (findRange lines) cells
+  where
+  findRange lines (Cell c)
+    | c.kind /= "expr" = Nothing
+    | otherwise =
+        let prefix = "cell_" <> c.id <> " = "
+        in case Array.findIndex (lineStartsWith prefix) lines of
+          Nothing -> Nothing
+          Just idx ->
+            let
+              startLine = idx + 1
+              -- A cell binding occupies (1 + newline-count-in-source) lines
+              extraLines = newlineCount c.source
+              endLine = startLine + extraLines
+            in Just (CellRange { id: c.id, startLine, endLine })
+
+  lineStartsWith p line = isJust (Str.stripPrefix (Pattern p) line)
+
+  -- Number of newlines in a string: split-on-\n minus 1, clamped to 0.
+  newlineCount s = max 0 (Array.length (Str.split (Pattern "\n") s) - 1)

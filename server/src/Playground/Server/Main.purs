@@ -18,7 +18,8 @@ import Routing.Duplex.Generic.Syntax ((/))
 import Playground.Server.Compile as Compile
 import Playground.Server.Synthesize (synthesize)
 import Playground.Session
-  ( CompileResponse(..)
+  ( CompileError(..)
+  , CompileResponse(..)
   , compileRequestCodec
   , compileResponseCodec
   )
@@ -33,14 +34,18 @@ route = root $ sum
   , "SessionCompile": "session" / "compile" / noArgs
   }
 
-errorJson :: String -> String
-errorJson msg =
+errorJson :: String -> String -> String
+errorJson code msg =
   stringify $ CA.encode compileResponseCodec $
     CompileResponse
       { js: Nothing
       , warnings: []
-      , errors: [ msg ]
+      , errors:
+          [ CompileError
+              { code, filename: Nothing, position: Nothing, message: msg }
+          ]
       , types: []
+      , cellLines: []
       }
 
 main :: ServerM
@@ -66,11 +71,11 @@ main = serve { port: 3050, hostname: "localhost" }
             bodyStr <- toString body
             case jsonParser bodyStr of
               Left parseErr ->
-                ok' jsonCors (errorJson ("bad JSON: " <> parseErr))
+                ok' jsonCors (errorJson "BadJSON" parseErr)
               Right json -> case CA.decode compileRequestCodec json of
                 Left decodeErr ->
                   ok' jsonCors
-                    (errorJson ("bad request: " <> CA.printJsonDecodeError decodeErr))
+                    (errorJson "BadRequest" (CA.printJsonDecodeError decodeErr))
                 Right req -> do
                   let synth = synthesize req
                   out <- liftAff $ Compile.compileSources synth

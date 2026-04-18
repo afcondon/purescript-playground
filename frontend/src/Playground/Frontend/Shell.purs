@@ -7,6 +7,8 @@ import Affjax.ResponseFormat as RF
 import Affjax.Web as AX
 import Data.Argonaut.Core (stringify)
 import Data.Array (filter, findIndex, modifyAt, snoc)
+import Data.Array as Array
+import Data.String as Str
 import Data.Codec.Argonaut as CA
 import Data.Either (Either(..))
 import Data.HTTP.Method (Method(..))
@@ -30,9 +32,12 @@ import Playground.Frontend.Worker (Worker, WorkerMessage(..))
 import Playground.Frontend.Worker as Worker
 import Playground.Session
   ( Cell(..)
+  , CellRange(..)
   , CellType(..)
+  , CompileError(..)
   , CompileRequest(..)
   , CompileResponse(..)
+  , Position(..)
   , UserModule(..)
   , compileRequestCodec
   , compileResponseCodec
@@ -45,7 +50,9 @@ type State =
   , cells :: Array CellRec
   , nextCellId :: Int
   , compiling :: Boolean
-  , errors :: Array String
+  , errors :: Array CompileError
+  , warnings :: Array CompileError
+  , cellRanges :: Array CellRange
   , transportError :: Maybe String
   , runtimeError :: Maybe String
   , cellResults :: Map String String
@@ -102,6 +109,8 @@ initialState _ =
   , nextCellId: 4
   , compiling: false
   , errors: []
+  , warnings: []
+  , cellRanges: []
   , transportError: Nothing
   , runtimeError: Nothing
   , cellResults: Map.empty
@@ -194,7 +203,13 @@ handleAction = case _ of
         Right (CompileResponse r) -> do
           let typesMap = Map.fromFoldable
                 ( map (\(CellType ct) -> Tuple ct.id ct.signature) r.types )
-          H.modify_ _ { compiling = false, errors = r.errors, cellTypes = typesMap }
+          H.modify_ _
+            { compiling = false
+            , errors = r.errors
+            , warnings = r.warnings
+            , cellRanges = r.cellLines
+            , cellTypes = typesMap
+            }
           case r.js of
             Nothing -> teardownExecution
             Just js -> startExecution js
@@ -386,17 +401,19 @@ renderRuntimeError = case _ of
         [ HH.text ("runtime: " <> err) ]
     ]
 
--- | Bottom panel: absent when clean, shows transport + compile errors
--- | when there's something to say. The gutter column keeps rendering
--- | the last-good values + types regardless.
+-- | Bottom panel: absent when clean. Each structured compile error is
+-- | attributed to an originating surface (cell <id>, module, or just
+-- | "runtime") and rendered with an error code + message.
 renderErrorPanel :: forall m. State -> H.ComponentHTML Action Slots m
 renderErrorPanel state =
   let
     transportRow = case state.transportError of
-      Just err -> [ errorRow "transport" err ]
+      Just err ->
+        [ row { kind: "transport", target: "network", message: err, code: "" } ]
       Nothing -> []
-    compileRows = map (errorRow "compile") state.errors
-    rows = transportRow <> compileRows
+    compileRows = map (attributedRow state "compile") state.errors
+    warningRows = map (attributedRow state "warning") state.warnings
+    rows = transportRow <> compileRows <> warningRows
   in
     case rows of
       [] -> HH.text ""
@@ -404,8 +421,68 @@ renderErrorPanel state =
         HH.section [ HP.class_ (H.ClassName "error-panel") ]
           ( [ HH.h2_ [ HH.text "Errors" ] ] <> rows )
   where
-  errorRow kind msg =
-    HH.div [ HP.class_ (H.ClassName ("error-row error-" <> kind)) ]
-      [ HH.span [ HP.class_ (H.ClassName "error-kind") ] [ HH.text kind ]
-      , HH.pre [ HP.class_ (H.ClassName "error-msg") ] [ HH.text msg ]
+  row r =
+    HH.div
+      [ HP.class_ (H.ClassName ("error-row error-" <> r.kind)) ]
+      [ HH.div [ HP.class_ (H.ClassName "error-head") ]
+          [ HH.span [ HP.class_ (H.ClassName "error-kind") ] [ HH.text r.kind ]
+          , HH.span [ HP.class_ (H.ClassName "error-target") ] [ HH.text r.target ]
+          , if r.code == "" then HH.text ""
+            else HH.span [ HP.class_ (H.ClassName "error-code") ] [ HH.text r.code ]
+          ]
+      , HH.pre [ HP.class_ (H.ClassName "error-msg") ] [ HH.text r.message ]
       ]
+
+attributedRow
+  :: forall m
+   . State
+  -> String
+  -> CompileError
+  -> H.ComponentHTML Action Slots m
+attributedRow state kind (CompileError e) =
+  HH.div
+    [ HP.class_ (H.ClassName ("error-row error-" <> kind)) ]
+    [ HH.div [ HP.class_ (H.ClassName "error-head") ]
+        [ HH.span [ HP.class_ (H.ClassName "error-kind") ] [ HH.text kind ]
+        , HH.span [ HP.class_ (H.ClassName "error-target") ]
+            [ HH.text (attribute state e) ]
+        , HH.span [ HP.class_ (H.ClassName "error-code") ] [ HH.text e.code ]
+        ]
+    , HH.pre [ HP.class_ (H.ClassName "error-msg") ] [ HH.text e.message ]
+    ]
+
+-- | Given an error's filename + position, produce a human-readable
+-- | "target" string: "cell c2 ▸ line 3" if it falls in a cell's range in
+-- | Main.purs; "module ▸ line 5" if it's in Playground/User.purs;
+-- | "runtime" otherwise (our own Transport errors, synthesis lines
+-- | outside any cell).
+attribute
+  :: State
+  -> { code :: String
+     , filename :: Maybe String
+     , position :: Maybe Position
+     , message :: String
+     }
+  -> String
+attribute state e =
+  case e.filename, e.position of
+    Just file, Just (Position p) ->
+      if endsWith "Playground/User.purs" file then
+        "module ▸ line " <> show p.startLine
+      else if endsWith "Main.purs" file then
+        case findCellAt state.cellRanges p.startLine of
+          Just (CellRange cr) ->
+            "cell " <> cr.id
+              <> " ▸ line "
+              <> show (p.startLine - cr.startLine + 1)
+          Nothing -> "synthesis ▸ Main.purs line " <> show p.startLine
+      else file
+    _, _ -> "—"
+  where
+  findCellAt ranges line =
+    Array.find (\(CellRange cr) -> line >= cr.startLine && line <= cr.endLine) ranges
+  endsWith suffix s =
+    case Str.length s - Str.length suffix of
+      n | n >= 0 ->
+          Str.take (Str.length suffix) (Str.drop n s) == suffix
+      _ -> false

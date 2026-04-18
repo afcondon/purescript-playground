@@ -249,30 +249,53 @@ body {
 }
 
 .error-row {
-  display: grid;
-  grid-template-columns: 4.5rem 1fr;
-  column-gap: 0.75rem;
-  align-items: start;
-  padding: 0.25rem 0;
+  padding: 0.4rem 0;
+  border-top: 1px dashed #e8c8c2;
 }
 
-.error-kind {
+.error-row:first-of-type {
+  border-top: none;
+}
+
+.error-head {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
   font-family: var(--mono);
   font-size: 0.7rem;
   color: #5c2a1c;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  padding-top: 0.15rem;
+}
+
+.error-kind {
+  font-weight: 700;
+}
+
+.error-target {
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  color: #1d1d1b;
+}
+
+.error-code {
+  margin-left: auto;
+  color: #8a5a4a;
 }
 
 .error-msg {
-  margin: 0;
+  margin: 0.3rem 0 0 0;
   font-family: var(--mono);
   font-size: 0.75rem;
   white-space: pre-wrap;
   word-break: break-word;
   color: #5c2a1c;
 }
+
+.error-row.error-warning .error-head { color: #7a5010; }
+.error-row.error-warning .error-msg { color: #7a5010; }
+.error-row.error-warning { border-top-color: #e8d8b0; }
 
 .gutter-value {
   font-family: var(--mono);
