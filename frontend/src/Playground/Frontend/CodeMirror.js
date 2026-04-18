@@ -4,9 +4,13 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import { bracketMatching, indentOnInput, StreamLanguage } from '@codemirror/language';
 import { haskell } from '@codemirror/legacy-modes/mode/haskell';
 
-// Address of the backend's /ide/type endpoint. Hard-coded for MVP;
-// centralise when we introduce a runtime config surface.
-const IDE_TYPE_URL = 'http://localhost:3050/ide/type';
+// Backend origin is derived from window.location at bundle-load time
+// so the same bundle works from localhost and over Tailscale.
+const BACKEND_URL =
+  typeof window !== 'undefined' && window.location && window.location.hostname
+    ? `http://${window.location.hostname}:3050`
+    : 'http://localhost:3050';
+const IDE_TYPE_URL = `${BACKEND_URL}/ide/type`;
 
 // Characters that are part of a PureScript identifier (word or operator).
 // We stay conservative: only plain word chars — operator tooltips can
@@ -23,64 +27,68 @@ function escapeHtml(s) {
 }
 
 // CM6 hover-tooltip extension. Extracts the word at the hover point,
-// POSTs to /ide/type, shows the first hit's identifier :: type. Prefers
-// a Main or Playground.User origin so local bindings win over library
-// shadowing.
-const typeHover = hoverTooltip(async (view, pos, side) => {
-  const line = view.state.doc.lineAt(pos);
-  const text = line.text;
-  let start = pos;
-  let end = pos;
-  while (start > line.from && isWordChar(text[start - line.from - 1])) start--;
-  while (end < line.to && isWordChar(text[end - line.from])) end++;
-  if (start === end && side < 0) return null;
-  const word = text.slice(start - line.from, end - line.from);
-  if (!word || !isWordChar(word[0])) return null;
+// POSTs to /ide/type, hands the type string to the renderer (which
+// returns Sigil HTML when parseable, plain `<code>` otherwise).
+// Prefers a Main or Playground.User origin so local bindings win over
+// library shadowing.
+function makeTypeHover(renderType) {
+  return hoverTooltip(async (view, pos, side) => {
+    const line = view.state.doc.lineAt(pos);
+    const text = line.text;
+    let start = pos;
+    let end = pos;
+    while (start > line.from && isWordChar(text[start - line.from - 1])) start--;
+    while (end < line.to && isWordChar(text[end - line.from])) end++;
+    if (start === end && side < 0) return null;
+    const word = text.slice(start - line.from, end - line.from);
+    if (!word || !isWordChar(word[0])) return null;
 
-  let hits = [];
-  try {
-    const resp = await fetch(IDE_TYPE_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query: word }),
-    });
-    const json = await resp.json();
-    hits = json.hits || [];
-  } catch (_) {
-    return null;
-  }
-  if (hits.length === 0) return null;
+    let hits = [];
+    try {
+      const resp = await fetch(IDE_TYPE_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: word }),
+      });
+      const json = await resp.json();
+      hits = json.hits || [];
+    } catch (_) {
+      return null;
+    }
+    if (hits.length === 0) return null;
 
-  // Prefer local scopes.
-  const hit =
-    hits.find((h) => h.moduleName === 'Main' || h.moduleName === 'Playground.User') ||
-    hits[0];
+    const hit =
+      hits.find((h) => h.moduleName === 'Main' || h.moduleName === 'Playground.User') ||
+      hits[0];
 
-  return {
-    pos: start,
-    end,
-    above: true,
-    create() {
-      const dom = document.createElement('div');
-      dom.className = 'cm-tooltip-type';
-      dom.innerHTML =
-        '<div class="cm-tooltip-sig">' +
-          '<span class="cm-tooltip-name">' + escapeHtml(hit.identifier) + '</span>' +
-          ' <span class="cm-tooltip-dcolon">::</span> ' +
-          '<span class="cm-tooltip-ty">' + escapeHtml(hit.typeSignature) + '</span>' +
-        '</div>' +
-        (hit.moduleName
-          ? '<div class="cm-tooltip-module">' + escapeHtml(hit.moduleName) + '</div>'
-          : '');
-      return { dom };
-    },
-  };
-});
+    return {
+      pos: start,
+      end,
+      above: true,
+      create() {
+        const dom = document.createElement('div');
+        dom.className = 'cm-tooltip-type';
+        const typeHtml = renderType(hit.typeSignature);
+        dom.innerHTML =
+          '<div class="cm-tooltip-sig">' +
+            '<span class="cm-tooltip-name">' + escapeHtml(hit.identifier) + '</span>' +
+            ' <span class="cm-tooltip-dcolon">::</span> ' +
+            '<span class="cm-tooltip-ty">' + typeHtml + '</span>' +
+          '</div>' +
+          (hit.moduleName
+            ? '<div class="cm-tooltip-module">' + escapeHtml(hit.moduleName) + '</div>'
+            : '');
+        return { dom };
+      },
+    };
+  });
+}
 
 // Creates a CodeMirror 6 view mounted into `parent`. `onChange` fires
 // every time the document is edited, with the full new document content.
 // Returns the EditorView so callers can query/destroy it later.
-export const _createEditor = (parent) => (initialDoc) => (onChange) => () => {
+export const _createEditor = (parent) => (initialDoc) => (onChange) => (renderType) => () => {
+  const typeHover = makeTypeHover(renderType);
   const view = new EditorView({
     parent,
     state: EditorState.create({

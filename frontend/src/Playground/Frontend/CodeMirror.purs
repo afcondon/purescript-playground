@@ -8,14 +8,22 @@ module Playground.Frontend.CodeMirror
 
 import Prelude
 
+import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Effect.Uncurried (EffectFn1, mkEffectFn1)
 import Web.DOM (Element)
 
+import Sigil.Html (renderBody)
+import Sigil.Parse (parseToRenderType)
+
 foreign import data EditorView :: Type
 
 foreign import _createEditor
-  :: Element -> String -> EffectFn1 String Unit -> Effect EditorView
+  :: Element
+  -> String
+  -> EffectFn1 String Unit       -- doc-change callback
+  -> EffectFn1 String String     -- type-string -> Sigil HTML (for hover)
+  -> Effect EditorView
 
 foreign import _getContent :: EditorView -> Effect String
 
@@ -23,13 +31,24 @@ foreign import _setContent :: EditorView -> String -> Effect Unit
 
 foreign import _destroy :: EditorView -> Effect Unit
 
+-- | Hover-tooltip renderer: parses a `purs ide` type string and emits
+-- | Sigil HTML. JS calls this synchronously from the hover callback;
+-- | falls back to a plain `<code>` if Sigil can't parse the input.
+renderTypeHtml :: String -> String
+renderTypeHtml typeStr = case parseToRenderType typeStr of
+  Just ast -> renderBody { ast }
+  Nothing ->
+    "<code class=\"cm-tooltip-fallback\">" <> typeStr <> "</code>"
+
 createEditor
   :: Element
   -> String
   -> (String -> Effect Unit)
   -> Effect EditorView
 createEditor el initialDoc onChange =
-  _createEditor el initialDoc (mkEffectFn1 onChange)
+  _createEditor el initialDoc
+    (mkEffectFn1 onChange)
+    (mkEffectFn1 (\s -> pure (renderTypeHtml s)))
 
 getContent :: EditorView -> Effect String
 getContent = _getContent
