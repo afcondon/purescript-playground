@@ -511,6 +511,97 @@ to `63`. `let xs = 1..10` demonstrates a `let`-cell binding visible
 to the cell below it. Enough shape to communicate the model in a
 single screen; nothing the user has to install or understand first.
 
+## Positioning beyond MVP
+
+Captured 2026-04-18 — the framing that crystallised once the MVP was
+in front of us in Chrome. This is forward-looking; what's actually
+implemented is the MVP described in Phase 1.
+
+### Two practitioner use cases (no learners)
+
+We initially imagined a learner audience alongside the practitioner
+one. Dropping that. Both modes assume PureScript fluency and target
+practitioners:
+
+- **(A) Live scratchpad** — the HfM-modelled environment we shipped:
+  module + cells + per-cell types + per-cell values, live recompile,
+  Web Worker execution, dedicated error panel.
+- **(B) AI collaboration around design-by-types** — the Claude-panel
+  direction (Phase 4 below). Not "AI helps you write code." The
+  framing that emerged in conversation: PureScript starts to feel
+  like a *high-level assembly language* — Claude writes the
+  implementations, the human operates at the type-design level. Types
+  become the negotiation surface; cells become design probes that
+  ground the design in concrete behaviour.
+
+Dropping the learner framing frees up real things: we can show full
+structural error output, surface `purs ide` features verbatim
+(hover, completion, search-by-type), assume `Show` and the type
+system are vocabulary the user already has.
+
+### Rapid development environment with AI-mediated lift
+
+The historical killer of scratchpad culture (Smalltalk workspaces,
+Lisp listeners, IPython, even REPL-driven workflows) was the *transfer
+tax*: figure something out interactively, then rewrite it in the real
+codebase with proper structure, types, tests, naming. AI capabilities
+make that tax near-zero — a sketched cell can be promoted into a
+properly-shaped module in some target project, named per project
+conventions, with tests stubbed and deps added to that project's
+`spago.yaml`. The Playground becomes a *staging surface*, not a
+terminal destination.
+
+Architectural consequences worth designing toward now:
+
+- A **promote** affordance: select cells → pick a target project →
+  lift code into that project's source tree. Probably Claude-mediated
+  (it has the context to do project-aware naming and placement).
+- **Project-context binding** — a Playground instance can attach to a
+  project: package set drawn from that project's `spago.yaml`,
+  top-level identifiers from that project in scope, promote landing
+  by default in that project. Without this, the Playground is a
+  sandbox; with it, it's an extension of an existing codebase.
+
+### Runtime substrate is pluggable
+
+Today: `spago bundle` for browser, executed in a Web Worker. But the
+synthesis pipeline (module + cells → `Main.purs`) is runtime-agnostic.
+Two natural alternates:
+
+- **Node host** — same JS bundle, run in a Node `child_process`
+  instead of a Worker. Now user code can hit FS, sockets, DBs, native
+  modules. A scratchpad for backend-PS development. Emit protocol can
+  be richer (capture stdout, stream long-running effects).
+- **Purerl host** — different spago backend (`purerl`), bundles to
+  BEAM, backend supervises an Erlang process. A typed scratchpad with
+  real OTP execution — interactive design for fault-tolerant systems.
+
+Either is "swap the runtime adapter," not a rewrite. The right move
+during Phase 2: **make `Compile.js`'s runtime adapter explicit** so
+the swap is mechanical when we want it. Today the browser/Worker
+shape is implicit in the bundling step + the worker plumbing.
+
+### Edges of the system as the AI-collaboration sweet spot
+
+Where the AI-collaboration mode pays the most: the *edges* of a
+system, not the pure-internal logic. Sockets, DBs, FS, AJAX, GraphQL,
+SQL — places where the human wants to supervise the interpretation
+of stuff coming in from outside. Those edges are also where types do
+their best work (parsing, schema, codecs). Likely runtime-workspace
+deps to add as we move that direction:
+
+- `argonaut` / `codec-argonaut` — JSON codecs (already in)
+- `affjax` — HTTP client
+- `node-fs` — filesystem (Node host only)
+- `httpurple` — HTTP server (Node host)
+- A typed Postgres client — Mark Eibes' `postgres-om` (or whatever
+  the current name is) for SQL with compile-time schema checks
+- `purescript-graphql` if/when GraphQL becomes interesting
+
+The pattern is consistent: a typed interface on top of a messy edge,
+exercised through cells that probe the edge's behaviour, with Claude
+proposing and refining types as the boundary's shape becomes clearer.
+
 ## Stretch — upstream contributions
 
 Good-citizen follow-ups, unlocked once the Playground itself is
