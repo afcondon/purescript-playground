@@ -602,20 +602,53 @@ The pattern is consistent: a typed interface on top of a messy edge,
 exercised through cells that probe the edge's behaviour, with Claude
 proposing and refining types as the boundary's shape becomes clearer.
 
-## Stretch — upstream contributions
+## Trajectory — replace trypurescript.org
 
-Good-citizen follow-ups, unlocked once the Playground itself is
-functional:
+Updated stance (2026-04-18). Rather than filing a modernisation PR
+against the legacy trypurescript repo, the Playground grows into its
+successor. Reasons: it starts with all the things trypurescript needs
+anyway (modern spago, registry-pinned package set, structured JSON
+response, typed client), plus the things trypurescript doesn't have
+(per-cell types + values, Sigil-rendered signatures, Web Worker
+sandbox, AI-collaboration substrate). Core-team reception is
+expected to be supportive given the project is open-source and fills
+the same role with a better foundation.
 
-- **Modernise trypurescript's build toolchain**: PR upstream to replace
-  `staging/spago.dhall` + `staging/packages.dhall` with a modern
-  `spago.yaml` pinned to a registry package set; update the README run
-  recipe, update CI. Repo has been quiet since late 2023; the PR
-  probably lands but may take a while. We can keep the Playground
-  independent of whether it merges.
-- **Push lessons from the Playground runtime back to trypurescript**:
-  e.g. if our synthesis pipeline or type-sidecar design is reusable,
-  make it so.
+What this requires beyond MVP:
+
+- **Performance parity-or-better with trypurescript's hot-path
+  compile**. Today we shell `spago bundle` on every edit; that's
+  ~100ms warm but grows with imports. The "compile Main only + link
+  precompiled library chunks" model trypurescript uses (a `require`
+  shim in the Worker pulling `/output/:module/…` served statically)
+  is the right target. Bundle size stays fixed, only Main.purs +
+  Playground.User.purs recompile per keystroke.
+- **Feature parity with trypurescript's public surface**: URL-encoded
+  shareable state (`code=`), GitHub gist + repo loading (`gist=`,
+  `github=`), view-mode switching (code / output / both),
+  JS-code-generation toggle (`js=true`). Most of these live in the
+  Phase 3 block; the successor framing moves them from "nice to
+  have" to "table stakes."
+- **A hosted instance at a production-quality URL** — either taking
+  over `try.purescript.org` (core-team conversation) or launching at
+  a Hylograph-owned URL first and earning the redirect.
+- **Operational hygiene**: rate limits, sandboxed compile pool,
+  auth-free but abuse-resistant. The backend already owns the
+  compile invocations, so this is a backend-layer concern.
+
+None of this blocks us from shipping the practitioner + AI-collab
+modes for local use; it's what turns the local tool into a hosted
+successor.
+
+### Original trypurescript — what still makes sense
+
+- **Lessons flow outward, not back**: if the Playground's synthesis
+  pipeline or `ToPlaygroundValue` design is useful elsewhere, we lift
+  it to a library (likely in `purescript-hylograph-libs`) rather than
+  patching the legacy repo.
+- **A courtesy PR** to trypurescript pointing at the successor once
+  it's ready, probably in the README, so folks finding the old repo
+  know where to go.
 
 ## Stretch — the Bret Victor corner
 
