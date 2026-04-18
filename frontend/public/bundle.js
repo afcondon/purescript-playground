@@ -33262,8 +33262,8 @@
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("UserModule")(function($127) {
-      return Just.create(UserModule($127));
+    return prismaticCodec("UserModule")(function($152) {
+      return Just.create(UserModule($152));
     })(un2)(object4(rowListCodecCons1)("UserModule")({
       source: string2
     }));
@@ -33272,8 +33272,8 @@
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("Position")(function($128) {
-      return Just.create(Position($128));
+    return prismaticCodec("Position")(function($153) {
+      return Just.create(Position($153));
     })(un2)(object4(rowListCodecCons(rowListCodecCons(rowListCodecCons22({
       reflectSymbol: function() {
         return "startColumn";
@@ -33299,7 +33299,7 @@
         return id2(v.value0);
       }
       ;
-      throw new Error("Failed pattern match at Playground.Session (line 165, column 12 - line 167, column 30): " + [v.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Session (line 201, column 12 - line 203, column 30): " + [v.constructor.name]);
     };
     var decode3 = function(json2) {
       if (isNull2(json2)) {
@@ -33316,10 +33316,10 @@
           return new Left(new TypeMismatch2("string or null"));
         }
         ;
-        throw new Error("Failed pattern match at Playground.Session (line 162, column 19 - line 164, column 59): " + [v.constructor.name]);
+        throw new Error("Failed pattern match at Playground.Session (line 198, column 19 - line 200, column 59): " + [v.constructor.name]);
       }
       ;
-      throw new Error("Failed pattern match at Playground.Session (line 160, column 3 - line 164, column 59): " + [json2.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Session (line 196, column 3 - line 200, column 59): " + [json2.constructor.name]);
     };
     return codec$prime(decode3)(encode3);
   })();
@@ -33352,8 +33352,8 @@
       };
       return codec$prime(decode3)(encode3);
     })();
-    return prismaticCodec("CompileError")(function($129) {
-      return Just.create(CompileError($129));
+    return prismaticCodec("CompileError")(function($157) {
+      return Just.create(CompileError($157));
     })(un2)(object4(rowListCodecCons(rowListCodecCons(rowListCodecCons(rowListCodecCons2({
       reflectSymbol: function() {
         return "position";
@@ -33381,8 +33381,8 @@
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("CellType")(function($130) {
-      return Just.create(CellType($130));
+    return prismaticCodec("CellType")(function($158) {
+      return Just.create(CellType($158));
     })(un2)(object4(rowListCodecCons(rowListCodecCons2({
       reflectSymbol: function() {
         return "signature";
@@ -33396,8 +33396,8 @@
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("CellRange")(function($131) {
-      return Just.create(CellRange($131));
+    return prismaticCodec("CellRange")(function($159) {
+      return Just.create(CellRange($159));
     })(un2)(object4(rowListCodecCons(rowListCodecCons22(idIsSymbol))()()(endLineIsSymbol))("CellRange")({
       id: string2,
       startLine: $$int,
@@ -33408,8 +33408,8 @@
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("CompileResponse")(function($132) {
-      return Just.create(CompileResponse($132));
+    return prismaticCodec("CompileResponse")(function($160) {
+      return Just.create(CompileResponse($160));
     })(un2)(object4(rowListCodecCons(rowListCodecCons(rowListCodecCons(rowListCodecCons(rowListCodecCons2({
       reflectSymbol: function() {
         return "warnings";
@@ -33442,8 +33442,8 @@
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("Cell")(function($133) {
-      return Just.create(Cell($133));
+    return prismaticCodec("Cell")(function($161) {
+      return Just.create(Cell($161));
     })(un2)(object4(rowListCodecCons(rowListCodecCons(rowListCodecCons1)()()({
       reflectSymbol: function() {
         return "kind";
@@ -33458,8 +33458,8 @@
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("CompileRequest")(function($134) {
-      return Just.create(CompileRequest($134));
+    return prismaticCodec("CompileRequest")(function($162) {
+      return Just.create(CompileRequest($162));
     })(un2)(object4(rowListCodecCons(rowListCodecCons2({
       reflectSymbol: function() {
         return "module";

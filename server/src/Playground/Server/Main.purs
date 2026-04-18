@@ -16,15 +16,21 @@ import Routing.Duplex.Generic (noArgs, sum)
 import Routing.Duplex.Generic.Syntax ((/))
 
 import Playground.Server.Compile as Compile
+import Playground.Server.Ide as Ide
 import Playground.Server.Synthesize (synthesize)
 import Playground.Session
   ( CompileError(..)
   , CompileResponse(..)
+  , IdeHit
+  , IdeQuery(..)
+  , IdeResponse(..)
   , compileRequestCodec
   , compileResponseCodec
+  , ideQueryCodec
+  , ideResponseCodec
   )
 
-data Route = Health | SessionCompile
+data Route = Health | SessionCompile | IdeType | IdeComplete
 
 derive instance Generic Route _
 
@@ -32,6 +38,8 @@ route :: RouteDuplex' Route
 route = root $ sum
   { "Health": "health" / noArgs
   , "SessionCompile": "session" / "compile" / noArgs
+  , "IdeType": "ide" / "type" / noArgs
+  , "IdeComplete": "ide" / "complete" / noArgs
   }
 
 errorJson :: String -> String -> String
@@ -47,6 +55,10 @@ errorJson code msg =
       , types: []
       , cellLines: []
       }
+
+ideResponseJson :: Array IdeHit -> String
+ideResponseJson hits =
+  stringify (CA.encode ideResponseCodec (IdeResponse { hits }))
 
 main :: ServerM
 main = serve { port: 3050, hostname: "localhost" }
@@ -80,4 +92,22 @@ main = serve { port: 3050, hostname: "localhost" }
                   let synth = synthesize req
                   out <- liftAff $ Compile.compileSources synth
                   ok' jsonCors out
+          IdeType -> do
+            bodyStr <- toString body
+            case jsonParser bodyStr of
+              Left _ -> ok' jsonCors (ideResponseJson [])
+              Right json -> case CA.decode ideQueryCodec json of
+                Left _ -> ok' jsonCors (ideResponseJson [])
+                Right (IdeQuery { query }) -> do
+                  hits <- liftAff (Ide.queryType query)
+                  ok' jsonCors (ideResponseJson hits)
+          IdeComplete -> do
+            bodyStr <- toString body
+            case jsonParser bodyStr of
+              Left _ -> ok' jsonCors (ideResponseJson [])
+              Right json -> case CA.decode ideQueryCodec json of
+                Left _ -> ok' jsonCors (ideResponseJson [])
+                Right (IdeQuery { query }) -> do
+                  hits <- liftAff (Ide.queryComplete query)
+                  ok' jsonCors (ideResponseJson hits)
   }
