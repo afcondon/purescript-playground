@@ -389,6 +389,15 @@ body {
   border-color: var(--accent);
 }
 
+/* Inline compile-error decoration in CM6 — wavy red underline on the
+   offending span. Hover shows the compiler message as a native title
+   tooltip; the bottom error panel still gives the attribution. */
+.cm-playground-error {
+  text-decoration: underline wavy #c04050;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+}
+
 /* CM6 hover-type tooltip — inverted card so Sigil-rendered signatures
    read as a distinct overlay rather than blending into the page. */
 .cm-tooltip.cm-tooltip-hover {

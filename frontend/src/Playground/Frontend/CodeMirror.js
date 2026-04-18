@@ -1,5 +1,5 @@
-import { EditorView, keymap, lineNumbers, drawSelection, hoverTooltip } from '@codemirror/view';
-import { EditorState } from '@codemirror/state';
+import { EditorView, keymap, lineNumbers, drawSelection, hoverTooltip, Decoration } from '@codemirror/view';
+import { EditorState, StateField, StateEffect } from '@codemirror/state';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import {
   bracketMatching, indentOnInput, StreamLanguage,
@@ -59,6 +59,52 @@ function escapeHtml(s) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
 }
+
+// --- Inline error decoration -----------------------------------
+// Errors are fed in as an Array of { startLine, startColumn, endLine,
+// endColumn, message } records (1-based line/col, matching the
+// `Position` we thread through from the compiler). We convert to
+// CM6 offsets, build Decoration.mark ranges, and dispatch them via a
+// StateEffect; the StateField provides them as decorations.
+
+const setErrorsEffect = StateEffect.define();
+
+const errorsField = StateField.define({
+  create: () => Decoration.none,
+  update: (decos, tr) => {
+    for (const e of tr.effects) {
+      if (e.is(setErrorsEffect)) return e.value;
+    }
+    return decos.map(tr.changes);
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
+
+function buildErrorDecos(view, errors) {
+  const doc = view.state.doc;
+  const marks = [];
+  for (const err of errors) {
+    try {
+      const sLine = doc.line(Math.max(1, Math.min(err.startLine, doc.lines)));
+      const eLine = doc.line(Math.max(1, Math.min(err.endLine, doc.lines)));
+      // Clamp columns to line length to guard against stale positions
+      // (e.g. user edited between compile and decoration dispatch).
+      const from = sLine.from + Math.max(0, Math.min(err.startColumn - 1, sLine.length));
+      const to = Math.max(from + 1, eLine.from + Math.max(0, Math.min(err.endColumn - 1, eLine.length)));
+      marks.push(
+        Decoration.mark({
+          class: 'cm-playground-error',
+          attributes: { title: String(err.message || '') },
+        }).range(from, to)
+      );
+    } catch (_) { /* skip malformed entry */ }
+  }
+  return Decoration.set(marks, true);
+}
+
+export const _setErrors = (view) => (errors) => () => {
+  view.dispatch({ effects: setErrorsEffect.of(buildErrorDecos(view, errors)) });
+};
 
 // CM6 hover-tooltip extension. Extracts the word at the hover point,
 // POSTs to /ide/type, hands the type string to the renderer (which
@@ -138,6 +184,7 @@ export const _createEditor = (parent) => (initialDoc) => (onChange) => (renderTy
         // dedicated PureScript grammar lands as a later upgrade.
         StreamLanguage.define(haskell),
         syntaxHighlighting(playgroundHighlightStyle),
+        errorsField,
         typeHover,
         EditorView.updateListener.of((update) => {
           // onChange is an EffectFn1 — call once, no trailing thunk.

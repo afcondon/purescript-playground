@@ -1,9 +1,11 @@
 module Playground.Frontend.CodeMirror
   ( EditorView
+  , ErrorSpan
   , createEditor
   , getContent
   , setContent
   , destroy
+  , setErrors
   ) where
 
 import Prelude
@@ -18,6 +20,14 @@ import Sigil.Parse (parseToRenderType)
 
 foreign import data EditorView :: Type
 
+type ErrorSpan =
+  { startLine :: Int
+  , startColumn :: Int
+  , endLine :: Int
+  , endColumn :: Int
+  , message :: String
+  }
+
 foreign import _createEditor
   :: Element
   -> String
@@ -30,6 +40,8 @@ foreign import _getContent :: EditorView -> Effect String
 foreign import _setContent :: EditorView -> String -> Effect Unit
 
 foreign import _destroy :: EditorView -> Effect Unit
+
+foreign import _setErrors :: EditorView -> Array ErrorSpan -> Effect Unit
 
 -- | Hover-tooltip renderer: parses a `purs ide` type string and emits
 -- | Sigil HTML. JS calls this synchronously from the hover callback;
@@ -49,6 +61,9 @@ createEditor el initialDoc onChange =
   _createEditor el initialDoc
     (mkEffectFn1 onChange)
     (mkEffectFn1 (\s -> pure (renderTypeHtml s)))
+
+setErrors :: EditorView -> Array ErrorSpan -> Effect Unit
+setErrors = _setErrors
 
 getContent :: EditorView -> Effect String
 getContent = _getContent

@@ -26,6 +26,9 @@ import Halogen.HTML.Properties as HP
 import Halogen.Subscription as HS
 import Type.Proxy (Proxy(..))
 
+import Data.Foldable (for_)
+
+import Playground.Frontend.CodeMirror (ErrorSpan)
 import Playground.Frontend.Config (backendUrl)
 import Playground.Frontend.Editor as Editor
 import Playground.Frontend.InScope as InScope
@@ -252,6 +255,7 @@ handleAction = case _ of
             , cellRanges = r.cellLines
             , cellTypes = typesMap
             }
+          decorateErrors r.errors r.cellLines
           -- Dispatch on which adapter produced the response:
           --   - Node / server-side: emits are already populated;
           --     fold them into cellResults directly, no Worker.
@@ -286,6 +290,72 @@ handleAction = case _ of
   flipKind = case _ of
     "let" -> "expr"
     _ -> "let"
+
+-- | Push inline error decorations to each editor. `errs` are the
+-- | raw CompileErrors from the response; we partition by filename
+-- | (Playground/User.purs → module, Main.purs → cells, via
+-- | `cellRanges`) and tell each editor slot its per-editor spans.
+-- | Editors that have no errors still get told `[]` so stale
+-- | squiggles from a previous compile go away.
+decorateErrors
+  :: forall o m
+   . MonadAff m
+  => Array CompileError
+  -> Array CellRange
+  -> H.HalogenM State Action Slots o m Unit
+decorateErrors errs cellRanges = do
+  s <- H.get
+  let partition = partitionErrorsByEditor errs cellRanges
+  H.tell _moduleEditor unit (Editor.SetErrors partition.moduleSpans)
+  for_ s.cells \c -> do
+    let spans = fromMaybe [] (Map.lookup c.id partition.cellSpans)
+    H.tell _cellEditor c.id (Editor.SetErrors spans)
+
+type ErrorPartition =
+  { moduleSpans :: Array ErrorSpan
+  , cellSpans :: Map String (Array ErrorSpan)
+  }
+
+partitionErrorsByEditor
+  :: Array CompileError
+  -> Array CellRange
+  -> ErrorPartition
+partitionErrorsByEditor errs cellRanges =
+  Array.foldl classify { moduleSpans: [], cellSpans: Map.empty } errs
+  where
+  classify acc (CompileError e) = case e.position, e.filename of
+    Just (Position p), Just file
+      | endsWith "Playground/User.purs" file ->
+          acc
+            { moduleSpans =
+                Array.snoc acc.moduleSpans
+                  (makeSpan p.startLine p.startColumn p.endLine p.endColumn e.message)
+            }
+      | endsWith "Main.purs" file ->
+          case findCellAt cellRanges p.startLine of
+            Nothing -> acc
+            Just (CellRange cr) ->
+              let
+                span =
+                  makeSpan
+                    (p.startLine - cr.startLine + 1)
+                    p.startColumn
+                    (p.endLine - cr.startLine + 1)
+                    p.endColumn
+                    e.message
+                existing = fromMaybe [] (Map.lookup cr.id acc.cellSpans)
+              in
+                acc { cellSpans = Map.insert cr.id (Array.snoc existing span) acc.cellSpans }
+    _, _ -> acc
+  makeSpan sl sc el ec msg =
+    { startLine: sl, startColumn: sc, endLine: el, endColumn: ec, message: msg }
+  findCellAt ranges line =
+    Array.find (\(CellRange cr) -> line >= cr.startLine && line <= cr.endLine) ranges
+  endsWith suffix str =
+    case Str.length str - Str.length suffix of
+      n | n >= 0 ->
+          Str.take (Str.length suffix) (Str.drop n str) == suffix
+      _ -> false
 
 -- | Tears down any live worker, its subscription, and its timeout fiber.
 teardownExecution

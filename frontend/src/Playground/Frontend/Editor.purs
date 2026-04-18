@@ -24,9 +24,11 @@ type Input = { initialDoc :: String, tag :: String }
 -- | The editor raises this on every document change. Parents debounce.
 data Output = Changed String
 
--- | Replace the editor's content programmatically. Unused for MVP but
--- | cheap to leave in place.
-data Query a = ReplaceContent String a
+-- | External queries: replace content (unused now), push a list of
+-- | inline error spans to be decorated on the editor.
+data Query a
+  = ReplaceContent String a
+  | SetErrors (Array CM.ErrorSpan) a
 
 data Action
   = Initialise
@@ -119,5 +121,12 @@ handleQuery = case _ of
     case state.view of
       Just view -> do
         liftEffect (CM.setContent view content)
+        pure (Just next)
+      Nothing -> pure (Just next)
+  SetErrors spans next -> do
+    state <- H.get
+    case state.view of
+      Just view -> do
+        liftEffect (CM.setErrors view spans)
         pure (Just next)
       Nothing -> pure (Just next)
