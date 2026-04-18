@@ -33749,6 +33749,7 @@
   var pure16 = /* @__PURE__ */ pure(applicativeHalogenM);
   var map32 = /* @__PURE__ */ map(functorEmitter);
   var modify_3 = /* @__PURE__ */ modify_2(monadStateHalogenM);
+  var when5 = /* @__PURE__ */ when(applicativeHalogenM);
   var Changed = /* @__PURE__ */ (function() {
     function Changed2(value0) {
       this.value0 = value0;
@@ -33772,6 +33773,16 @@
     ;
     Finalise2.value = new Finalise2();
     return Finalise2;
+  })();
+  var UpdateInput = /* @__PURE__ */ (function() {
+    function UpdateInput2(value0) {
+      this.value0 = value0;
+    }
+    ;
+    UpdateInput2.create = function(value0) {
+      return new UpdateInput2(value0);
+    };
+    return UpdateInput2;
   })();
   var HandleChange = /* @__PURE__ */ (function() {
     function HandleChange2(value0) {
@@ -33797,7 +33808,7 @@
           return pure16(new Just(v.value1));
         }
         ;
-        throw new Error("Failed pattern match at Playground.Frontend.Editor (line 94, column 5 - line 98, column 34): " + [state3.view.constructor.name]);
+        throw new Error("Failed pattern match at Playground.Frontend.Editor (line 119, column 5 - line 123, column 34): " + [state3.view.constructor.name]);
       });
     };
   };
@@ -33818,23 +33829,23 @@
                 return bind8(subscribe2(map32(HandleChange.create)(v1.emitter)))(function() {
                   return bind8(liftEffect7(createEditor(el)(state3.input.initialDoc)(notify(v1.listener))))(function(view) {
                     return modify_3(function(v2) {
-                      var $32 = {};
-                      for (var $33 in v2) {
-                        if ({}.hasOwnProperty.call(v2, $33)) {
-                          $32[$33] = v2[$33];
+                      var $37 = {};
+                      for (var $38 in v2) {
+                        if ({}.hasOwnProperty.call(v2, $38)) {
+                          $37[$38] = v2[$38];
                         }
                         ;
                       }
                       ;
-                      $32.view = new Just(view);
-                      return $32;
+                      $37.view = new Just(view);
+                      return $37;
                     });
                   });
                 });
               });
             }
             ;
-            throw new Error("Failed pattern match at Playground.Frontend.Editor (line 70, column 5 - line 78, column 41): " + [mEl.constructor.name]);
+            throw new Error("Failed pattern match at Playground.Frontend.Editor (line 80, column 5 - line 88, column 41): " + [mEl.constructor.name]);
           });
         });
       }
@@ -33849,15 +33860,70 @@
             return pure16(unit);
           }
           ;
-          throw new Error("Failed pattern match at Playground.Frontend.Editor (line 81, column 5 - line 83, column 27): " + [state3.view.constructor.name]);
+          throw new Error("Failed pattern match at Playground.Frontend.Editor (line 91, column 5 - line 93, column 27): " + [state3.view.constructor.name]);
+        });
+      }
+      ;
+      if (v instanceof UpdateInput) {
+        return bind8(get3)(function(state3) {
+          return discard5(when5(v.value0.initialDoc !== state3.currentDoc)(discard5((function() {
+            if (state3.view instanceof Just) {
+              return liftEffect7(setContent2(state3.view.value0)(v.value0.initialDoc));
+            }
+            ;
+            if (state3.view instanceof Nothing) {
+              return pure16(unit);
+            }
+            ;
+            throw new Error("Failed pattern match at Playground.Frontend.Editor (line 102, column 7 - line 104, column 29): " + [state3.view.constructor.name]);
+          })())(function() {
+            return modify_3(function(v1) {
+              var $47 = {};
+              for (var $48 in v1) {
+                if ({}.hasOwnProperty.call(v1, $48)) {
+                  $47[$48] = v1[$48];
+                }
+                ;
+              }
+              ;
+              $47.currentDoc = v.value0.initialDoc;
+              return $47;
+            });
+          })))(function() {
+            return modify_3(function(v1) {
+              var $50 = {};
+              for (var $51 in v1) {
+                if ({}.hasOwnProperty.call(v1, $51)) {
+                  $50[$51] = v1[$51];
+                }
+                ;
+              }
+              ;
+              $50.input = v.value0;
+              return $50;
+            });
+          });
         });
       }
       ;
       if (v instanceof HandleChange) {
-        return raise(new Changed(v.value0));
+        return discard5(modify_3(function(v1) {
+          var $54 = {};
+          for (var $55 in v1) {
+            if ({}.hasOwnProperty.call(v1, $55)) {
+              $54[$55] = v1[$55];
+            }
+            ;
+          }
+          ;
+          $54.currentDoc = v.value0;
+          return $54;
+        }))(function() {
+          return raise(new Changed(v.value0));
+        });
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Editor (line 66, column 16 - line 84, column 52): " + [v.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Frontend.Editor (line 76, column 16 - line 109, column 30): " + [v.constructor.name]);
     };
   };
   var render = function(state3) {
@@ -33868,14 +33934,17 @@
       initialState: function(input3) {
         return {
           input: input3,
-          view: Nothing.value
+          view: Nothing.value,
+          currentDoc: input3.initialDoc
         };
       },
       render,
       "eval": mkEval({
-        receive: defaultEval.receive,
         handleAction: handleAction(dictMonadAff),
         handleQuery: handleQuery(dictMonadAff),
+        receive: function(input3) {
+          return new Just(new UpdateInput(input3));
+        },
         initialize: new Just(Initialise.value),
         finalize: new Just(Finalise.value)
       })
@@ -34883,7 +34952,7 @@
   var bind18 = /* @__PURE__ */ bind(bindMaybe);
   var show5 = /* @__PURE__ */ show(showInt);
   var $$delete5 = /* @__PURE__ */ $$delete(ordString);
-  var when5 = /* @__PURE__ */ when(applicativeHalogenM);
+  var when6 = /* @__PURE__ */ when(applicativeHalogenM);
   var fromFoldable8 = /* @__PURE__ */ fromFoldable(ordString)(foldableArray);
   var insert9 = /* @__PURE__ */ insert(ordString);
   var show13 = /* @__PURE__ */ show(showMilliseconds);
@@ -35362,7 +35431,7 @@
       ;
       if (v instanceof SetRuntime) {
         return bind17(get6)(function(s0) {
-          return when5(s0.runtime !== v.value0)(discard7(modify_4(function(v12) {
+          return when6(s0.runtime !== v.value0)(discard7(modify_4(function(v12) {
             var $181 = {};
             for (var $182 in v12) {
               if ({}.hasOwnProperty.call(v12, $182)) {

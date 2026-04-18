@@ -28,11 +28,20 @@ data Output = Changed String
 -- | cheap to leave in place.
 data Query a = ReplaceContent String a
 
-data Action = Initialise | Finalise | HandleChange String
+data Action
+  = Initialise
+  | Finalise
+  | UpdateInput Input
+  | HandleChange String
 
+-- `currentDoc` tracks what we believe is presently in the CM6 view so
+-- we can distinguish 'parent re-rendered with the source we already
+-- told them about' (skip) from 'parent loaded a starter with different
+-- content' (overwrite the view).
 type State =
   { input :: Input
   , view :: Maybe EditorView
+  , currentDoc :: String
   }
 
 containerRef :: H.RefLabel
@@ -40,11 +49,12 @@ containerRef = H.RefLabel "cm-host"
 
 component :: forall m. MonadAff m => H.Component Query Input Output m
 component = H.mkComponent
-  { initialState: \input -> { input, view: Nothing }
+  { initialState: \input -> { input, view: Nothing, currentDoc: input.initialDoc }
   , render
   , eval: H.mkEval H.defaultEval
       { handleAction = handleAction
       , handleQuery = handleQuery
+      , receive = \input -> Just (UpdateInput input)
       , initialize = Just Initialise
       , finalize = Just Finalise
       }
@@ -81,7 +91,22 @@ handleAction = case _ of
     case state.view of
       Just view -> liftEffect (CM.destroy view)
       Nothing -> pure unit
-  HandleChange content -> H.raise (Changed content)
+  UpdateInput input -> do
+    state <- H.get
+    -- Only overwrite the editor's content if the new initialDoc
+    -- differs from what we believe is already there. Prevents
+    -- clobbering live typing: after HandleChange, currentDoc matches
+    -- the user's input; the parent's next render will pass the same
+    -- content back, and we correctly skip.
+    when (input.initialDoc /= state.currentDoc) do
+      case state.view of
+        Just view -> liftEffect (CM.setContent view input.initialDoc)
+        Nothing -> pure unit
+      H.modify_ _ { currentDoc = input.initialDoc }
+    H.modify_ _ { input = input }
+  HandleChange content -> do
+    H.modify_ _ { currentDoc = content }
+    H.raise (Changed content)
 
 handleQuery
   :: forall m a
