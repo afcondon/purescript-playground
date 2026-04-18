@@ -100,27 +100,56 @@ starterModule :: String
 starterModule =
   "module Scratch where\n\n\
   \import Prelude\n\n\
-  \import Data.Either (Either(..))\n\
-  \import Data.Maybe (Maybe(..))\n\n\
+  \-- Cells automatically have these in scope; you only need to\n\
+  \-- import the ones you also want to reference *in this module*:\n\
+  \--\n\
+  \--   Prelude\n\
+  \--   Data.Array as Array\n\
+  \--   Data.Either (Either(..))\n\
+  \--   Data.Maybe (Maybe(..))\n\
+  \--   Data.Tuple (Tuple(..))\n\
+  \--   Effect (Effect)\n\
+  \--   Effect.Aff (launchAff_)\n\
+  \--   Effect.Class (liftEffect)\n\
+  \--   Playground.Runtime (class ToPlaygroundValue, emit, toPlaygroundValue)\n\
+  \--\n\
+  \-- The full runtime-workspace package set is available to import:\n\
+  \-- argonaut, affjax, parsing, transformers, etc.\n\n\
+  \import Data.Maybe (Maybe(..))\n\
+  \import Data.Time.Duration (Milliseconds(..))\n\
+  \import Effect.Aff (Aff, delay)\n\n\
   \-- Safe division: Nothing on divide-by-zero, Just q otherwise.\n\
   \divSafe :: Int -> Int -> Maybe Int\n\
   \divSafe _ 0 = Nothing\n\
-  \divSafe n d = Just (n / d)\n"
+  \divSafe n d = Just (n / d)\n\n\
+  \-- Async: pause 25ms then yield 100. Runs the same way under the\n\
+  \-- browser Worker and a Node child-process — flip the runtime\n\
+  \-- toggle and watch c6 produce the same value.\n\
+  \timedSum :: Aff Int\n\
+  \timedSum = do\n\
+  \  delay (Milliseconds 25.0)\n\
+  \  pure 100\n"
 
--- | Starter cells laid out as two short lessons:
+-- | Starter cells laid out as three short lessons:
 -- |
 -- |   c1            Just 20      — Maybe is "uncertainty made explicit"
 -- |   c2  do-block   Just 30     ┐ same computation, two notations
 -- |   c3  >>= form   Just 30     ┘ (do is sugar for chained bind)
 -- |
--- |   c4  Array      [...]       ┐ same shape, three different
+-- |   c4  Array      [...]       ┐ same do-shape, three different
 -- |   c5  Either     Right 30    │ Monad instances — uncertainty,
 -- |   c1 above       Just 20     ┘ non-determinism, error-or-result
 -- |
--- | The "click" moment: c2/c3 produce identical values (do is sugar
--- | for >>=), and c1/c4/c5 are the same do-shape over Maybe / Array /
--- | Either, demonstrating the abstracted pattern. Watch the *types*
--- | column — the structure of failure/branching/error is in the type.
+-- |   c6  Aff        200          — same do-shape again, this time
+-- |                                 async. Works identically under
+-- |                                 the Browser Worker and Node
+-- |                                 child-process runtimes.
+-- |
+-- | The "click" moments: c2/c3 produce identical values (do is sugar
+-- | for >>=), and c1/c4/c5/c6 are the same do-shape over Maybe /
+-- | Array / Either / Aff, demonstrating the abstracted pattern. The
+-- | *types* column tells the structural story; the values column
+-- | shows the behavioural consequence.
 starterCells :: Array CellRec
 starterCells =
   [ { id: "c1"
@@ -158,13 +187,21 @@ starterCells =
         \  y <- Right 20\n\
         \  pure (x + y)"
     }
+  , { id: "c6"
+    , kind: "expr"
+    , source:
+        "do\n\
+        \  a <- timedSum\n\
+        \  b <- timedSum\n\
+        \  pure (a + b)"
+    }
   ]
 
 initialState :: forall i. i -> State
 initialState _ =
   { moduleSource: starterModule
   , cells: starterCells
-  , nextCellId: 6
+  , nextCellId: 7
   , runtime: "browser"
   , compiling: false
   , errors: []

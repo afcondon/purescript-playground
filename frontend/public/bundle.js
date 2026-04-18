@@ -34658,7 +34658,7 @@
           return pure18(unit);
         }
         ;
-        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 329, column 3 - line 331, column 25): " + [s.worker.constructor.name]);
+        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 366, column 3 - line 368, column 25): " + [s.worker.constructor.name]);
       })())(function() {
         return discard7((function() {
           if (s.workerSub instanceof Just) {
@@ -34669,7 +34669,7 @@
             return pure18(unit);
           }
           ;
-          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 332, column 3 - line 334, column 25): " + [s.workerSub.constructor.name]);
+          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 369, column 3 - line 371, column 25): " + [s.workerSub.constructor.name]);
         })())(function() {
           return discard7((function() {
             if (s.workerTimeout instanceof Just) {
@@ -34680,7 +34680,7 @@
               return pure18(unit);
             }
             ;
-            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 335, column 3 - line 337, column 25): " + [s.workerTimeout.constructor.name]);
+            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 372, column 3 - line 374, column 25): " + [s.workerTimeout.constructor.name]);
           })())(function() {
             return modify_4(function(v) {
               var $128 = {};
@@ -34701,7 +34701,7 @@
       });
     });
   };
-  var starterModule = "module Scratch where\n\nimport Prelude\n\nimport Data.Either (Either(..))\nimport Data.Maybe (Maybe(..))\n\n-- Safe division: Nothing on divide-by-zero, Just q otherwise.\ndivSafe :: Int -> Int -> Maybe Int\ndivSafe _ 0 = Nothing\ndivSafe n d = Just (n / d)\n";
+  var starterModule = "module Scratch where\n\nimport Prelude\n\n-- Cells automatically have these in scope; you only need to\n-- import the ones you also want to reference *in this module*:\n--\n--   Prelude\n--   Data.Array as Array\n--   Data.Either (Either(..))\n--   Data.Maybe (Maybe(..))\n--   Data.Tuple (Tuple(..))\n--   Effect (Effect)\n--   Effect.Aff (launchAff_)\n--   Effect.Class (liftEffect)\n--   Playground.Runtime (class ToPlaygroundValue, emit, toPlaygroundValue)\n--\n-- The full runtime-workspace package set is available to import:\n-- argonaut, affjax, parsing, transformers, etc.\n\nimport Data.Maybe (Maybe(..))\nimport Data.Time.Duration (Milliseconds(..))\nimport Effect.Aff (Aff, delay)\n\n-- Safe division: Nothing on divide-by-zero, Just q otherwise.\ndivSafe :: Int -> Int -> Maybe Int\ndivSafe _ 0 = Nothing\ndivSafe n d = Just (n / d)\n\n-- Async: pause 25ms then yield 100. Runs the same way under the\n-- browser Worker and a Node child-process \u2014 flip the runtime\n-- toggle and watch c6 produce the same value.\ntimedSum :: Aff Int\ntimedSum = do\n  delay (Milliseconds 25.0)\n  pure 100\n";
   var starterCells = [{
     id: "c1",
     kind: "expr",
@@ -34722,6 +34722,10 @@
     id: "c5",
     kind: "expr",
     source: "do\n  x <- (Right 10 :: Either String Int)\n  y <- Right 20\n  pure (x + y)"
+  }, {
+    id: "c6",
+    kind: "expr",
+    source: "do\n  a <- timedSum\n  b <- timedSum\n  pure (a + b)"
   }];
   var runtimeButton = function(state3) {
     return function(value13) {
@@ -34748,7 +34752,7 @@
       return [pre([class_("runtime-error")])([text5("runtime: " + v.value0)])];
     }
     ;
-    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 531, column 22 - line 536, column 6): " + [v.constructor.name]);
+    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 568, column 22 - line 573, column 6): " + [v.constructor.name]);
   };
   var renderHeader = function(state3) {
     return header([class_("playground-header")])([div2([class_("title-group")])([h1_([text5("PureScript Playground")]), p([class_("subtitle")])([text5("Edit the module and the cells; auto-compiles 400ms after you stop typing.")])]), div2([class_("runtime-toggle")])([runtimeButton(state3)("browser")("Browser"), runtimeButton(state3)("node")("Node")]), button([class_("compile-btn"), disabled10(state3.compiling), onClick(function(v) {
@@ -34765,7 +34769,7 @@
     return {
       moduleSource: starterModule,
       cells: starterCells,
-      nextCellId: 6,
+      nextCellId: 7,
       runtime: "browser",
       compiling: false,
       errors: [],
@@ -35022,7 +35026,7 @@
               return pure18(unit);
             }
             ;
-            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 239, column 5 - line 241, column 27): " + [s.pendingCompile.constructor.name]);
+            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 276, column 5 - line 278, column 27): " + [s.pendingCompile.constructor.name]);
           })())(function() {
             return bind17(fork2(discard7(liftAff2(delay(debounceMs)))(function() {
               return handleAction2(dictMonadAff)(Compile.value);
@@ -35163,14 +35167,14 @@
                       return startExecution(dictMonadAff)(v1.value0.js.value0);
                     }
                     ;
-                    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 297, column 16 - line 299, column 41): " + [v1.value0.js.constructor.name]);
+                    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 334, column 16 - line 336, column 41): " + [v1.value0.js.constructor.name]);
                   });
                 }
                 ;
-                throw new Error("Failed pattern match at Playground.Frontend.Shell (line 271, column 25 - line 299, column 41): " + [v1.constructor.name]);
+                throw new Error("Failed pattern match at Playground.Frontend.Shell (line 308, column 25 - line 336, column 41): " + [v1.constructor.name]);
               }
               ;
-              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 267, column 5 - line 299, column 41): " + [result.constructor.name]);
+              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 304, column 5 - line 336, column 41): " + [result.constructor.name]);
             });
           });
         });
@@ -35228,7 +35232,7 @@
           });
         }
         ;
-        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 300, column 30 - line 308, column 78): " + [v.value0.constructor.name]);
+        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 337, column 30 - line 345, column 78): " + [v.value0.constructor.name]);
       }
       ;
       if (v instanceof WorkerTimeout) {
@@ -35248,7 +35252,7 @@
         });
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 204, column 16 - line 311, column 22): " + [v.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 241, column 16 - line 348, column 22): " + [v.constructor.name]);
     };
   };
   var cellColorClass = function(idx) {
@@ -35290,7 +35294,7 @@
             return "synthesis \u25B8 Main.purs line " + show5(e.position.value0.startLine);
           }
           ;
-          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 607, column 9 - line 612, column 71): " + [v.constructor.name]);
+          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 644, column 9 - line 649, column 71): " + [v.constructor.name]);
         }
         ;
         return e.filename.value0;
@@ -35332,7 +35336,7 @@
         return [];
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 544, column 20 - line 547, column 20): " + [state3.transportError.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 581, column 20 - line 584, column 20): " + [state3.transportError.constructor.name]);
     })();
     var compileRows = map112(attributedRow(state3)("compile"))(state3.errors);
     var rows4 = append14(transportRow)(append14(compileRows)(warningRows));
@@ -35361,7 +35365,7 @@
                 return span3([class_("muted")])([text5("\u2014")]);
               }
               ;
-              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 523, column 25 - line 528, column 66): " + [v.constructor.name]);
+              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 560, column 25 - line 565, column 66): " + [v.constructor.name]);
             };
           };
           var renderType = function(st) {
@@ -35377,7 +35381,7 @@
                 return span3([class_("muted gutter-type")])([text5("\u2014")]);
               }
               ;
-              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 517, column 24 - line 522, column 78): " + [v.constructor.name]);
+              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 554, column 24 - line 559, column 78): " + [v.constructor.name]);
             };
           };
           return div2([class_("gutter-row " + cellColorClass(idx))])([span3([class_("gutter-cell-id")])([text5(c.id)]), div2([class_("gutter-body")])([renderType(state3)(c), renderValue(state3)(c)])]);
