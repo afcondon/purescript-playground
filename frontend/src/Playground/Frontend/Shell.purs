@@ -29,7 +29,7 @@ import Type.Proxy (Proxy(..))
 import Data.Foldable (for_)
 
 import Playground.Frontend.CodeMirror (ErrorSpan)
-import Playground.Frontend.Config (backendUrl)
+import Playground.Frontend.Config (backendUrl, nowMs)
 import Playground.Frontend.Editor as Editor
 import Playground.Frontend.InScope as InScope
 import Playground.Frontend.SigilView as SigilView
@@ -64,6 +64,9 @@ type State =
   , starterKey :: String          -- key of the currently-loaded starter
   , starterMenuOpen :: Boolean
   , inScopeOpen :: Boolean
+  , lastUserEditAt :: Number      -- ms since epoch; used to guard the
+                                   -- server-pull poll against clobbering
+                                   -- live typing.
   , compiling :: Boolean
   , errors :: Array CompileError
   , warnings :: Array CompileError
@@ -107,6 +110,9 @@ data Action
   | ToggleInScope
   | HandleWorkerMessage WorkerMessage
   | WorkerTimeout
+  | PollServer              -- 2s tick — pull remote snapshot, apply
+                            -- if the user isn't actively typing
+  | Startup                 -- runs once on init: compile + start poll loop
 
 initialState :: forall i. i -> State
 initialState _ =
@@ -118,6 +124,7 @@ initialState _ =
      , starterKey: s.key
      , starterMenuOpen: false
      , inScopeOpen: false
+     , lastUserEditAt: 0.0
      , compiling: false
      , errors: []
      , warnings: []
@@ -148,7 +155,7 @@ component = H.mkComponent
   , render
   , eval: H.mkEval H.defaultEval
       { handleAction = handleAction
-      , initialize = Just Compile
+      , initialize = Just Startup
       }
   }
 
@@ -158,10 +165,15 @@ handleAction
   => Action
   -> H.HalogenM State Action Slots o m Unit
 handleAction = case _ of
+  Startup -> do
+    handleAction Compile
+    schedulePoll
   ModuleChanged src -> do
+    stampEdit
     H.modify_ _ { moduleSource = src }
     handleAction ScheduleCompile
   CellChanged id src -> do
+    stampEdit
     H.modify_ \s -> s { cells = updateCell id src s.cells }
     handleAction ScheduleCompile
   AddCell -> do
@@ -281,6 +293,9 @@ handleAction = case _ of
   WorkerTimeout -> do
     H.modify_ _ { runtimeError = Just ("timeout after " <> show workerTimeoutMs) }
     teardownExecution
+  PollServer -> do
+    pollRemote
+    schedulePoll
   where
   mkCell c = Cell { id: c.id, kind: c.kind, source: c.source }
   updateCell id src cells =
@@ -290,6 +305,113 @@ handleAction = case _ of
   flipKind = case _ of
     "let" -> "expr"
     _ -> "let"
+
+-- | Bump the last-user-edit timestamp so the poll loop knows to
+-- | hold off for a couple seconds (don't clobber live typing).
+stampEdit
+  :: forall o m
+   . MonadAff m
+  => H.HalogenM State Action Slots o m Unit
+stampEdit = do
+  t <- H.liftEffect nowMs
+  H.modify_ _ { lastUserEditAt = t }
+
+-- | Schedule the next poll tick. PollServer self-schedules so this
+-- | is called once from Startup and then continuously by each tick.
+schedulePoll
+  :: forall o m
+   . MonadAff m
+  => H.HalogenM State Action Slots o m Unit
+schedulePoll = void $ H.fork do
+  H.liftAff (delay (Milliseconds 2000.0))
+  handleAction PollServer
+
+-- | One poll tick: GET /session, compare to local state, apply if
+-- | input fields differ AND the user's been idle for at least 2s.
+-- | The idle check protects active typing; without it, the remote's
+-- | stale-by-one-keystroke state would fight the user every 2s.
+pollRemote
+  :: forall o m
+   . MonadAff m
+  => H.HalogenM State Action Slots o m Unit
+pollRemote = do
+  s <- H.get
+  now <- H.liftEffect nowMs
+  when (now - s.lastUserEditAt > 2000.0) do
+    result <- H.liftAff $ AX.request $ AX.defaultRequest
+      { method = Left GET
+      , url = backendUrl <> "/session"
+      , responseFormat = RF.json
+      , content = Nothing
+      }
+    case result of
+      Left _ -> pure unit
+      Right { body } -> case CA.decode compileResponseCodec body of
+        Left _ -> pure unit
+        Right (CompileResponse r) ->
+          when (remoteDiffers s r) (applyRemote r)
+
+-- | Does the remote snapshot differ from what the frontend is
+-- | currently showing, in a way that merits overwriting? We compare
+-- | only input state (module, cells, runtime) — derived fields
+-- | change on every compile even when nothing semantically differs.
+remoteDiffers
+  :: forall r
+   . State
+  -> { "module" :: UserModule
+     , cells :: Array Cell
+     , runtime :: String
+     | r }
+  -> Boolean
+remoteDiffers s r =
+  let UserModule rm = r."module"
+      sameModule = rm.source == s.moduleSource
+      sameRuntime = r.runtime == s.runtime
+      sameCells = cellsMatch s.cells r.cells
+  in not (sameModule && sameRuntime && sameCells)
+  where
+  cellsMatch local remote =
+    Array.length local == Array.length remote
+      && Array.all identity
+           (Array.zipWith cellEq local remote)
+  cellEq local (Cell remote) =
+    local.id == remote.id
+      && local.kind == remote.kind
+      && local.source == remote.source
+
+-- | Take a remote snapshot and overwrite local display state with it.
+-- | Bumps lastUserEditAt so we don't immediately re-apply.
+applyRemote
+  :: forall o m r
+   . MonadAff m
+  => { "module" :: UserModule
+     , cells :: Array Cell
+     , runtime :: String
+     , types :: Array CellType
+     , cellLines :: Array CellRange
+     , errors :: Array CompileError
+     , warnings :: Array CompileError
+     , emits :: Array CellEmit
+     | r }
+  -> H.HalogenM State Action Slots o m Unit
+applyRemote r = do
+  let UserModule rm = r."module"
+      typesMap = Map.fromFoldable
+        ( map (\(CellType ct) -> Tuple ct.id ct.signature) r.types )
+      cellRecs = map (\(Cell c) -> { id: c.id, kind: c.kind, source: c.source }) r.cells
+      resultsMap = Map.fromFoldable
+        ( map (\(CellEmit e) -> Tuple e.id (Value.parse e.value)) r.emits )
+  H.modify_ _
+    { moduleSource = rm.source
+    , cells = cellRecs
+    , runtime = r.runtime
+    , cellTypes = typesMap
+    , cellResults = resultsMap
+    , cellRanges = r.cellLines
+    , errors = r.errors
+    , warnings = r.warnings
+    }
+  decorateErrors r.errors r.cellLines
 
 -- | Push inline error decorations to each editor. `errs` are the
 -- | raw CompileErrors from the response; we partition by filename

@@ -6,3 +6,5 @@ export const backendUrl =
   typeof window !== 'undefined' && window.location && window.location.hostname
     ? `http://${window.location.hostname}:3050`
     : 'http://localhost:3050';
+
+export const nowMs = () => Date.now();
