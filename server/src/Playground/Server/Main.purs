@@ -62,7 +62,7 @@ ideResponseJson hits =
   stringify (CA.encode ideResponseCodec (IdeResponse { hits }))
 
 main :: ServerM
-main = serve { port: 3050, hostname: "localhost" }
+main = serve { port: 3050, hostname: "0.0.0.0" }
   { route
   , router: \{ route: r, method, body } ->
       let plainCors = headers
