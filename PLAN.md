@@ -390,15 +390,50 @@ and the inferred type for each cell, all updating live.
 
 ## Phase 2 — Inline error attribution, richer value rendering
 
-- Source map so compiler errors get attributed to the originating
-  surface (module / which cell).
-- `ToPlaygroundValue` instances for richer structures (records, arrays
-  of records, `Maybe`/`Either`, nested data) that render via Sigil
-  rather than plain `show`.
-- Sigil integration for value rendering, not just type rendering.
-- Warnings surfaced inline (not just errors).
-- Hover-type popovers on identifiers inside the editors (the `purs
-  ide` subprocess is already running, so this is close to free).
+- [x] Source map so compiler errors get attributed to the originating
+      surface (module / which cell). Landed 2026-04-17: structured
+      `CompileError` with optional `Position`, `CellRange` per expr
+      cell, frontend error panel renders "cell c2 ▸ line 1".
+- [x] `ToPlaygroundValue` instances for richer structures (`Maybe`,
+      `Either`, `Tuple`, nested arrays) that render structurally
+      rather than plain `show`. Landed 2026-04-18: `PlaygroundValue`
+      ADT on the wire, `Playground.Frontend.ValueView` walks the
+      tree, constructors get accent colour and parenthesised args.
+      Record handling still via `Show` fallback — Generic-derived
+      record rendering is deferred.
+- [x] Warnings surfaced (same panel, amber treatment). Landed
+      2026-04-17.
+- [x] Hover-type popovers on identifiers inside the editors. Landed
+      2026-04-18: CM6 `hoverTooltip` fetches from `/ide/type`;
+      tooltip content is Sigil-rendered (typographic layout for
+      polymorphic signatures like `map`).
+
+## Phase 2 follow-ups (practitioner polish, landed 2026-04-18)
+
+- [x] Colour-coded cells threaded from editor through gutter —
+      8-slot Swiss palette, position-based.
+- [x] `Aff a` support — `ToPlaygroundValue` class now returns
+      `Aff PlaygroundValue`; synthesised `main` uses `launchAff_`.
+- [x] `let`-cell UI toggle — per-cell [expr | let] button,
+      gutter filters expr-only, colour index preserved.
+- [x] Wider default runtime-workspace package set — practitioner
+      deps (transformers, parsing, argonaut, affjax, nullable, st,
+      etc.) available for user imports without edits to the
+      workspace.
+- [x] User imports mirrored into synthesised Main — cells see the
+      same scope the user's module does.
+- [x] Tailscale-reachable: backend binds to `0.0.0.0`, frontend
+      resolves backend URL from `window.location.hostname`.
+
+### Still queued (post-MVP polish, optional)
+
+- Inline error decoration on the CM6 editor (red squiggle on the
+  offending cell/line rather than just the bottom panel).
+- Generic-derived record rendering for `ToPlaygroundValue`.
+- A proper PureScript grammar for CM6 (currently using the legacy-
+  modes Haskell mode; good enough but not PureScript-exact).
+- Showcase starter content that exercises the structural renderer
+  (Maybe/Tuple demos).
 
 ## Phase 3 — Broaden
 
