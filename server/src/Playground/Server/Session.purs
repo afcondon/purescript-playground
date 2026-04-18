@@ -3,6 +3,7 @@ module Playground.Server.Session
   , newStore
   , get
   , compileAndStore
+  , replaceAll
   , updateModule
   , appendCell
   , updateCell
@@ -13,7 +14,11 @@ module Playground.Server.Session
 import Prelude
 
 import Data.Array (filter, findIndex, modifyAt, snoc)
+import Data.Array as Array
+import Data.Int (fromString) as Int
 import Data.Maybe (Maybe(..), fromMaybe)
+import Data.String as Str
+import Data.String.Pattern (Pattern(..))
 import Effect (Effect)
 import Effect.AVar (AVar)
 import Effect.AVar as EffAVar
@@ -141,6 +146,30 @@ compileNow s =
 -- | Public: force a recompile with the current state.
 compileAndStore :: SessionStore -> Aff CompileResponse
 compileAndStore store = withUpdate store identity
+
+-- | Replace the full input state (module + cells + runtime) from a
+-- | CompileRequest and compile. Used by POST /session/compile when
+-- | the client supplies a body (matches the pre-session-store
+-- | behaviour the frontend still relies on). nextCellId is bumped
+-- | past the incoming ids so later server-side appends don't collide.
+replaceAll :: SessionStore -> CompileRequest -> Aff CompileResponse
+replaceAll store (CompileRequest r) = withUpdate store \s -> s
+  { runtime = r.runtime
+  , "module" = r."module"
+  , cells = r.cells
+  , nextCellId = nextIdAfter r.cells
+  }
+  where
+  nextIdAfter cs =
+    let maxId = Array.foldl
+                  (\acc (Cell c) -> max acc (parseCellNumber c.id))
+                  0 cs
+    in maxId + 1
+  parseCellNumber s = case Str.stripPrefix (Pattern "c") s of
+    Just rest -> case Int.fromString rest of
+      Just n -> n
+      Nothing -> 0
+    Nothing -> 0
 
 updateModule :: SessionStore -> UserModule -> Aff CompileResponse
 updateModule store m = withUpdate store _ { "module" = m }

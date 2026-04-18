@@ -1,5 +1,9 @@
 module Playground.User where
 
--- Placeholder. The backend overwrites this file on every
--- /session/compile with the user's module source, renamed to
--- `module Playground.User where`.
+import Prelude
+
+import Data.Maybe (Maybe(..))
+
+divSafe :: Int -> Int -> Maybe Int
+divSafe _ 0 = Nothing
+divSafe n d = Just (n / d)

@@ -25,6 +25,7 @@ import Routing.Duplex.Generic.Syntax ((/))
 import Playground.Server.Ide as Ide
 import Playground.Server.Session (SessionStore)
 import Playground.Server.Session as Session
+import Data.String as String
 import Playground.Session
   ( CompileError(..)
   , CompileResponse(..)
@@ -32,6 +33,7 @@ import Playground.Session
   , IdeQuery(..)
   , IdeResponse(..)
   , UserModule(..)
+  , compileRequestCodec
   , compileResponseCodec
   , ideQueryCodec
   , ideResponseCodec
@@ -178,7 +180,15 @@ mkRouter store { route: r, method, body } =
         ok' jsonCors (snapshotJson resp)
 
       SessionCompile -> do
-        resp <- liftAff (Session.compileAndStore store)
+        -- With body: set state from the CompileRequest, then compile.
+        -- This is the shape the frontend POSTs today.
+        -- Without body (empty string): recompile current state.
+        bodyStr <- toString body
+        resp <- if String.null bodyStr || bodyStr == "{}"
+          then liftAff (Session.compileAndStore store)
+          else case parseBody compileRequestCodec bodyStr of
+            Left _ -> liftAff (Session.compileAndStore store)
+            Right req -> liftAff (Session.replaceAll store req)
         ok' jsonCors (snapshotJson resp)
 
       SessionModule -> do
