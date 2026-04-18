@@ -6,8 +6,10 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Compiled foreign.js lives at <repo>/output/Playground.Server.Compile/
-// so repo root is exactly 2 levels up.
+// Compiled foreign.js for this adapter lives at
+// <repo>/output/Playground.Server.Adapter.BrowserWorker/foreign.js —
+// repo root is exactly 2 levels up. (Modern spago flattens the nested
+// module namespace in its output dir to a dot-joined folder name.)
 const REPO_ROOT = pathResolve(__dirname, '..', '..');
 const WORKSPACE = pathResolve(REPO_ROOT, 'runtime-workspace');
 const MAIN_PATH = pathResolve(WORKSPACE, 'src', 'Main.purs');
@@ -23,7 +25,9 @@ function runBuildJsonErrors() {
       ['build', '-p', 'playground-runtime', '--json-errors'],
       { cwd: WORKSPACE, maxBuffer: 16 * 1024 * 1024 },
       (_err, stdout, stderr) => {
-        const jsonLine = stdout.split('\n').find((l) => l.startsWith('{') && l.includes('"errors"'));
+        const jsonLine = stdout
+          .split('\n')
+          .find((l) => l.startsWith('{') && l.includes('"errors"'));
         if (!jsonLine) {
           const trimmed = (stderr || '').trim();
           if (trimmed) {
@@ -44,7 +48,7 @@ function runBuildJsonErrors() {
           resolve({ errors, warnings, clean: errors.length === 0 });
         } catch (e) {
           resolve({
-            errors: [transportError(`failed to parse --json-errors output: ${e.message}`)],
+            errors: [transportError(`failed to parse --json-errors: ${e.message}`)],
             warnings: [],
             clean: false,
           });
@@ -54,11 +58,11 @@ function runBuildJsonErrors() {
   });
 }
 
-// Drop warnings that are artefacts of synthesis, not user intent.
-// Two cases: warnings in the Main.purs preamble (lines 1–8 — our
-// imports, header, section comments) and MissingTypeDeclaration for
-// cell_<id> bindings (we can't give them signatures because the type
-// isn't known until the compiler infers it).
+// Drop warnings that are artefacts of synthesis, not user intent. Two
+// cases: warnings in the Main.purs preamble (lines 1-8 — our imports,
+// header, section comments) and MissingTypeDeclaration for cell_<id>
+// bindings (we can't give them signatures because the type isn't known
+// until the compiler infers it).
 function keepWarning(w) {
   if (w.filename && w.filename.endsWith('Main.purs')) {
     if (w.position && w.position.startLine <= 8) return false;
@@ -114,12 +118,7 @@ function extractCellIds(mainSource) {
 
 // ---- public FFI ----
 
-// Writes both synthesised sources, runs spago build --json-errors for
-// structured diagnostics, then spago bundle for JS (if clean). Returns
-// an intermediate { js, warnings, errors, cellIds } record. The caller
-// (Compile.purs) then asks Ide for the per-cell types and assembles
-// the final CompileResponse.
-export const _buildAndBundle = (userSource) => (mainSource) => () =>
+export const _bundle = (userSource) => (mainSource) => () =>
   new Promise(async (resolve) => {
     const nothing = { js: null, warnings: [], errors: [], cellIds: [] };
 
@@ -138,7 +137,12 @@ export const _buildAndBundle = (userSource) => (mainSource) => () =>
 
     const diag = await runBuildJsonErrors();
     if (!diag.clean) {
-      return resolve({ js: null, warnings: diag.warnings, errors: diag.errors, cellIds: [] });
+      return resolve({
+        js: null,
+        warnings: diag.warnings,
+        errors: diag.errors,
+        cellIds: [],
+      });
     }
 
     const bundle = await runBundle();

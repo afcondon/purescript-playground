@@ -15,6 +15,7 @@ import Routing.Duplex (RouteDuplex', root)
 import Routing.Duplex.Generic (noArgs, sum)
 import Routing.Duplex.Generic.Syntax ((/))
 
+import Playground.Server.Adapter.BrowserWorker (browserWorker)
 import Playground.Server.Compile as Compile
 import Playground.Server.Ide as Ide
 import Playground.Server.Synthesize (synthesize)
@@ -90,7 +91,7 @@ main = serve { port: 3050, hostname: "localhost" }
                     (errorJson "BadRequest" (CA.printJsonDecodeError decodeErr))
                 Right req -> do
                   let synth = synthesize req
-                  out <- liftAff $ Compile.compileSources synth
+                  out <- liftAff $ Compile.compileSources browserWorker synth
                   ok' jsonCors out
           IdeType -> do
             bodyStr <- toString body

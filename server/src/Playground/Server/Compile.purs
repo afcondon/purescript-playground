@@ -1,16 +1,17 @@
-module Playground.Server.Compile where
+module Playground.Server.Compile
+  ( compileSources
+  ) where
 
 import Prelude
 
-import Control.Promise (Promise, toAffE)
-import Data.Argonaut.Core (Json, stringify)
+import Data.Argonaut.Core (stringify)
 import Data.Codec.Argonaut as CA
 import Data.Codec.Argonaut.Record as CAR
 import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
-import Effect (Effect)
 import Effect.Aff (Aff)
 
+import Playground.Server.Adapter (Adapter)
 import Playground.Server.Ide as Ide
 import Playground.Session
   ( CellRange
@@ -21,11 +22,8 @@ import Playground.Session
   , nullableStringCodec
   )
 
--- | Runs spago build + bundle against the runtime workspace after
--- | writing the synthesised sources. Returns an intermediate record
--- | the caller (compileSources) decorates with types + cellLines.
-foreign import _buildAndBundle :: String -> String -> Effect (Promise Json)
-
+-- | Intermediate record an Adapter returns over the FFI. Compile.purs
+-- | decodes it, decorates with types, and assembles the final response.
 type BuildResult =
   { js :: Maybe String
   , warnings :: Array CompileError
@@ -49,31 +47,32 @@ mkTransportError msg = CompileError
   , message: msg
   }
 
--- | Orchestrates a full /session/compile: writes the sources, spago
--- | compiles, bundles (if clean), asks Ide for cell types, returns the
--- | final CompileResponse as a JSON string.
+-- | Orchestrates a full /session/compile: asks the adapter for a build
+-- | outcome, queries Ide for cell types on success, assembles and
+-- | encodes the final CompileResponse.
 compileSources
-  :: { userSource :: String
+  :: Adapter
+  -> { userSource :: String
      , mainSource :: String
      , cellLines :: Array CellRange
      }
   -> Aff String
-compileSources s = do
-  raw <- toAffE (_buildAndBundle s.userSource s.mainSource)
+compileSources adapter s = do
+  raw <- adapter.bundle s.userSource s.mainSource
   case CA.decode buildResultCodec raw of
     Left e ->
       pure $ encodeResponse $ CompileResponse
         { js: Nothing
         , warnings: []
-        , errors: [ mkTransportError ("buildResult decode: " <> CA.printJsonDecodeError e) ]
+        , errors:
+            [ mkTransportError
+                ("adapter " <> adapter.name <> " returned undecodable BuildResult: " <> CA.printJsonDecodeError e)
+            ]
         , types: []
         , cellLines: s.cellLines
         }
     Right r -> do
       types <- case r.js of
-        -- Only query types when the compile actually succeeded. On
-        -- failed compiles the externs are stale and the types would
-        -- mis-attribute anyway.
         Just _ -> Ide.queryCellTypes r.cellIds
         Nothing -> pure []
       pure $ encodeResponse $ CompileResponse

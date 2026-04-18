@@ -185,6 +185,42 @@ body {
   border-color: var(--accent);
 }
 
+/* CM6 hover-type tooltip */
+.cm-tooltip.cm-tooltip-hover {
+  background: #fdfdfc;
+  border: 1px solid var(--rule);
+  padding: 0.5rem 0.65rem;
+  max-width: 480px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  border-radius: 2px;
+}
+
+.cm-tooltip-type {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.cm-tooltip-name {
+  color: var(--fg);
+  font-weight: 600;
+}
+
+.cm-tooltip-dcolon {
+  color: var(--muted);
+}
+
+.cm-tooltip-ty {
+  color: var(--accent);
+}
+
+.cm-tooltip-module {
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
 /* Gutter column: per-cell results */
 .pane-gutter {
   display: flex;
