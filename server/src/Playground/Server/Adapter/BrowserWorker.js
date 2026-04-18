@@ -58,16 +58,17 @@ function runBuildJsonErrors() {
   });
 }
 
-// Drop warnings that are artefacts of synthesis, not user intent. Two
-// cases: warnings in the Main.purs preamble (lines 1-12 — our module
-// header, common imports, section comments) and MissingTypeDeclaration
-// for cell_<id> bindings (we can't give them signatures because the
-// type isn't known until the compiler infers it).
+// Drop all warnings that live in the synthesised Main.purs. Reasons:
+//   - preamble warnings are synthesis artefacts,
+//   - mirrored user imports would generate duplicates of warnings
+//     the user already sees from Playground/User.purs,
+//   - MissingTypeDeclaration on cell_<id> bindings is inherent to
+//     the synthesis (we don't know the type until inference).
+// The user's own warnings still flow through from User.purs. If we
+// later want fine-grained cell-specific warnings we'll thread cellLines
+// in and keep warnings that fall inside a cell's range.
 function keepWarning(w) {
-  if (w.filename && w.filename.endsWith('Main.purs')) {
-    if (w.position && w.position.startLine <= 12) return false;
-    if (w.code === 'MissingTypeDeclaration' && /\bcell_[A-Za-z0-9_]+\b/.test(w.message)) return false;
-  }
+  if (w.filename && w.filename.endsWith('Main.purs')) return false;
   return true;
 }
 

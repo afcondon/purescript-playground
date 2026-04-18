@@ -89,6 +89,7 @@ data Action
   | CellChanged String String
   | AddCell
   | RemoveCell String
+  | ToggleCellKind String
   | HandleWorkerMessage WorkerMessage
   | WorkerTimeout
 
@@ -165,6 +166,15 @@ handleAction = case _ of
       , cellResults = Map.delete id s.cellResults
       }
     handleAction ScheduleCompile
+  ToggleCellKind id -> do
+    H.modify_ \s -> s
+      { cells = map (\c -> if c.id == id then c { kind = flipKind c.kind } else c) s.cells
+      -- Let-cells never emit; drop any stale result so the gutter
+      -- doesn't render against the wrong kind.
+      , cellResults = Map.delete id s.cellResults
+      , cellTypes = Map.delete id s.cellTypes
+      }
+    handleAction ScheduleCompile
   ScheduleCompile -> do
     s <- H.get
     case s.pendingCompile of
@@ -235,6 +245,9 @@ handleAction = case _ of
     fromMaybe cells do
       idx <- findIndex (_.id >>> (_ == id)) cells
       modifyAt idx (_ { source = src }) cells
+  flipKind = case _ of
+    "let" -> "expr"
+    _ -> "let"
 
 -- | Tears down any live worker, its subscription, and its timeout fiber.
 teardownExecution
@@ -349,9 +362,27 @@ cellColorClass idx = "cell-color-" <> show (idx `mod` 8)
 
 renderCellRow :: forall m. MonadAff m => Int -> CellRec -> H.ComponentHTML Action Slots m
 renderCellRow idx c =
-  HH.div [ HP.class_ (H.ClassName ("cell-row " <> cellColorClass idx)) ]
+  HH.div
+    [ HP.class_
+        ( H.ClassName
+            ( "cell-row "
+                <> cellColorClass idx
+                <> (if c.kind == "let" then " cell-row-let" else " cell-row-expr")
+            )
+        )
+    ]
     [ HH.div [ HP.class_ (H.ClassName "cell-meta") ]
         [ HH.span [ HP.class_ (H.ClassName "cell-id") ] [ HH.text c.id ]
+        , HH.button
+            [ HP.class_ (H.ClassName ("cell-kind-btn cell-kind-" <> c.kind))
+            , HE.onClick \_ -> ToggleCellKind c.id
+            , HP.title
+                ( if c.kind == "let"
+                    then "let-cell (splices verbatim; no gutter output). Click to switch to expr."
+                    else "expr-cell (evaluated; shown in gutter). Click to switch to let."
+                )
+            ]
+            [ HH.text c.kind ]
         , HH.button
             [ HP.class_ (H.ClassName "remove-cell-btn")
             , HE.onClick \_ -> RemoveCell c.id
@@ -377,9 +408,14 @@ renderGutterColumn state =
 renderResults :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
 renderResults state =
   HH.div [ HP.class_ (H.ClassName "gutter-rows") ]
-    ( mapWithIndex (renderCellResult state) state.cells
+    ( Array.catMaybes (mapWithIndex maybeRow state.cells)
         <> renderRuntimeError state.runtimeError
     )
+  where
+  -- Preserve the original cell index for colour consistency; just
+  -- drop let-cells from the gutter so it only shows evaluated values.
+  maybeRow idx c =
+    if c.kind == "expr" then Just (renderCellResult state idx c) else Nothing
 
 renderCellResult :: forall m. MonadAff m => State -> Int -> CellRec -> H.ComponentHTML Action Slots m
 renderCellResult state idx c =

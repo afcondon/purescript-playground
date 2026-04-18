@@ -15,26 +15,24 @@ import Data.String.CodeUnits (singleton) as String
 import Data.Traversable (traverse)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
+import Effect.Aff (Aff)
+import Effect.Class (liftEffect)
 import Foreign.Object as Object
 
 -- | The structured shape a cell's result takes on the wire. Richer
 -- | than `show` output: the frontend can render each constructor with
--- | typographic care (arrays laid out, Maybe/Either tagged, nested
--- | records navigable later). Non-structural types fall through to
--- | `PVRaw` via the `Show` instance at the bottom of the chain.
+-- | typographic care. Non-structural types fall through to `PVRaw`
+-- | via the `Show` instance at the bottom of the chain.
 data PlaygroundValue
   = PVNull
   | PVBool Boolean
   | PVNumber Number
   | PVString String
   | PVArray (Array PlaygroundValue)
-  | PVCtor String (Array PlaygroundValue)  -- e.g. Just/Nothing/Left/Right/Tuple
-  | PVRaw String                            -- fallback from show
+  | PVCtor String (Array PlaygroundValue)
+  | PVRaw String
 
 -- | Serialise to JSON for transport over the Worker emit channel.
--- | Wire form mirrors the ADT: scalars round-trip as themselves,
--- | arrays as JSON arrays, constructors and raw strings as tagged
--- | objects with `$ctor`/`$raw` keys.
 encode :: PlaygroundValue -> Json
 encode = case _ of
   PVNull -> jsonNull
@@ -48,15 +46,20 @@ encode = case _ of
     ]
   PVRaw s -> fromObject (Object.singleton "$raw" (fromString s))
 
--- | Dispatch point for rendering a cell's value. The instance chain
--- | below maps PureScript types to rich structural representations.
+-- | Dispatch point for rendering a cell's value. We work in `Aff` so
+-- | the chain can transparently await `Aff a` cells (network calls,
+-- | timers, long-running effects). Synchronous `Effect a` is lifted in
+-- | via the first instance below; scalars and containers are immediate
+-- | (wrapped in `pure`).
 class ToPlaygroundValue a where
-  toPlaygroundValue :: a -> Effect PlaygroundValue
+  toPlaygroundValue :: a -> Aff PlaygroundValue
 
--- Effectful wrapper — always goes first so Effect a doesn't get caught
--- by the Show fallback.
-instance toPlaygroundValueEffect :: ToPlaygroundValue a => ToPlaygroundValue (Effect a) where
-  toPlaygroundValue eff = eff >>= toPlaygroundValue
+-- Asynchronous/effectful wrappers — first in the chain so they don't
+-- fall through to Show (which would fail — no Show for Aff/Effect).
+instance toPlaygroundValueAff :: ToPlaygroundValue a => ToPlaygroundValue (Aff a) where
+  toPlaygroundValue aff = aff >>= toPlaygroundValue
+else instance toPlaygroundValueEffect :: ToPlaygroundValue a => ToPlaygroundValue (Effect a) where
+  toPlaygroundValue eff = liftEffect eff >>= toPlaygroundValue
 
 -- Scalars
 else instance toPlaygroundValueUnit :: ToPlaygroundValue Unit where
@@ -101,8 +104,8 @@ else instance toPlaygroundValueTuple ::
 else instance toPlaygroundValueShow :: Show a => ToPlaygroundValue a where
   toPlaygroundValue a = pure (PVRaw (show a))
 
--- | Emit a cell's value to the host (Worker for the browser adapter).
--- | JSON-encodes via `encode` and calls through to the foreign hook.
+-- | Emit a cell's value to the host. Runs in Effect (synchronous hook)
+-- | even though we arrive at the value asynchronously via Aff.
 emit :: String -> PlaygroundValue -> Effect Unit
 emit id value = _emit id (stringify (encode value))
 

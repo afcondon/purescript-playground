@@ -154,6 +154,30 @@ body {
   font-family: var(--mono);
 }
 
+.cell-kind-btn {
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  padding: 0.1rem 0.4rem;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.cell-kind-btn.cell-kind-let {
+  border-color: var(--cell-bar);
+  color: var(--cell-bar);
+}
+
+.cell-row-let > .cm-host {
+  border-style: dashed;
+  opacity: 0.85;
+}
+
 .remove-cell-btn {
   font: inherit;
   background: none;

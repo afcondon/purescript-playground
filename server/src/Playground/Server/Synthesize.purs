@@ -5,7 +5,7 @@ module Playground.Server.Synthesize
 
 import Prelude
 
-import Data.Array (filter, findIndex, length, mapMaybe, null) as Array
+import Data.Array (filter, findIndex, length, mapMaybe, null, snoc, uncons) as Array
 import Data.Array (mapMaybe)
 import Data.Foldable (foldMap)
 import Data.Maybe (Maybe(..), isJust)
@@ -32,13 +32,58 @@ type Synthesised =
 synthesize :: CompileRequest -> Synthesised
 synthesize (CompileRequest { "module": UserModule { source }, cells }) =
   let
-    mainSource = buildMain cells
+    userImports = extractImports source
+    mainSource = buildMain userImports cells
     cellLines = computeCellLines mainSource cells
   in
     { userSource: rewriteModuleHeader source
     , mainSource
     , cellLines
     }
+
+-- | Pull the user module's import lines out of their source so the
+-- | synthesised Main can re-include them. Without this, cells only see
+-- | what `Playground.User` re-exports (which is only its *declarations*,
+-- | not the things it *imports*).
+-- |
+-- | A pragmatic heuristic: every line that begins with `import ` (after
+-- | trimming) is treated as an import. Multi-line import lists with
+-- | hanging indent are captured because each continuation line starts
+-- | with whitespace (not `import ` at column 1), but purs is whitespace
+-- | sensitive only inside the list — the whole block belongs to the
+-- | preceding import. We capture contiguous runs starting at an
+-- | `import` line until we hit a non-indented, non-blank, non-import
+-- | line.
+extractImports :: String -> String
+extractImports src =
+  let
+    lines = Str.split (Pattern "\n") src
+    collected = go false [] lines
+  in
+    Str.joinWith "\n" collected
+  where
+  go :: Boolean -> Array String -> Array String -> Array String
+  go seenImport acc rest = case Array.uncons rest of
+    Nothing -> acc
+    Just { head: line, tail } ->
+      let trimmed = Str.trim line
+      in
+        if isImport trimmed then
+          go true (Array.snoc acc line) tail
+        else if seenImport && (trimmed == "" || startsIndented line) then
+          go true (Array.snoc acc line) tail
+        else if seenImport then
+          acc
+        else
+          go seenImport acc tail
+
+  isImport s = isJust (Str.stripPrefix (Pattern "import ") s)
+
+  startsIndented line =
+    case Str.indexOf (Pattern " ") line, Str.indexOf (Pattern "\t") line of
+      Just 0, _ -> true
+      _, Just 0 -> true
+      _, _ -> false
 
 -- | Replace the user's `module Foo where` (possibly with multi-line export
 -- | list) with `module Playground.User where`. If no module header is
@@ -63,15 +108,18 @@ rewriteModuleHeader src =
 -- | Build the synthesised Main.purs. Each `expr` cell becomes a top-level
 -- | binding `cell_<id>` and contributes a line to `main`; each `let` cell
 -- | is spliced in verbatim as a top-level binding (it must be of the form
--- | `name = expr`).
-buildMain :: Array Cell -> String
-buildMain cells =
+-- | `name = expr`). `userImports` is the verbatim import block from the
+-- | user's module — we include it here so cells see the same scope the
+-- | module does.
+buildMain :: String -> Array Cell -> String
+buildMain userImports cells =
   let
     exprCells = Array.filter isExpr cells
     letSources = mapMaybe letSource cells
     cellBinding (Cell c) = "cell_" <> c.id <> " = " <> c.source <> "\n"
     emitLine (Cell c) =
-      "  emit \"" <> c.id <> "\" =<< toPlaygroundValue cell_" <> c.id <> "\n"
+      "  v_" <> c.id <> " <- toPlaygroundValue cell_" <> c.id
+        <> "\n  liftEffect (emit \"" <> c.id <> "\" v_" <> c.id <> ")\n"
   in
     "module Main where\n\n"
       <> "import Prelude\n"
@@ -80,14 +128,18 @@ buildMain cells =
       <> "import Data.Maybe (Maybe(..))\n"
       <> "import Data.Tuple (Tuple(..))\n"
       <> "import Effect (Effect)\n"
+      <> "import Effect.Aff (launchAff_)\n"
+      <> "import Effect.Class (liftEffect)\n"
       <> "import Playground.Runtime (class ToPlaygroundValue, emit, toPlaygroundValue)\n"
-      <> "import Playground.User\n\n"
+      <> "import Playground.User\n"
+      <> (if Str.trim userImports == "" then "" else userImports <> "\n")
+      <> "\n"
       <> "-- let-cells (spliced verbatim)\n"
       <> foldMap (\s -> s <> "\n") letSources
       <> "\n-- expr-cells (top-level bindings)\n"
       <> foldMap cellBinding exprCells
       <> "\nmain :: Effect Unit\n"
-      <> "main = do\n"
+      <> "main = launchAff_ do\n"
       <> (if Array.null exprCells then "  pure unit\n" else foldMap emitLine exprCells)
   where
   isExpr (Cell c) = c.kind == "expr"
