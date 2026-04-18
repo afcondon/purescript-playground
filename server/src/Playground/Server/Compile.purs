@@ -77,14 +77,18 @@ compileSources adapter s = do
         , runtime: adapter.name
         }
     Right r -> do
-      types <- case r.js of
-        Just _ -> Ide.queryCellTypes r.cellIds
-        Nothing ->
-          -- Server-side adapters (Node) don't return JS, but we still
-          -- want types for their cells. Externs are up to date from
-          -- the build step.
-          if not (null r.errors) then pure []
-          else Ide.queryCellTypes r.cellIds
+      types <-
+        -- Purerl compiles to a different output dir (its own workspace)
+        -- than the purs ide sidecar watches, so the lookup would miss
+        -- the cell_<id> bindings. Skip types for Purerl; a second
+        -- sidecar pointed at runtime-workspace-purerl/output could
+        -- populate them later.
+        if adapter.name == "purerl" then pure []
+        else case r.js of
+          Just _ -> Ide.queryCellTypes r.cellIds
+          Nothing ->
+            if not (null r.errors) then pure []
+            else Ide.queryCellTypes r.cellIds
       pure $ encodeResponse $ CompileResponse
         { js: r.js
         , warnings: r.warnings

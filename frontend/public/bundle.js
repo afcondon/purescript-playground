@@ -34944,10 +34944,10 @@
       return [pre([class_("runtime-error")])([text5("runtime: " + v.value0)])];
     }
     ;
-    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 568, column 22 - line 573, column 6): " + [v.constructor.name]);
+    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 569, column 22 - line 574, column 6): " + [v.constructor.name]);
   };
   var renderHeader = function(state3) {
-    return header([class_("playground-header")])([div2([class_("title-group")])([h1_([text5("PureScript Playground")]), p([class_("subtitle")])([text5("Edit the module and the cells; auto-compiles 400ms after you stop typing.")])]), div2([class_("runtime-toggle")])([runtimeButton(state3)("browser")("Browser"), runtimeButton(state3)("node")("Node")]), button([class_("compile-btn"), disabled10(state3.compiling), onClick(function(v) {
+    return header([class_("playground-header")])([div2([class_("title-group")])([h1_([text5("PureScript Playground")]), p([class_("subtitle")])([text5("Edit the module and the cells; auto-compiles 400ms after you stop typing.")])]), div2([class_("runtime-toggle")])([runtimeButton(state3)("browser")("Browser"), runtimeButton(state3)("node")("Node"), runtimeButton(state3)("purerl")("Purerl")]), button([class_("compile-btn"), disabled10(state3.compiling), onClick(function(v) {
       return Compile.value;
     })])([text5((function() {
       if (state3.compiling) {
@@ -35486,7 +35486,7 @@
             return "synthesis \u25B8 Main.purs line " + show5(e.position.value0.startLine);
           }
           ;
-          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 644, column 9 - line 649, column 71): " + [v.constructor.name]);
+          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 645, column 9 - line 650, column 71): " + [v.constructor.name]);
         }
         ;
         return e.filename.value0;
@@ -35528,7 +35528,7 @@
         return [];
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 581, column 20 - line 584, column 20): " + [state3.transportError.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 582, column 20 - line 585, column 20): " + [state3.transportError.constructor.name]);
     })();
     var compileRows = map112(attributedRow(state3)("compile"))(state3.errors);
     var rows4 = append14(transportRow)(append14(compileRows)(warningRows));
@@ -35557,7 +35557,7 @@
                 return span3([class_("muted")])([text5("\u2014")]);
               }
               ;
-              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 560, column 25 - line 565, column 66): " + [v.constructor.name]);
+              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 561, column 25 - line 566, column 66): " + [v.constructor.name]);
             };
           };
           var renderType = function(st) {
@@ -35573,7 +35573,7 @@
                 return span3([class_("muted gutter-type")])([text5("\u2014")]);
               }
               ;
-              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 554, column 24 - line 559, column 78): " + [v.constructor.name]);
+              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 555, column 24 - line 560, column 78): " + [v.constructor.name]);
             };
           };
           return div2([class_("gutter-row " + cellColorClass(idx))])([span3([class_("gutter-cell-id")])([text5(c.id)]), div2([class_("gutter-body")])([renderType(state3)(c), renderValue(state3)(c)])]);

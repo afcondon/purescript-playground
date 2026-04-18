@@ -18,6 +18,7 @@ import Routing.Duplex.Generic.Syntax ((/))
 import Playground.Server.Adapter (Adapter)
 import Playground.Server.Adapter.BrowserWorker (browserWorker)
 import Playground.Server.Adapter.NodeProcess (nodeProcess)
+import Playground.Server.Adapter.PurerlBEAM (purerlBEAM)
 import Playground.Server.Compile as Compile
 import Playground.Server.Ide as Ide
 import Playground.Server.Synthesize (synthesize)
@@ -67,6 +68,7 @@ errorJson code msg =
 pickAdapter :: String -> Adapter
 pickAdapter = case _ of
   "node" -> nodeProcess
+  "purerl" -> purerlBEAM
   _ -> browserWorker
 
 ideResponseJson :: Array IdeHit -> String
@@ -102,7 +104,7 @@ main = serve { port: 3050, hostname: "0.0.0.0" }
                   ok' jsonCors
                     (errorJson "BadRequest" (CA.printJsonDecodeError decodeErr))
                 Right req@(CompileRequest r) -> do
-                  let synth = synthesize req
+                  let synth = synthesize { purerl: r.runtime == "purerl" } req
                       adapter = pickAdapter r.runtime
                   out <- liftAff $ Compile.compileSources adapter synth
                   ok' jsonCors out

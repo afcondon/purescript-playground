@@ -29,11 +29,16 @@ type Synthesised =
   , cellLines :: Array CellRange
   }
 
-synthesize :: CompileRequest -> Synthesised
-synthesize (CompileRequest { "module": UserModule { source }, cells }) =
+-- | Purerl has no Aff in its package set, so its synthesised main must
+-- | be pure Effect (no runAff_/liftEffect/launchAff_). This flag tells
+-- | the synthesiser which shape to emit.
+type Options = { purerl :: Boolean }
+
+synthesize :: Options -> CompileRequest -> Synthesised
+synthesize opts (CompileRequest { "module": UserModule { source }, cells }) =
   let
     userImports = extractImports source
-    mainSource = buildMain userImports cells
+    mainSource = buildMain opts userImports cells
     cellLines = computeCellLines mainSource cells
   in
     { userSource: rewriteModuleHeader source
@@ -114,36 +119,73 @@ rewriteModuleHeader src =
 -- | `name = expr`). `userImports` is the verbatim import block from the
 -- | user's module — we include it here so cells see the same scope the
 -- | module does.
-buildMain :: String -> Array Cell -> String
-buildMain userImports cells =
+buildMain :: Options -> String -> Array Cell -> String
+buildMain opts userImports cells =
   let
     exprCells = Array.filter isExpr cells
     letSources = mapMaybe letSource cells
     cellBinding (Cell c) = "cell_" <> c.id <> " = " <> c.source <> "\n"
+    -- Aff variant: `v <- toPV cell ; liftEffect (emit id v)`.
+    -- Effect variant: `v <- toPV cell ; emit id v`.
+    -- Purerl's ToPlaygroundValue returns `Effect` directly (no Aff
+    -- in the Purerl set), so both sides sit in Effect naturally.
     emitLine (Cell c) =
-      "  v_" <> c.id <> " <- toPlaygroundValue cell_" <> c.id
-        <> "\n  liftEffect (emit \"" <> c.id <> "\" v_" <> c.id <> ")\n"
+      if opts.purerl
+        then
+          "  v_" <> c.id <> " <- toPlaygroundValue cell_" <> c.id
+            <> "\n  emit \"" <> c.id <> "\" v_" <> c.id <> "\n"
+        else
+          "  v_" <> c.id <> " <- toPlaygroundValue cell_" <> c.id
+            <> "\n  liftEffect (emit \"" <> c.id <> "\" v_" <> c.id <> ")\n"
+    header =
+      if opts.purerl
+        then
+          "module Main where\n\n"
+            <> "import Prelude\n"
+            <> "import Data.Array as Array\n"
+            <> "import Data.Either (Either(..))\n"
+            <> "import Data.Maybe (Maybe(..))\n"
+            <> "import Data.Tuple (Tuple(..))\n"
+            <> "import Effect (Effect)\n"
+            <> "import Playground.Runtime (class ToPlaygroundValue, done, emit, toPlaygroundValue)\n"
+            <> "import Playground.User\n"
+        else
+          "module Main where\n\n"
+            <> "import Prelude\n"
+            <> "import Data.Array as Array\n"
+            <> "import Data.Either (Either(..))\n"
+            <> "import Data.Maybe (Maybe(..))\n"
+            <> "import Data.Tuple (Tuple(..))\n"
+            <> "import Effect (Effect)\n"
+            <> "import Effect.Aff (runAff_)\n"
+            <> "import Effect.Class (liftEffect)\n"
+            <> "import Playground.Runtime (class ToPlaygroundValue, done, emit, toPlaygroundValue)\n"
+            <> "import Playground.User\n"
+    body =
+      if opts.purerl
+        then
+          "\nmain :: Effect Unit\n"
+            <> "main = do\n"
+            <> ( if Array.null exprCells
+                   then "  pure unit\n  done\n"
+                   else foldMap emitLine exprCells <> "  done\n"
+               )
+        else
+          "\nmain :: Effect Unit\n"
+            <> "main = runAff_ (\\_ -> done) do\n"
+            <> ( if Array.null exprCells
+                   then "  pure unit\n"
+                   else foldMap emitLine exprCells
+               )
   in
-    "module Main where\n\n"
-      <> "import Prelude\n"
-      <> "import Data.Array as Array\n"
-      <> "import Data.Either (Either(..))\n"
-      <> "import Data.Maybe (Maybe(..))\n"
-      <> "import Data.Tuple (Tuple(..))\n"
-      <> "import Effect (Effect)\n"
-      <> "import Effect.Aff (runAff_)\n"
-      <> "import Effect.Class (liftEffect)\n"
-      <> "import Playground.Runtime (class ToPlaygroundValue, done, emit, toPlaygroundValue)\n"
-      <> "import Playground.User\n"
+    header
       <> (if Str.trim userImports == "" then "" else userImports <> "\n")
       <> "\n"
       <> "-- let-cells (spliced verbatim)\n"
       <> foldMap (\s -> s <> "\n") letSources
       <> "\n-- expr-cells (top-level bindings)\n"
       <> foldMap cellBinding exprCells
-      <> "\nmain :: Effect Unit\n"
-      <> "main = runAff_ (\\_ -> done) do\n"
-      <> (if Array.null exprCells then "  pure unit\n" else foldMap emitLine exprCells)
+      <> body
   where
   isExpr (Cell c) = c.kind == "expr"
   letSource (Cell c) =

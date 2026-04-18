@@ -433,6 +433,7 @@ renderHeader state =
     , HH.div [ HP.class_ (H.ClassName "runtime-toggle") ]
         [ runtimeButton state "browser" "Browser"
         , runtimeButton state "node" "Node"
+        , runtimeButton state "purerl" "Purerl"
         ]
     , HH.button
         [ HP.class_ (H.ClassName "compile-btn")

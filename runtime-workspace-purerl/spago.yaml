@@ -1,0 +1,32 @@
+workspace:
+  packageSet:
+    url: https://raw.githubusercontent.com/purerl/package-sets/erl-0.15.3-20220629/packages.json
+  backend:
+    cmd: "../node_modules/.bin/purs-backend-erl"
+    # Don't pass --compile — its erlc invocation doesn't thread our
+    # -disable-feature maybe_expr flag (OTP 25+ reserved `maybe`),
+    # so we erlc ourselves from the adapter with the right flags.
+  extraPackages: {}
+
+package:
+  name: playground-runtime-purerl
+  description: >
+    Parallel runtime workspace for the Purerl (Erlang/BEAM) adapter.
+    Kept separate from the main workspace because its package set is
+    different — purerl's per-Erlang-release set rather than the
+    registry set the JS-targeting workspaces use.
+  dependencies:
+    - arrays
+    - console
+    - effect
+    - either
+    - erl-atom
+    - erl-binary
+    - erl-lists
+    - erl-tuples
+    - foldable-traversable
+    - integers
+    - maybe
+    - prelude
+    - strings
+    - tuples
