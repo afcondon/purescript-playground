@@ -35642,7 +35642,7 @@
     })()]);
   };
   var renderHeader = function(state3) {
-    return header([class_("playground-header")])([div2([class_("title-group")])([h1_([text5("PureScript Playground")]), p([class_("subtitle")])([text5("Edit the module and the cells; auto-compiles 400ms after you stop typing.")])]), renderStarterDropdown(state3), div2([class_("runtime-toggle")])([runtimeButton(state3)("browser")("Browser"), runtimeButton(state3)("node")("Node"), runtimeButton(state3)("purerl")("Purerl")]), button([class_("in-scope-btn" + (function() {
+    return header([class_("playground-header")])([div2([class_("title-group")])([h1_([text5("Atelier")]), p([class_("subtitle")])([text5("A REPL for agents, with a window for humans. Auto-compiles 400ms after you stop typing.")])]), renderStarterDropdown(state3), div2([class_("runtime-toggle")])([runtimeButton(state3)("browser")("Browser"), runtimeButton(state3)("node")("Node"), runtimeButton(state3)("purerl")("Purerl")]), button([class_("in-scope-btn" + (function() {
       if (state3.inScopeOpen) {
         return " active";
       }

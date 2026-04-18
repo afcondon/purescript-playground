@@ -4,9 +4,15 @@ First live evaluation of the Claude-pair API (CLAUDE-PAIR.md). A
 second Claude session was pointed at a small self-contained data-viz
 project (world map bubbles — country/continent bubble pack, marginalia
 slug `echo-foxtrot-zulu-lima`), given the CLAUDE-PAIR.md document, and
-asked to use the Playground over HTTP for real work. Human observed the
+asked to use the tool over HTTP for real work. Human observed the
 browser UI in parallel and relayed friction back to the implementing
 Claude session in real time.
+
+This evaluation is what crystallised the "REPL for agents with a
+window for humans" framing and led to the project being renamed
+from "PureScript Playground" to **Atelier**. The evaluator's
+write-up below predates the rename and still uses "the Playground"
+throughout — preserved unedited as the artefact it is.
 
 The write-up below is from the evaluating Claude — unedited, ordered
 by strength of reaction. Save alongside CLAUDE-PAIR.md as the primary

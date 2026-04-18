@@ -1,19 +1,30 @@
-# PureScript Playground
+# Atelier
 
-A browser-based PureScript scratchpad modelled on Manuel Chakravarty's
-*Haskell for Mac*: a user module on the left, a column of playground
-cells in the middle, and a gutter showing the inferred type and rendered
-value for each cell, all updating live as you type.
+*A REPL for agents, with a window for humans.*
 
-See [`PLAN.md`](./PLAN.md) for the full design, milestones, and
-design-decision trail.
+A browser-based PureScript scratchpad modelled originally on Manuel
+Chakravarty's *Haskell for Mac*, but reframed after its first live
+Claude-pair evaluation as an HTTP-driven typed workspace where a
+Claude session does the writing and the browser UI is the human's
+observation pane. Module on the left, a column of cells in the
+middle, gutter on the right with inferred type + rendered value per
+cell — all updating live whether you type in the browser or POST
+over HTTP.
 
-**Status:** Phase 1 MVP working end-to-end. The scratchpad edits,
-auto-compiles, shows per-cell types (rendered via
-[`purescript-sigil`](https://github.com/afcondon/purescript-sigil)) and
-per-cell values, surfaces compile and runtime errors in a bottom panel,
-and sandboxes execution in a Web Worker. Unadvertised while it
-stabilises.
+See [`PLAN.md`](./PLAN.md) for the design, milestones, and phases A–E.
+See [`CLAUDE-PAIR.md`](./CLAUDE-PAIR.md) for the brief another Claude
+session reads before driving the tool.
+
+Directory name and internal PureScript namespace (`Playground.*`) are
+historical — "Atelier" is the product identity; the codebase rename
+is deferred.
+
+**Status:** Phase 1 + Phase 2 MVP working end-to-end. Auto-compiles,
+per-cell types (rendered via [`purescript-sigil`](https://github.com/afcondon/purescript-sigil)),
+per-cell values with structured records and constructors, inline
+error squiggles, and three runtime adapters (browser Worker, Node
+child-process, Purerl BEAM). Claude-pair HTTP API shipped 2026-04-18.
+Unadvertised while it stabilises.
 
 ## Layout
 

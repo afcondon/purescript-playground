@@ -1,10 +1,13 @@
-# PureScript Playground
+# Atelier
 
-**Status:** Idea → Planning
-**Slug:** `papa-whiskey-uniform-lima` (marginalia id 158)
-**Location:** `/Users/afc/work/afc-work/purescript-playground` (own repo, TBD remote)
+*A REPL for agents, with a window for humans.*
+
+**Status:** Phases 1 + 2 shipped; Phase A (post-eval REPL ergonomics) is the current horizon.
+**Slug:** `papa-whiskey-uniform-lima` (marginalia id 158 — renamed 2026-04-18 from "PureScript Playground" to "Atelier" after the first live Claude-pair evaluation; slug kept for stability)
+**Location:** `/Users/afc/work/afc-work/purescript-playground` (directory name retained; codebase namespace `Playground.*` likewise — rename deferred)
+**GitHub:** `afcondon/purescript-playground` (same — Tier 3 rename deferred)
 **Parent in marginalia:** WebApps (`victor-xray-golf-bravo`)
-**Related:** `ShapedSteer` (stepping stone — sibling showcase, not a subsystem), `GitHub/trypurescript` (reference only — we used to plan to proxy its compile server; now we drive `purs` ourselves, see the "Compile service — why not trypurescript" note below)
+**Related:** `ShapedSteer` (sibling vision; patterns flow Atelier → ShapedSteer, not code), `GitHub/trypurescript` (reference only — we drive `purs` ourselves, see the "Compile service — why not trypurescript" note below)
 
 ## Vision
 

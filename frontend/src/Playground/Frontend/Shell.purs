@@ -612,10 +612,10 @@ renderHeader :: forall m. State -> H.ComponentHTML Action Slots m
 renderHeader state =
   HH.header [ HP.class_ (H.ClassName "playground-header") ]
     [ HH.div [ HP.class_ (H.ClassName "title-group") ]
-        [ HH.h1_ [ HH.text "PureScript Playground" ]
+        [ HH.h1_ [ HH.text "Atelier" ]
         , HH.p [ HP.class_ (H.ClassName "subtitle") ]
             [ HH.text
-                "Edit the module and the cells; auto-compiles 400ms after you stop typing."
+                "A REPL for agents, with a window for humans. Auto-compiles 400ms after you stop typing."
             ]
         ]
     , renderStarterDropdown state

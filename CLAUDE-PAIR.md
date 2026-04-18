@@ -1,27 +1,32 @@
 # Claude-pair API
 
-*An experimental surface so a second Claude session can drive the
-Playground alongside the human.*
+*An experimental surface so a second Claude session can drive
+Atelier alongside the human.*
 
 This document is the brief another Claude should read when dropped
-into a project where this Playground is running. It describes what
-the Playground is, what it can do for you, and how to interact with
-it.
+into a project where Atelier is running. It describes what Atelier
+is, what it can do for you, and how to interact with it.
 
 ## What this is for
 
-The PureScript Playground is a typed scratchpad: a three-column
-browser UI (module editor | cells | values+types gutter) backed by
-a local HTTP server that drives the PureScript toolchain. The human
-uses the browser UI. You use the HTTP API. **Both clients are
-equally privileged** — you can read and write session state at the
-same time the human is editing. Auto-compile reflects your changes
-live in their UI.
+Atelier is a typed PureScript scratchpad framed as **a REPL for
+agents with a window for humans**. Three-column browser UI (module
+editor | cells | values+types gutter) backed by a local HTTP server
+that drives the PureScript toolchain. The human's browser is a
+transparent observation pane; you, the agent, are the primary
+driver via HTTP. Both clients *can* write, but the expectation is
+that you do most of the authoring and the human observes, steers,
+vetoes — or sketches pseudo-signatures and intent that you realise.
+Auto-compile reflects your changes live in their window.
 
 Your value proposition: you can propose typed sketches, probe
 behaviours, and answer questions with live witnesses instead of
 text — and the human sees everything happen in a surface they're
 already looking at.
+
+(The codebase is still called `purescript-playground` on disk and
+the PureScript namespace is `Playground.*` — those are historical;
+the product is "Atelier.")
 
 ## Running assumptions
 

@@ -1,10 +1,13 @@
 # Claude-pair evaluation — design ideas
 
-Running log of design ideas surfacing while a second Claude drives the
-Playground over the HTTP API. Kept separate from PLAN.md because these
+Running log of design ideas surfacing while a second Claude drives
+Atelier over the HTTP API. Kept separate from PLAN.md because these
 are raw observations: some may contradict each other, some may be
 abandoned after reflection. Review all at the end of the evaluation,
 fold the surviving ones into PLAN.md.
+
+(Originally captured while the tool was still called "PureScript
+Playground." Renamed to Atelier 2026-04-18.)
 
 **Primary artefact:** [CLAUDE-PAIR-EVAL-2026-04-18.md](./CLAUDE-PAIR-EVAL-2026-04-18.md)
 — the evaluating Claude's write-up. This file here captures the
