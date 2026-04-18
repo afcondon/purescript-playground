@@ -1,5 +1,6 @@
 module Playground.Server.Compile
-  ( compileSources
+  ( compile
+  , compileSources
   ) where
 
 import Prelude
@@ -14,10 +15,12 @@ import Effect.Aff (Aff)
 import Playground.Server.Adapter (Adapter)
 import Playground.Server.Ide as Ide
 import Playground.Session
-  ( CellEmit
+  ( Cell
+  , CellEmit
   , CellRange
   , CompileError(..)
   , CompileResponse(..)
+  , UserModule
   , cellEmitCodec
   , compileErrorCodec
   , compileResponseCodec
@@ -50,21 +53,23 @@ mkTransportError msg = CompileError
   , message: msg
   }
 
--- | Orchestrates a full /session/compile: asks the adapter for a build
--- | outcome, queries Ide for cell types on success, assembles and
--- | encodes the final CompileResponse.
-compileSources
+-- | Typed compile: runs the adapter + Ide query, returns a
+-- | structured CompileResponse. Used by Session.purs so we can
+-- | cache the typed snapshot.
+compile
   :: Adapter
   -> { userSource :: String
      , mainSource :: String
      , cellLines :: Array CellRange
+     , module :: UserModule
+     , cells :: Array Cell
      }
-  -> Aff String
-compileSources adapter s = do
+  -> Aff CompileResponse
+compile adapter s = do
   raw <- adapter.bundle s.userSource s.mainSource
   case CA.decode buildResultCodec raw of
     Left e ->
-      pure $ encodeResponse $ CompileResponse
+      pure $ CompileResponse
         { js: Nothing
         , warnings: []
         , errors:
@@ -75,21 +80,18 @@ compileSources adapter s = do
         , cellLines: s.cellLines
         , emits: []
         , runtime: adapter.name
+        , "module": s."module"
+        , cells: s.cells
         }
     Right r -> do
       types <-
-        -- Purerl compiles to a different output dir (its own workspace)
-        -- than the purs ide sidecar watches, so the lookup would miss
-        -- the cell_<id> bindings. Skip types for Purerl; a second
-        -- sidecar pointed at runtime-workspace-purerl/output could
-        -- populate them later.
         if adapter.name == "purerl" then pure []
         else case r.js of
           Just _ -> Ide.queryCellTypes r.cellIds
           Nothing ->
             if not (null r.errors) then pure []
             else Ide.queryCellTypes r.cellIds
-      pure $ encodeResponse $ CompileResponse
+      pure $ CompileResponse
         { js: r.js
         , warnings: r.warnings
         , errors: r.errors
@@ -97,9 +99,27 @@ compileSources adapter s = do
         , cellLines: s.cellLines
         , emits: r.emits
         , runtime: adapter.name
+        , "module": s."module"
+        , cells: s.cells
         }
   where
-  encodeResponse = stringify <<< CA.encode compileResponseCodec
   null xs = case xs of
     [] -> true
     _ -> false
+
+-- | HTTP-path version: same shape as before (returns a JSON string)
+-- | kept for the POST /session/compile handler in Main.purs that
+-- | historically wrapped the adapter result into JSON. New code
+-- | should prefer `compile` and stringify where needed.
+compileSources
+  :: Adapter
+  -> { userSource :: String
+     , mainSource :: String
+     , cellLines :: Array CellRange
+     , module :: UserModule
+     , cells :: Array Cell
+     }
+  -> Aff String
+compileSources adapter s = do
+  resp <- compile adapter s
+  pure (stringify (CA.encode compileResponseCodec resp))

@@ -2,6 +2,7 @@ module Playground.Server.Ide
   ( queryType
   , queryComplete
   , queryCellTypes
+  , querySearch
   ) where
 
 import Prelude
@@ -21,6 +22,9 @@ foreign import _queryType :: String -> Effect (Promise (Array IdeHit))
 -- | Completion candidates matching a prefix.
 foreign import _queryComplete :: String -> Effect (Promise (Array IdeHit))
 
+-- | Find-by-type: approximate match against a type signature string.
+foreign import _querySearch :: String -> Effect (Promise (Array IdeHit))
+
 -- | Look up types for a batch of cell ids (pre-synthesis naming — the
 -- | underlying lookup prepends `cell_`). Used by the compile pipeline to
 -- | populate the response's per-cell types.
@@ -31,6 +35,9 @@ queryType q = toAffE (_queryType q)
 
 queryComplete :: String -> Aff (Array IdeHit)
 queryComplete q = toAffE (_queryComplete q)
+
+querySearch :: String -> Aff (Array IdeHit)
+querySearch q = toAffE (_querySearch q)
 
 -- Takes an Array of cell ids; encodes to JSON to cross the FFI
 -- boundary, then the JS side JSON.parse's the list.

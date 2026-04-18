@@ -7,6 +7,7 @@ package:
     - argonaut-codecs
     - argonaut-core
     - arrays
+    - avar
     - console
     - effect
     - either

@@ -34817,6 +34817,16 @@
       return "runtime";
     }
   };
+  var moduleIsSymbol = {
+    reflectSymbol: function() {
+      return "module";
+    }
+  };
+  var cellsIsSymbol = {
+    reflectSymbol: function() {
+      return "cells";
+    }
+  };
   var UserModule = function(x) {
     return x;
   };
@@ -34835,21 +34845,21 @@
   var CellEmit = function(x) {
     return x;
   };
-  var CompileResponse = function(x) {
-    return x;
-  };
   var Cell = function(x) {
     return x;
   };
   var CompileRequest = function(x) {
     return x;
   };
+  var CompileResponse = function(x) {
+    return x;
+  };
   var userModuleCodec = /* @__PURE__ */ (function() {
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("UserModule")(function($175) {
-      return Just.create(UserModule($175));
+    return prismaticCodec("UserModule")(function($183) {
+      return Just.create(UserModule($183));
     })(un2)(object4(rowListCodecCons1)("UserModule")({
       source: string2
     }));
@@ -34858,8 +34868,8 @@
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("Position")(function($176) {
-      return Just.create(Position($176));
+    return prismaticCodec("Position")(function($184) {
+      return Just.create(Position($184));
     })(un2)(object4(rowListCodecCons(rowListCodecCons(rowListCodecCons22({
       reflectSymbol: function() {
         return "startColumn";
@@ -34885,7 +34895,7 @@
         return id2(v.value0);
       }
       ;
-      throw new Error("Failed pattern match at Playground.Session (line 227, column 12 - line 229, column 30): " + [v.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Session (line 237, column 12 - line 239, column 30): " + [v.constructor.name]);
     };
     var decode3 = function(json2) {
       if (isNull2(json2)) {
@@ -34902,10 +34912,10 @@
           return new Left(new TypeMismatch2("string or null"));
         }
         ;
-        throw new Error("Failed pattern match at Playground.Session (line 224, column 19 - line 226, column 59): " + [v.constructor.name]);
+        throw new Error("Failed pattern match at Playground.Session (line 234, column 19 - line 236, column 59): " + [v.constructor.name]);
       }
       ;
-      throw new Error("Failed pattern match at Playground.Session (line 222, column 3 - line 226, column 59): " + [json2.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Session (line 232, column 3 - line 236, column 59): " + [json2.constructor.name]);
     };
     return codec$prime(decode3)(encode3);
   })();
@@ -34923,7 +34933,7 @@
           return encode2(positionCodec)(v.value0);
         }
         ;
-        throw new Error("Failed pattern match at Playground.Session (line 140, column 14 - line 142, column 42): " + [v.constructor.name]);
+        throw new Error("Failed pattern match at Playground.Session (line 148, column 14 - line 150, column 42): " + [v.constructor.name]);
       };
       var decode3 = function(json2) {
         if (isNull2(json2)) {
@@ -34934,12 +34944,12 @@
           return map35(Just.create)(decode(positionCodec)(json2));
         }
         ;
-        throw new Error("Failed pattern match at Playground.Session (line 137, column 5 - line 139, column 58): " + [json2.constructor.name]);
+        throw new Error("Failed pattern match at Playground.Session (line 145, column 5 - line 147, column 58): " + [json2.constructor.name]);
       };
       return codec$prime(decode3)(encode3);
     })();
-    return prismaticCodec("CompileError")(function($180) {
-      return Just.create(CompileError($180));
+    return prismaticCodec("CompileError")(function($188) {
+      return Just.create(CompileError($188));
     })(un2)(object4(rowListCodecCons(rowListCodecCons(rowListCodecCons(rowListCodecCons2({
       reflectSymbol: function() {
         return "position";
@@ -34967,8 +34977,8 @@
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("CellType")(function($181) {
-      return Just.create(CellType($181));
+    return prismaticCodec("CellType")(function($189) {
+      return Just.create(CellType($189));
     })(un2)(object4(rowListCodecCons(rowListCodecCons2({
       reflectSymbol: function() {
         return "signature";
@@ -34982,8 +34992,8 @@
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("CellRange")(function($182) {
-      return Just.create(CellRange($182));
+    return prismaticCodec("CellRange")(function($190) {
+      return Just.create(CellRange($190));
     })(un2)(object4(rowListCodecCons(rowListCodecCons22(idIsSymbol))()()(endLineIsSymbol))("CellRange")({
       id: string2,
       startLine: $$int,
@@ -34994,8 +35004,8 @@
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("CellEmit")(function($183) {
-      return Just.create(CellEmit($183));
+    return prismaticCodec("CellEmit")(function($191) {
+      return Just.create(CellEmit($191));
     })(un2)(object4(rowListCodecCons(rowListCodecCons2({
       reflectSymbol: function() {
         return "value";
@@ -35005,52 +35015,12 @@
       value: string2
     }));
   })();
-  var compileResponseCodec = /* @__PURE__ */ (function() {
-    var un2 = function(v) {
-      return v;
-    };
-    return prismaticCodec("CompileResponse")(function($184) {
-      return Just.create(CompileResponse($184));
-    })(un2)(object4(rowListCodecCons(rowListCodecCons(rowListCodecCons(rowListCodecCons(rowListCodecCons(rowListCodecCons(rowListCodecCons2({
-      reflectSymbol: function() {
-        return "warnings";
-      }
-    }))()()({
-      reflectSymbol: function() {
-        return "types";
-      }
-    }))()()(runtimeIsSymbol))()()({
-      reflectSymbol: function() {
-        return "js";
-      }
-    }))()()({
-      reflectSymbol: function() {
-        return "errors";
-      }
-    }))()()({
-      reflectSymbol: function() {
-        return "emits";
-      }
-    }))()()({
-      reflectSymbol: function() {
-        return "cellLines";
-      }
-    }))("CompileResponse")({
-      js: nullableStringCodec,
-      warnings: array(compileErrorCodec),
-      errors: array(compileErrorCodec),
-      types: array(cellTypeCodec),
-      cellLines: array(cellRangeCodec),
-      emits: array(cellEmitCodec),
-      runtime: string2
-    }));
-  })();
   var cellCodec = /* @__PURE__ */ (function() {
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("Cell")(function($185) {
-      return Just.create(Cell($185));
+    return prismaticCodec("Cell")(function($192) {
+      return Just.create(Cell($192));
     })(un2)(object4(rowListCodecCons(rowListCodecCons(rowListCodecCons1)()()({
       reflectSymbol: function() {
         return "kind";
@@ -35065,20 +35035,54 @@
     var un2 = function(v) {
       return v;
     };
-    return prismaticCodec("CompileRequest")(function($186) {
-      return Just.create(CompileRequest($186));
-    })(un2)(object4(rowListCodecCons(rowListCodecCons(rowListCodecCons2(runtimeIsSymbol))()()({
-      reflectSymbol: function() {
-        return "module";
-      }
-    }))()()({
-      reflectSymbol: function() {
-        return "cells";
-      }
-    }))("CompileRequest")({
+    return prismaticCodec("CompileRequest")(function($193) {
+      return Just.create(CompileRequest($193));
+    })(un2)(object4(rowListCodecCons(rowListCodecCons(rowListCodecCons2(runtimeIsSymbol))()()(moduleIsSymbol))()()(cellsIsSymbol))("CompileRequest")({
       module: userModuleCodec,
       cells: array(cellCodec),
       runtime: string2
+    }));
+  })();
+  var compileResponseCodec = /* @__PURE__ */ (function() {
+    var un2 = function(v) {
+      return v;
+    };
+    return prismaticCodec("CompileResponse")(function($194) {
+      return Just.create(CompileResponse($194));
+    })(un2)(object4(rowListCodecCons(rowListCodecCons(rowListCodecCons(rowListCodecCons(rowListCodecCons(rowListCodecCons(rowListCodecCons(rowListCodecCons(rowListCodecCons2({
+      reflectSymbol: function() {
+        return "warnings";
+      }
+    }))()()({
+      reflectSymbol: function() {
+        return "types";
+      }
+    }))()()(runtimeIsSymbol))()()(moduleIsSymbol))()()({
+      reflectSymbol: function() {
+        return "js";
+      }
+    }))()()({
+      reflectSymbol: function() {
+        return "errors";
+      }
+    }))()()({
+      reflectSymbol: function() {
+        return "emits";
+      }
+    }))()()(cellsIsSymbol))()()({
+      reflectSymbol: function() {
+        return "cellLines";
+      }
+    }))("CompileResponse")({
+      js: nullableStringCodec,
+      warnings: array(compileErrorCodec),
+      errors: array(compileErrorCodec),
+      types: array(cellTypeCodec),
+      cellLines: array(cellRangeCodec),
+      emits: array(cellEmitCodec),
+      runtime: string2,
+      module: userModuleCodec,
+      cells: array(cellCodec)
     }));
   })();
 

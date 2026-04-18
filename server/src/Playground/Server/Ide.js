@@ -117,6 +117,26 @@ export const _queryComplete = (query) => async () => {
   return hits.map(normaliseHit);
 };
 
+export const _querySearch = (query) => async () => {
+  await ensureReady();
+  // purs-ide's `complete` with no filters is the closest thing to a
+  // free-text search across the loaded externs. For type-signature
+  // search specifically, the `type` filter narrows by exact match;
+  // we use `complete` with the free-text query and let the caller
+  // eyeball the hits. A real `:search type` is a future upgrade.
+  const r = await clientCall({
+    command: 'complete',
+    params: {
+      filters: [
+        { filter: 'prefix', params: { search: query } },
+      ],
+      matcher: { matcher: 'flex', params: { search: query } },
+    },
+  });
+  const hits = (r && r.result) || [];
+  return hits.map(normaliseHit);
+};
+
 // Batch helper used by Compile after each successful build.
 // Calls `load` once then `type` per cell id, prefers Main-module hits
 // so a cell_c1 doesn't collide with an unrelated library binding.

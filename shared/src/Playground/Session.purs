@@ -64,13 +64,19 @@ compileRequestCodec = CA.prismaticCodec "CompileRequest" (Just <<< CompileReques
     }
   where un (CompileRequest r) = r
 
--- | What the backend returns on each compile.
+-- | What the backend returns on each compile — also serves as the
+-- | session snapshot returned by `GET /session` and echoed by every
+-- | write endpoint under `/session/*`.
 -- |
--- | `js` present on success for *client-side* runtimes (browser Worker);
--- | absent on failure and for server-side runtimes that already ran the
--- | bundle. `emits` is populated by server-side runtimes with the
--- | collected cell emissions; empty for client-side. `runtime` names
--- | which adapter produced this response.
+-- | *Input state* (the human's edits, or Claude's writes): `module`,
+-- | `cells`, `runtime`.
+-- | *Derived state* (the latest compile's output): `types`,
+-- | `cellLines`, `errors`, `warnings`, `js`, `emits`.
+-- |
+-- | `js` present on success for client-side runtimes (browser Worker);
+-- | absent for server-side runtimes that already ran the bundle.
+-- | `emits` is populated by server-side runtimes with the collected
+-- | cell emissions; empty for client-side.
 newtype CompileResponse = CompileResponse
   { js :: Maybe String
   , warnings :: Array CompileError
@@ -79,6 +85,8 @@ newtype CompileResponse = CompileResponse
   , cellLines :: Array CellRange
   , emits :: Array CellEmit
   , runtime :: String
+  , "module" :: UserModule
+  , cells :: Array Cell
   }
 
 -- | A single (cellId, JSON-encoded PlaygroundValue) pair emitted by a
@@ -173,6 +181,8 @@ compileResponseCodec = CA.prismaticCodec "CompileResponse" (Just <<< CompileResp
     , cellLines: CA.array cellRangeCodec
     , emits: CA.array cellEmitCodec
     , runtime: CA.string
+    , "module": userModuleCodec
+    , cells: CA.array cellCodec
     }
   where un (CompileResponse r) = r
 
