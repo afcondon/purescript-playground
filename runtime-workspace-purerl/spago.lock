@@ -12,6 +12,7 @@
             "erl-atom",
             "erl-binary",
             "erl-lists",
+            "erl-process",
             "erl-tuples",
             "foldable-traversable",
             "integers",
@@ -1486,6 +1487,29 @@
         "prelude"
       ]
     },
+    "datetime": {
+      "type": "git",
+      "url": "https://github.com/purerl/purescript-datetime.git",
+      "rev": "0212f4cb693ca6e4361a09462180a5bc3a9e0552",
+      "dependencies": [
+        "bifunctors",
+        "control",
+        "either",
+        "enums",
+        "foldable-traversable",
+        "functions",
+        "gen",
+        "integers",
+        "lists",
+        "math",
+        "maybe",
+        "newtype",
+        "ordered-collections",
+        "partial",
+        "prelude",
+        "tuples"
+      ]
+    },
     "distributive": {
       "type": "git",
       "url": "https://github.com/purescript/purescript-distributive.git",
@@ -1565,6 +1589,19 @@
         "unfoldable"
       ]
     },
+    "erl-process": {
+      "type": "git",
+      "url": "https://github.com/purerl/purescript-erl-process.git",
+      "rev": "5eacc3a23626aed8c6036560139642122e9b8c9b",
+      "dependencies": [
+        "datetime",
+        "effect",
+        "either",
+        "foreign",
+        "integers",
+        "prelude"
+      ]
+    },
     "erl-tuples": {
       "type": "git",
       "url": "https://github.com/purerl/purescript-erl-tuples.git",
@@ -1572,6 +1609,16 @@
       "dependencies": [
         "tuples",
         "unfoldable"
+      ]
+    },
+    "exceptions": {
+      "type": "git",
+      "url": "https://github.com/purerl/purescript-exceptions.git",
+      "rev": "e57e9598bc327f4e8301136e0af53335fbb1973f",
+      "dependencies": [
+        "effect",
+        "either",
+        "maybe"
       ]
     },
     "exists": {
@@ -1611,6 +1658,22 @@
         "orders",
         "prelude",
         "tuples"
+      ]
+    },
+    "foreign": {
+      "type": "git",
+      "url": "https://github.com/purerl/purescript-foreign.git",
+      "rev": "91f2e6c9950db6bcab673b45f6ebd89305e97728",
+      "dependencies": [
+        "either",
+        "functions",
+        "identity",
+        "integers",
+        "lists",
+        "maybe",
+        "prelude",
+        "strings",
+        "transformers"
       ]
     },
     "functions": {
@@ -1875,6 +1938,27 @@
         "partial",
         "prelude",
         "refs"
+      ]
+    },
+    "transformers": {
+      "type": "git",
+      "url": "https://github.com/purescript/purescript-transformers.git",
+      "rev": "1e5d4193b38c613c97ea1ebdb721c6b94cd8c50a",
+      "dependencies": [
+        "control",
+        "distributive",
+        "effect",
+        "either",
+        "exceptions",
+        "foldable-traversable",
+        "identity",
+        "lazy",
+        "maybe",
+        "newtype",
+        "prelude",
+        "tailrec",
+        "tuples",
+        "unfoldable"
       ]
     },
     "tuples": {

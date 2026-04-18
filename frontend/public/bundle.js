@@ -34056,7 +34056,27 @@
       }])
     };
   })();
-  var starters = [monadsCross, monadsWithAff];
+  var erlangProcesses = {
+    key: "erlang-processes",
+    label: "Erlang processes (BEAM)",
+    description: "Concurrency via typed processes + message passing \u2014 not Aff. Purerl-only; erl-process isn't in the JS package set.",
+    compat: {
+      browser: false,
+      node: false,
+      purerl: true
+    },
+    moduleSource: "module Scratch where\n\nimport Prelude\n\nimport Effect (Effect)\nimport Effect.Class (liftEffect)\nimport Erl.Process (Process, ProcessM, receive, self, spawn, unsafeRunProcessM, (!))\n\n-- Echoes whatever it receives back to its spawner.\nechoActor :: Process Int -> ProcessM Int Unit\nechoActor parent = do\n  msg <- receive\n  liftEffect (parent ! msg)\n\n-- Spawn echoActor, send it 42, wait for the reply.\nroundTrip :: Effect Int\nroundTrip = unsafeRunProcessM do\n  me <- self\n  child <- liftEffect (spawn (echoActor me))\n  liftEffect (child ! 42)\n  receive\n\n-- Stateful counter actor: Add / Subtract / Query.\ndata Msg = Add Int | Subtract Int | Query (Process Int)\n\ncounter :: Int -> ProcessM Msg Unit\ncounter n = receive >>= case _ of\n  Add m -> counter (n + m)\n  Subtract m -> counter (n - m)\n  Query reply -> liftEffect (reply ! n)\n\nrunCounter :: Effect Int\nrunCounter = unsafeRunProcessM do\n  me <- self\n  c <- liftEffect (spawn (counter 0))\n  liftEffect do\n    c ! Add 10\n    c ! Add 5\n    c ! Subtract 3\n    c ! Query me\n  receive\n",
+    cells: [{
+      id: "c1",
+      kind: "expr",
+      source: "roundTrip"
+    }, {
+      id: "c2",
+      kind: "expr",
+      source: "runCounter"
+    }]
+  };
+  var starters = [monadsCross, monadsWithAff, erlangProcesses];
   var findByKey = function(k) {
     return find2(function(s) {
       return s.key === k;

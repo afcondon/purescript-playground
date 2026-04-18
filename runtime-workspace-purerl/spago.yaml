@@ -30,3 +30,4 @@ package:
     - prelude
     - strings
     - tuples
+    - erl-process
