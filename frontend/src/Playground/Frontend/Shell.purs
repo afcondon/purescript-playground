@@ -166,7 +166,7 @@ handleAction
   -> H.HalogenM State Action Slots o m Unit
 handleAction = case _ of
   Startup -> do
-    handleAction Compile
+    hydrateFromServer
     schedulePoll
   ModuleChanged src -> do
     stampEdit
@@ -306,6 +306,35 @@ handleAction = case _ of
     "let" -> "expr"
     _ -> "let"
 
+-- | Initial page load: pull the server's session so a second Claude's
+-- | writes survive a force-reload. If the server is at its pristine
+-- | initial state (empty cells + the server's default module), or if
+-- | we can't reach the server, fall back to compiling the local
+-- | starter — otherwise the frontend would stomp the session with its
+-- | starter the way it used to.
+hydrateFromServer
+  :: forall o m
+   . MonadAff m
+  => H.HalogenM State Action Slots o m Unit
+hydrateFromServer = do
+  result <- H.liftAff $ AX.request $ AX.defaultRequest
+    { method = Left GET
+    , url = backendUrl <> "/session"
+    , responseFormat = RF.json
+    , content = Nothing
+    }
+  case result of
+    Left _ -> handleAction Compile
+    Right { body } -> case CA.decode compileResponseCodec body of
+      Left _ -> handleAction Compile
+      Right (CompileResponse r) ->
+        let UserModule rm = r."module"
+        in if Array.null r.cells && rm.source == pristineServerModule
+          then handleAction Compile
+          else applyRemote r
+  where
+  pristineServerModule = "module Scratch where\n\nimport Prelude\n"
+
 -- | Bump the last-user-edit timestamp so the poll loop knows to
 -- | hold off for a couple seconds (don't clobber live typing).
 stampEdit
@@ -380,11 +409,17 @@ remoteDiffers s r =
       && local.source == remote.source
 
 -- | Take a remote snapshot and overwrite local display state with it.
--- | Bumps lastUserEditAt so we don't immediately re-apply.
+-- | Mirrors the emits-vs-js branching in `Compile`: server-side
+-- | runtimes (node/purerl) arrive with `emits` populated, browser
+-- | runtime arrives with `js` and we have to execute it in a Worker
+-- | to get values. Without the Worker branch, the RHS column stays
+-- | blank when a remote write from another client lands under the
+-- | browser runtime.
 applyRemote
-  :: forall o m r
+  :: forall o m
    . MonadAff m
-  => { "module" :: UserModule
+  => { js :: Maybe String
+     , "module" :: UserModule
      , cells :: Array Cell
      , runtime :: String
      , types :: Array CellType
@@ -392,7 +427,7 @@ applyRemote
      , errors :: Array CompileError
      , warnings :: Array CompileError
      , emits :: Array CellEmit
-     | r }
+     }
   -> H.HalogenM State Action Slots o m Unit
 applyRemote r = do
   let UserModule rm = r."module"
@@ -412,6 +447,11 @@ applyRemote r = do
     , warnings = r.warnings
     }
   decorateErrors r.errors r.cellLines
+  if not (Array.null r.emits) then
+    teardownExecution
+  else case r.js of
+    Nothing -> teardownExecution
+    Just js -> startExecution js
 
 -- | Push inline error decorations to each editor. `errs` are the
 -- | raw CompileErrors from the response; we partition by filename

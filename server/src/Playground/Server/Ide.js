@@ -48,6 +48,14 @@ async function pollUntilReady() {
   throw new Error('purs ide server did not become ready within 10s');
 }
 
+// Timeout bounds how long we wait for the purs ide server via a
+// client subprocess. A warm ide server answers in ~50ms; 5s is
+// *very* generous but short enough that a wedged server doesn't
+// hold the session mutex indefinitely. On timeout we SIGKILL the
+// client, then SIGTERM the ide server too — its exit handler nulls
+// our cached reference, so the next query respawns a fresh one.
+const IDE_CLIENT_TIMEOUT_MS = 5000;
+
 export function clientCall(cmd) {
   return new Promise((resolve, reject) => {
     const proc = spawn('purs', ['ide', 'client'], {
@@ -55,18 +63,37 @@ export function clientCall(cmd) {
     });
     let stdout = '';
     let stderr = '';
+    let settled = false;
+    const settle = (fn) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      fn();
+    };
+    const timer = setTimeout(() => {
+      try { proc.kill('SIGKILL'); } catch (_) {}
+      // The ide server is the shared piece of state that gets
+      // wedged; killing it forces a fresh spawn on the next call.
+      if (ideServerProc) {
+        try { ideServerProc.kill('SIGTERM'); } catch (_) {}
+      }
+      settle(() => reject(new Error(
+        `purs ide client timed out after ${IDE_CLIENT_TIMEOUT_MS}ms — killed server for respawn`
+      )));
+    }, IDE_CLIENT_TIMEOUT_MS);
     proc.stdout.on('data', (d) => { stdout += d; });
     proc.stderr.on('data', (d) => { stderr += d; });
-    proc.on('error', (e) => reject(e));
+    proc.on('error', (e) => settle(() => reject(e)));
     proc.on('exit', (code) => {
       if (code !== 0) {
-        reject(new Error(`purs ide client exit ${code}: ${stderr.trim()}`));
+        settle(() => reject(new Error(`purs ide client exit ${code}: ${stderr.trim()}`)));
         return;
       }
       try {
-        resolve(JSON.parse(stdout));
+        const parsed = JSON.parse(stdout);
+        settle(() => resolve(parsed));
       } catch (e) {
-        reject(new Error(`purs ide client: invalid JSON response: ${stdout}`));
+        settle(() => reject(new Error(`purs ide client: invalid JSON response: ${stdout}`)));
       }
     });
     proc.stdin.write(JSON.stringify(cmd) + '\n');

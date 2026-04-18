@@ -23,6 +23,7 @@ import Effect (Effect)
 import Effect.AVar (AVar)
 import Effect.AVar as EffAVar
 import Effect.Aff (Aff)
+import Effect.Aff as Aff
 import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
 import Effect.Ref (Ref)
@@ -109,20 +110,23 @@ pickAdapter = case _ of
   _ -> browserWorker
 
 -- | Apply a state update under the lock, then recompile against the
--- | new state, cache + return the snapshot.
+-- | new state, cache + return the snapshot. `finally` guarantees the
+-- | lock is released even when `compileNow` throws or the adapter
+-- | hangs long enough to be cancelled — otherwise a single stuck
+-- | compile wedges every subsequent write in the process.
 withUpdate
   :: SessionStore
   -> (SessionState -> SessionState)
   -> Aff CompileResponse
 withUpdate (SessionStore { lock, state }) f = do
   _ <- AVar.take lock
-  s0 <- liftEffect (Ref.read state)
-  let s1 = f s0
-  liftEffect (Ref.write s1 state)
-  resp <- compileNow s1
-  liftEffect $ Ref.modify_ (_ { lastResponse = Just resp }) state
-  AVar.put unit lock
-  pure resp
+  Aff.finally (AVar.put unit lock) do
+    s0 <- liftEffect (Ref.read state)
+    let s1 = f s0
+    liftEffect (Ref.write s1 state)
+    resp <- compileNow s1
+    liftEffect $ Ref.modify_ (_ { lastResponse = Just resp }) state
+    pure resp
 
 compileNow :: SessionState -> Aff CompileResponse
 compileNow s =
