@@ -43,11 +43,13 @@
         "core": {
           "dependencies": [
             "aff",
+            "argonaut-core",
             "arrays",
             "console",
             "effect",
             "either",
             "foldable-traversable",
+            "foreign-object",
             "integers",
             "maybe",
             "newtype",

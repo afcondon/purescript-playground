@@ -75,6 +75,10 @@ buildMain cells =
   in
     "module Main where\n\n"
       <> "import Prelude\n"
+      <> "import Data.Array as Array\n"
+      <> "import Data.Either (Either(..))\n"
+      <> "import Data.Maybe (Maybe(..))\n"
+      <> "import Data.Tuple (Tuple(..))\n"
       <> "import Effect (Effect)\n"
       <> "import Playground.Runtime (class ToPlaygroundValue, emit, toPlaygroundValue)\n"
       <> "import Playground.User\n\n"

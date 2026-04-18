@@ -359,6 +359,7 @@ body {
 .gutter-value {
   font-family: var(--mono);
   font-size: 0.8rem;
+  line-height: 1.45;
   white-space: pre-wrap;
   word-break: break-word;
   margin: 0;
@@ -367,6 +368,16 @@ body {
   border: 1px solid var(--rule);
   border-radius: 2px;
 }
+
+/* Structured value rendering — colours keyed to role, restrained. */
+.pv-null    { color: var(--muted); font-style: italic; }
+.pv-bool    { color: #6b4c8a; font-weight: 600; }
+.pv-number  { color: var(--fg); }
+.pv-string  { color: #7a5530; }
+.pv-raw     { color: var(--fg); font-style: italic; }
+.pv-punct   { color: var(--muted); }
+.pv-ctor-name { color: var(--accent); font-weight: 600; }
+.pv-parens  { color: var(--muted); }
 
 .runtime-error {
   font-family: var(--mono);

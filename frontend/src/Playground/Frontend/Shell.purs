@@ -29,6 +29,9 @@ import Type.Proxy (Proxy(..))
 import Playground.Frontend.Config (backendUrl)
 import Playground.Frontend.Editor as Editor
 import Playground.Frontend.SigilView as SigilView
+import Playground.Frontend.Value (PlaygroundValue)
+import Playground.Frontend.Value as Value
+import Playground.Frontend.ValueView as ValueView
 import Playground.Frontend.Worker (Worker, WorkerMessage(..))
 import Playground.Frontend.Worker as Worker
 import Playground.Session
@@ -56,7 +59,7 @@ type State =
   , cellRanges :: Array CellRange
   , transportError :: Maybe String
   , runtimeError :: Maybe String
-  , cellResults :: Map String String
+  , cellResults :: Map String PlaygroundValue
   , cellTypes :: Map String String
   , pendingCompile :: Maybe H.ForkId
   , worker :: Maybe Worker
@@ -216,7 +219,7 @@ handleAction = case _ of
             Just js -> startExecution js
   HandleWorkerMessage msg -> case msg of
     Emit id value ->
-      H.modify_ \s -> s { cellResults = Map.insert id value s.cellResults }
+      H.modify_ \s -> s { cellResults = Map.insert id (Value.parse value) s.cellResults }
     Done -> teardownExecution
     WorkerError err -> do
       H.modify_ _ { runtimeError = Just err }
@@ -396,7 +399,8 @@ renderCellResult state idx c =
       HH.span [ HP.class_ (H.ClassName "muted gutter-type") ] [ HH.text "—" ]
   renderValue st cell = case Map.lookup cell.id st.cellResults of
     Just v ->
-      HH.pre [ HP.class_ (H.ClassName "gutter-value") ] [ HH.text v ]
+      HH.div [ HP.class_ (H.ClassName "gutter-value") ]
+        [ ValueView.render v ]
     Nothing ->
       HH.span [ HP.class_ (H.ClassName "muted") ] [ HH.text "—" ]
 

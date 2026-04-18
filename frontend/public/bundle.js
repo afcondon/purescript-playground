@@ -131,19 +131,19 @@
   };
   var applyFirst = function(dictApply) {
     var apply1 = apply(dictApply);
-    var map35 = map(dictApply.Functor0());
+    var map37 = map(dictApply.Functor0());
     return function(a2) {
       return function(b2) {
-        return apply1(map35($$const)(a2))(b2);
+        return apply1(map37($$const)(a2))(b2);
       };
     };
   };
   var applySecond = function(dictApply) {
     var apply1 = apply(dictApply);
-    var map35 = map(dictApply.Functor0());
+    var map37 = map(dictApply.Functor0());
     return function(a2) {
       return function(b2) {
-        return apply1(map35($$const(identity2))(a2))(b2);
+        return apply1(map37($$const(identity2))(a2))(b2);
       };
     };
   };
@@ -1163,23 +1163,23 @@
 
   // output/Control.Monad/index.js
   var unlessM = function(dictMonad) {
-    var bind17 = bind(dictMonad.Bind1());
+    var bind20 = bind(dictMonad.Bind1());
     var unless2 = unless(dictMonad.Applicative0());
     return function(mb) {
       return function(m) {
-        return bind17(mb)(function(b2) {
+        return bind20(mb)(function(b2) {
           return unless2(b2)(m);
         });
       };
     };
   };
   var ap = function(dictMonad) {
-    var bind17 = bind(dictMonad.Bind1());
+    var bind20 = bind(dictMonad.Bind1());
     var pure20 = pure(dictMonad.Applicative0());
     return function(f) {
       return function(a2) {
-        return bind17(f)(function(f$prime) {
-          return bind17(a2)(function(a$prime) {
+        return bind20(f)(function(f$prime) {
+          return bind20(a2)(function(a$prime) {
             return pure20(f$prime(a$prime));
           });
         });
@@ -1287,6 +1287,8 @@
   };
 
   // output/Data.Bounded/foreign.js
+  var topInt = 2147483647;
+  var bottomInt = -2147483648;
   var topChar = String.fromCharCode(65535);
   var bottomChar = String.fromCharCode(0);
   var topNumber = Number.POSITIVE_INFINITY;
@@ -1485,6 +1487,13 @@
   var top = function(dict) {
     return dict.top;
   };
+  var boundedInt = {
+    top: topInt,
+    bottom: bottomInt,
+    Ord0: function() {
+      return ordInt;
+    }
+  };
   var boundedChar = {
     top: topChar,
     bottom: bottomChar,
@@ -1672,6 +1681,20 @@
       }
     };
   })();
+  var altMaybe = {
+    alt: function(v) {
+      return function(v1) {
+        if (v instanceof Nothing) {
+          return v1;
+        }
+        ;
+        return v;
+      };
+    },
+    Functor0: function() {
+      return functorMaybe;
+    }
+  };
 
   // output/Data.Either/index.js
   var Left = /* @__PURE__ */ (function() {
@@ -1959,10 +1982,10 @@
   var $$try = function(dictMonadError) {
     var catchError1 = catchError(dictMonadError);
     var Monad0 = dictMonadError.MonadThrow0().Monad0();
-    var map35 = map(Monad0.Bind1().Apply0().Functor0());
+    var map37 = map(Monad0.Bind1().Apply0().Functor0());
     var pure20 = pure(Monad0.Applicative0());
     return function(a2) {
-      return catchError1(map35(Right.create)(a2))(function($52) {
+      return catchError1(map37(Right.create)(a2))(function($52) {
         return pure20(Left.create($52));
       });
     };
@@ -2152,6 +2175,17 @@
       };
     };
   };
+  function forST(lo) {
+    return function(hi) {
+      return function(f) {
+        return function() {
+          for (var i2 = lo; i2 < hi; i2++) {
+            f(i2)();
+          }
+        };
+      };
+    };
+  }
   var foreach = function(as) {
     return function(f) {
       return function() {
@@ -2465,12 +2499,12 @@
     };
   };
   var bindExceptT = function(dictMonad) {
-    var bind17 = bind(dictMonad.Bind1());
+    var bind20 = bind(dictMonad.Bind1());
     var pure20 = pure(dictMonad.Applicative0());
     return {
       bind: function(v) {
         return function(k) {
-          return bind17(v)(either(function($193) {
+          return bind20(v)(either(function($193) {
             return pure20(Left.create($193));
           })(function(a2) {
             var v1 = k(a2);
@@ -2520,28 +2554,28 @@
     };
   };
   var altExceptT = function(dictSemigroup) {
-    var append6 = append(dictSemigroup);
+    var append7 = append(dictSemigroup);
     return function(dictMonad) {
       var Bind1 = dictMonad.Bind1();
-      var bind17 = bind(Bind1);
+      var bind20 = bind(Bind1);
       var pure20 = pure(dictMonad.Applicative0());
       var functorExceptT1 = functorExceptT(Bind1.Apply0().Functor0());
       return {
         alt: function(v) {
           return function(v1) {
-            return bind17(v)(function(rm) {
+            return bind20(v)(function(rm) {
               if (rm instanceof Right) {
                 return pure20(new Right(rm.value0));
               }
               ;
               if (rm instanceof Left) {
-                return bind17(v1)(function(rn) {
+                return bind20(v1)(function(rn) {
                   if (rn instanceof Right) {
                     return pure20(new Right(rn.value0));
                   }
                   ;
                   if (rn instanceof Left) {
-                    return pure20(new Left(append6(rm.value0)(rn.value0)));
+                    return pure20(new Left(append7(rm.value0)(rn.value0)));
                   }
                   ;
                   throw new Error("Failed pattern match at Control.Monad.Except.Trans (line 87, column 9 - line 89, column 49): " + [rn.constructor.name]);
@@ -2703,7 +2737,7 @@
   var intercalate = function(dictFoldable) {
     var foldl22 = foldl(dictFoldable);
     return function(dictMonoid) {
-      var append6 = append(dictMonoid.Semigroup0());
+      var append7 = append(dictMonoid.Semigroup0());
       var mempty2 = mempty(dictMonoid);
       return function(sep) {
         return function(xs) {
@@ -2718,7 +2752,7 @@
               ;
               return {
                 init: false,
-                acc: append6(v.acc)(append6(sep)(v1))
+                acc: append7(v.acc)(append7(sep)(v1))
               };
             };
           };
@@ -2781,12 +2815,12 @@
   var foldMapDefaultR = function(dictFoldable) {
     var foldr22 = foldr(dictFoldable);
     return function(dictMonoid) {
-      var append6 = append(dictMonoid.Semigroup0());
+      var append7 = append(dictMonoid.Semigroup0());
       var mempty2 = mempty(dictMonoid);
       return function(f) {
         return foldr22(function(x) {
           return function(acc) {
-            return append6(f(x))(acc);
+            return append7(f(x))(acc);
           };
         })(mempty2);
       };
@@ -2853,23 +2887,23 @@
       };
     }
     return function(apply5) {
-      return function(map35) {
+      return function(map37) {
         return function(pure20) {
           return function(f) {
             return function(array4) {
-              function go2(bot, top3) {
-                switch (top3 - bot) {
+              function go2(bot, top4) {
+                switch (top4 - bot) {
                   case 0:
                     return pure20([]);
                   case 1:
-                    return map35(array1)(f(array4[bot]));
+                    return map37(array1)(f(array4[bot]));
                   case 2:
-                    return apply5(map35(array2)(f(array4[bot])))(f(array4[bot + 1]));
+                    return apply5(map37(array2)(f(array4[bot])))(f(array4[bot + 1]));
                   case 3:
-                    return apply5(apply5(map35(array3)(f(array4[bot])))(f(array4[bot + 1])))(f(array4[bot + 2]));
+                    return apply5(apply5(map37(array3)(f(array4[bot])))(f(array4[bot + 1])))(f(array4[bot + 2]));
                   default:
-                    var pivot = bot + Math.floor((top3 - bot) / 4) * 2;
-                    return apply5(map35(concat2)(go2(bot, pivot)))(go2(pivot, top3));
+                    var pivot = bot + Math.floor((top4 - bot) / 4) * 2;
+                    return apply5(map37(concat2)(go2(bot, pivot)))(go2(pivot, top4));
                 }
               }
               return go2(0, array4.length);
@@ -3486,7 +3520,7 @@
   var toEnumWithDefaults = function(dictBoundedEnum) {
     var toEnum1 = toEnum(dictBoundedEnum);
     var fromEnum1 = fromEnum(dictBoundedEnum);
-    var bottom2 = bottom(dictBoundedEnum.Bounded0());
+    var bottom22 = bottom(dictBoundedEnum.Bounded0());
     return function(low2) {
       return function(high2) {
         return function(x) {
@@ -3496,7 +3530,7 @@
           }
           ;
           if (v instanceof Nothing) {
-            var $140 = x < fromEnum1(bottom2);
+            var $140 = x < fromEnum1(bottom22);
             if ($140) {
               return low2;
             }
@@ -3657,13 +3691,13 @@
   var foldMapWithIndexDefaultR = function(dictFoldableWithIndex) {
     var foldrWithIndex1 = foldrWithIndex(dictFoldableWithIndex);
     return function(dictMonoid) {
-      var append6 = append(dictMonoid.Semigroup0());
+      var append7 = append(dictMonoid.Semigroup0());
       var mempty2 = mempty(dictMonoid);
       return function(f) {
         return foldrWithIndex1(function(i2) {
           return function(x) {
             return function(acc) {
-              return append6(f(i2)(x))(acc);
+              return append7(f(i2)(x))(acc);
             };
           };
         })(mempty2);
@@ -4982,6 +5016,7 @@
   };
 
   // output/Data.Array.ST/index.js
+  var bind3 = /* @__PURE__ */ bind(bindST);
   var unsafeThaw = /* @__PURE__ */ runSTFn1(unsafeThawImpl);
   var unsafeFreeze = /* @__PURE__ */ runSTFn1(unsafeFreezeImpl);
   var thaw = /* @__PURE__ */ runSTFn1(thawImpl);
@@ -4993,6 +5028,9 @@
         return unsafeFreeze(result)();
       };
     };
+  };
+  var run2 = function(st) {
+    return bind3(st)(unsafeFreeze)();
   };
   var push = /* @__PURE__ */ runSTFn2(pushImpl);
 
@@ -5091,6 +5129,35 @@
     return length3(xs) === 0;
   };
   var mapWithIndex3 = /* @__PURE__ */ mapWithIndex(functorWithIndexArray);
+  var intersperse = function(a2) {
+    return function(arr) {
+      var v = length3(arr);
+      if (v < 2) {
+        return arr;
+      }
+      ;
+      if (otherwise) {
+        return run2(/* @__PURE__ */ (function() {
+          var unsafeGetElem = function(idx) {
+            return unsafeIndex1(arr)(idx);
+          };
+          return function __do2() {
+            var out = newSTArray();
+            push(unsafeGetElem(0))(out)();
+            forST(1)(v)(function(idx) {
+              return function __do3() {
+                push(a2)(out)();
+                return $$void4(push(unsafeGetElem(idx))(out))();
+              };
+            })();
+            return out;
+          };
+        })());
+      }
+      ;
+      throw new Error("Failed pattern match at Data.Array (line 623, column 21 - line 633, column 17): " + [v.constructor.name]);
+    };
+  };
   var intercalate2 = function(dictMonoid) {
     return intercalate1(dictMonoid);
   };
@@ -5878,6 +5945,7 @@
       return nothing;
     }
   }
+  var round = Math.round;
 
   // output/Data.Number/index.js
   var fromString = function(str) {
@@ -5885,6 +5953,8 @@
   };
 
   // output/Data.Int/index.js
+  var top2 = /* @__PURE__ */ top(boundedInt);
+  var bottom2 = /* @__PURE__ */ bottom(boundedInt);
   var hexadecimal = 16;
   var fromStringAs = /* @__PURE__ */ (function() {
     return fromStringAsImpl(Just.create)(Nothing.value);
@@ -5893,6 +5963,28 @@
   var fromNumber = /* @__PURE__ */ (function() {
     return fromNumberImpl(Just.create)(Nothing.value);
   })();
+  var unsafeClamp = function(x) {
+    if (!isFiniteImpl(x)) {
+      return 0;
+    }
+    ;
+    if (x >= toNumber(top2)) {
+      return top2;
+    }
+    ;
+    if (x <= toNumber(bottom2)) {
+      return bottom2;
+    }
+    ;
+    if (otherwise) {
+      return fromMaybe(0)(fromNumber(x));
+    }
+    ;
+    throw new Error("Failed pattern match at Data.Int (line 72, column 1 - line 72, column 29): " + [x.constructor.name]);
+  };
+  var round2 = function($37) {
+    return unsafeClamp(round($37));
+  };
 
   // output/Data.List.NonEmpty/index.js
   var singleton5 = /* @__PURE__ */ (function() {
@@ -7044,7 +7136,7 @@
 
   // output/Halogen.Subscription/index.js
   var $$void6 = /* @__PURE__ */ $$void(functorEffect);
-  var bind3 = /* @__PURE__ */ bind(bindEffect);
+  var bind4 = /* @__PURE__ */ bind(bindEffect);
   var append5 = /* @__PURE__ */ append(semigroupArray);
   var traverse_2 = /* @__PURE__ */ traverse_(applicativeEffect);
   var traverse_1 = /* @__PURE__ */ traverse_2(foldableArray);
@@ -7086,7 +7178,7 @@
         };
       },
       listener: function(a2) {
-        return bind3(read(subscribers))(traverse_1(function(k) {
+        return bind4(read(subscribers))(traverse_1(function(k) {
           return k(a2);
         }));
       }
@@ -7754,16 +7846,16 @@
       });
     };
   };
-  var evalQ = function(render3) {
+  var evalQ = function(render4) {
     return function(ref3) {
       return function(q2) {
         return bind12(liftEffect4(read(ref3)))(function(v) {
-          return evalM(render3)(ref3)(v["component"]["eval"](new Query(map18(Just.create)(liftCoyoneda(q2)), $$const(Nothing.value))));
+          return evalM(render4)(ref3)(v["component"]["eval"](new Query(map18(Just.create)(liftCoyoneda(q2)), $$const(Nothing.value))));
         });
       };
     };
   };
-  var evalM = function(render3) {
+  var evalM = function(render4) {
     return function(initRef) {
       return function(v) {
         var evalChildQuery = function(ref3) {
@@ -7773,7 +7865,7 @@
                 var evalChild = function(v3) {
                   return parallel3(bind12(liftEffect4(read(v3)))(function(dsx) {
                     return unDriverStateX(function(ds) {
-                      return evalQ(render3)(ds.selfRef)(v2.value1);
+                      return evalQ(render4)(ds.selfRef)(v2.value1);
                     })(dsx);
                   }));
                 };
@@ -7810,7 +7902,7 @@
                     lifecycleHandlers: v2.lifecycleHandlers,
                     state: v3.value1
                   })(ref3)))(function() {
-                    return discard1(handleLifecycle(v2.lifecycleHandlers)(render3(v2.lifecycleHandlers)(ref3)))(function() {
+                    return discard1(handleLifecycle(v2.lifecycleHandlers)(render4(v2.lifecycleHandlers)(ref3)))(function() {
                       return pure6(v3.value0);
                     });
                   });
@@ -7823,7 +7915,7 @@
             if (v1 instanceof Subscribe) {
               return bind12(fresh(SubscriptionId)(ref3))(function(sid) {
                 return bind12(liftEffect4(subscribe(v1.value0(sid))(function(act) {
-                  return handleAff(evalF(render3)(ref3)(new Action(act)));
+                  return handleAff(evalF(render4)(ref3)(new Action(act)));
                 })))(function(finalize) {
                   return bind12(liftEffect4(read(ref3)))(function(v2) {
                     return discard1(liftEffect4(modify_(map23(insert4(sid)(finalize)))(v2.subscriptions)))(function() {
@@ -7860,7 +7952,7 @@
             ;
             if (v1 instanceof Par) {
               return sequential2(retractFreeAp2(hoistFreeAp((function() {
-                var $119 = evalM(render3)(ref3);
+                var $119 = evalM(render4)(ref3);
                 return function($120) {
                   return parallel3($119($120));
                 };
@@ -7874,7 +7966,7 @@
                     return bind12(fork3($$finally(liftEffect4(function __do2() {
                       modify_($$delete2(fid))(v2.forks)();
                       return write(true)(doneRef)();
-                    }))(evalM(render3)(ref3)(v1.value0))))(function(fiber) {
+                    }))(evalM(render4)(ref3)(v1.value0))))(function(fiber) {
                       return discard1(liftEffect4(unlessM2(read(doneRef))(modify_(insert12(fid)(fiber))(v2.forks))))(function() {
                         return pure6(v1.value1(fid));
                       });
@@ -7917,7 +8009,7 @@
       };
     };
   };
-  var evalF = function(render3) {
+  var evalF = function(render4) {
     return function(ref3) {
       return function(v) {
         if (v instanceof RefUpdate) {
@@ -7945,7 +8037,7 @@
         ;
         if (v instanceof Action) {
           return bind12(liftEffect4(read(ref3)))(function(v1) {
-            return evalM(render3)(ref3)(v1["component"]["eval"](new Action2(v.value0, unit)));
+            return evalM(render4)(ref3)(v1["component"]["eval"](new Action2(v.value0, unit)));
           });
         }
         ;
@@ -7955,7 +8047,7 @@
   };
 
   // output/Halogen.Aff.Driver/index.js
-  var bind4 = /* @__PURE__ */ bind(bindEffect);
+  var bind5 = /* @__PURE__ */ bind(bindEffect);
   var discard4 = /* @__PURE__ */ discard(discardUnit);
   var for_2 = /* @__PURE__ */ for_(applicativeEffect)(foldableMaybe);
   var traverse_5 = /* @__PURE__ */ traverse_(applicativeAff)(foldableList);
@@ -8016,7 +8108,7 @@
         var squashChildInitializers = function(lchs) {
           return function(preInits) {
             return unDriverStateX(function(st) {
-              var parentInitializer = evalM(render3)(st.selfRef)(st["component"]["eval"](new Initialize(unit)));
+              var parentInitializer = evalM(render4)(st.selfRef)(st["component"]["eval"](new Initialize(unit)));
               return modify_(function(handlers2) {
                 return {
                   initializers: new Cons(discard22(parSequence_3(reverse(handlers2.initializers)))(function() {
@@ -8046,7 +8138,7 @@
                     finalizers: pre2.finalizers
                   })(lchs)();
                   bindFlipped7(unDriverStateX((function() {
-                    var $63 = render3(lchs);
+                    var $63 = render4(lchs);
                     return function($64) {
                       return $63((function(v) {
                         return v.selfRef;
@@ -8079,7 +8171,7 @@
                                 return $65(slot3.output($66));
                               };
                             })())();
-                            return handleAff(evalM(render3)(st.selfRef)(st["component"]["eval"](new Receive(slot3.input, unit))))();
+                            return handleAff(evalM(render4)(st.selfRef)(st["component"]["eval"](new Receive(slot3.input, unit))))();
                           };
                         })(dsx)();
                         return childrenIn.value0.value0;
@@ -8101,7 +8193,7 @@
                     })(read(childrenOutRef))();
                     when3(isDuplicate)(warn("Halogen: Duplicate slot address was detected during rendering, unexpected results may occur"))();
                     modify_(slot3.set($$var2))(childrenOutRef)();
-                    return bind4(read($$var2))(renderStateX2(function(v) {
+                    return bind5(read($$var2))(renderStateX2(function(v) {
                       if (v instanceof Nothing) {
                         return $$throw("Halogen internal error: child was not initialized in renderChild");
                       }
@@ -8118,7 +8210,7 @@
             };
           };
         };
-        var render3 = function(lchs) {
+        var render4 = function(lchs) {
           return function($$var2) {
             return function __do2() {
               var v = read($$var2)();
@@ -8128,7 +8220,7 @@
               write(v.children)(v.childrenIn)();
               var handler3 = (function() {
                 var $70 = queueOrRun(v.pendingHandlers);
-                var $71 = evalF(render3)(v.selfRef);
+                var $71 = evalF(render4)(v.selfRef);
                 return function($72) {
                   return $70($$void7($71($72)));
                 };
@@ -8197,7 +8289,7 @@
           return unDriverStateX(function(st) {
             return function __do2() {
               cleanupSubscriptionsAndForks(st)();
-              var f = evalM(render3)(st.selfRef)(st["component"]["eval"](new Finalize(unit)));
+              var f = evalM(render4)(st.selfRef)(st["component"]["eval"](new Finalize(unit)));
               modify_(function(handlers2) {
                 return {
                   initializers: handlers2.initializers,
@@ -8221,7 +8313,7 @@
                   return pure12(Nothing.value);
                 }
                 ;
-                return evalQ(render3)(ref3)(q2);
+                return evalQ(render4)(ref3)(q2);
               });
             };
           };
@@ -8433,9 +8525,9 @@
             };
           });
           var patch2 = $lazy_patch(91);
-          var render3 = $lazy_render(82);
+          var render4 = $lazy_render(82);
           var renderComponentSlot = $lazy_renderComponentSlot(109);
-          return render3;
+          return render4;
         };
         var buildAttributes = buildProp(handler3);
         return {
@@ -8448,7 +8540,7 @@
   };
   var renderSpec = function(document3) {
     return function(container) {
-      var render3 = function(handler3) {
+      var render4 = function(handler3) {
         return function(child) {
           return function(v) {
             return function(v1) {
@@ -8489,7 +8581,7 @@
         };
       };
       return {
-        render: render3,
+        render: render4,
         renderChild: identity10,
         removeChild: removeChild3,
         dispose: removeChild3
@@ -8899,6 +8991,14 @@
     };
   };
   var isNull2 = /* @__PURE__ */ isJsonType(caseJsonNull);
+  var caseJsonBoolean = function(d) {
+    return function(f) {
+      return function(j) {
+        return _caseJson($$const(d), f, $$const(d), $$const(d), $$const(d), $$const(d), j);
+      };
+    };
+  };
+  var toBoolean = /* @__PURE__ */ toJsonType(caseJsonBoolean);
   var caseJsonArray = function(d) {
     return function(f) {
       return function(j) {
@@ -9726,7 +9826,7 @@
 
   // output/Data.Codec.Argonaut/index.js
   var show12 = /* @__PURE__ */ show(showInt);
-  var bind5 = /* @__PURE__ */ bind(bindEither);
+  var bind6 = /* @__PURE__ */ bind(bindEither);
   var lmap2 = /* @__PURE__ */ lmap(bifunctorEither);
   var pure10 = /* @__PURE__ */ pure(applicativeEither);
   var bindFlipped10 = /* @__PURE__ */ bindFlipped(bindEither);
@@ -9813,8 +9913,8 @@
             };
             var dec$prime = function(key2) {
               return function(obj) {
-                return bind5(decode(codecR)(obj))(function(r) {
-                  return bind5(lmap2(AtKey.create(key2))((function() {
+                return bind6(decode(codecR)(obj))(function(r) {
+                  return bind6(lmap2(AtKey.create(key2))((function() {
                     var v = lookup3(key2)(obj);
                     if (v instanceof Just) {
                       return decode(codecA)(v.value0);
@@ -10447,8 +10547,8 @@
       this.done = this.lineBreak = false;
       for (; ; ) {
         let last4 = this.nodes.length - 1;
-        let top3 = this.nodes[last4], offsetValue = this.offsets[last4], offset = offsetValue >> 1;
-        let size5 = top3 instanceof TextLeaf ? top3.text.length : top3.children.length;
+        let top4 = this.nodes[last4], offsetValue = this.offsets[last4], offset = offsetValue >> 1;
+        let size5 = top4 instanceof TextLeaf ? top4.text.length : top4.children.length;
         if (offset == (dir2 > 0 ? size5 : 0)) {
           if (last4 == 0) {
             this.done = true;
@@ -10467,8 +10567,8 @@
             return this;
           }
           skip--;
-        } else if (top3 instanceof TextLeaf) {
-          let next = top3.text[offset + (dir2 < 0 ? -1 : 0)];
+        } else if (top4 instanceof TextLeaf) {
+          let next = top4.text[offset + (dir2 < 0 ? -1 : 0)];
           this.offsets[last4] += dir2;
           if (next.length > Math.max(0, skip)) {
             this.value = skip == 0 ? next : dir2 > 0 ? next.slice(skip) : next.slice(0, next.length - skip);
@@ -10476,7 +10576,7 @@
           }
           skip -= next.length;
         } else {
-          let next = top3.children[offset + (dir2 < 0 ? -1 : 0)];
+          let next = top4.children[offset + (dir2 < 0 ? -1 : 0)];
           if (skip > next.length) {
             skip -= next.length;
             this.offsets[last4] += dir2;
@@ -11938,8 +12038,8 @@
     /**
     @internal
     */
-    constructor(map35) {
-      this.map = map35;
+    constructor(map37) {
+      this.map = map37;
     }
     /**
     Create a [state effect](https://codemirror.net/6/docs/ref/#state.StateEffect) instance of this
@@ -12477,9 +12577,9 @@
     literal dollar sign.
     */
     phrase(phrase, ...insert10) {
-      for (let map35 of this.facet(_EditorState.phrases))
-        if (Object.prototype.hasOwnProperty.call(map35, phrase)) {
-          phrase = map35[phrase];
+      for (let map37 of this.facet(_EditorState.phrases))
+        if (Object.prototype.hasOwnProperty.call(map37, phrase)) {
+          phrase = map37[phrase];
           break;
         }
       if (insert10.length)
@@ -13165,13 +13265,13 @@
         this.value = null;
         this.rank = -1;
       } else {
-        let top3 = this.heap[0];
-        this.from = top3.from;
-        this.to = top3.to;
-        this.value = top3.value;
-        this.rank = top3.rank;
-        if (top3.value)
-          top3.next();
+        let top4 = this.heap[0];
+        this.from = top4.from;
+        this.to = top4.to;
+        this.value = top4.value;
+        this.rank = top4.rank;
+        if (top4.value)
+          top4.next();
         heapBubble(this.heap, 0);
       }
     }
@@ -13395,7 +13495,7 @@
   var C = "\u037C";
   var COUNT = typeof Symbol == "undefined" ? "__" + C : Symbol.for(C);
   var SET = typeof Symbol == "undefined" ? "__styleSet" + Math.floor(Math.random() * 1e8) : Symbol("styleSet");
-  var top2 = typeof globalThis != "undefined" ? globalThis : typeof window != "undefined" ? window : {};
+  var top3 = typeof globalThis != "undefined" ? globalThis : typeof window != "undefined" ? window : {};
   var StyleModule = class {
     // :: (Object<Style>, ?{finish: ?(string) → string})
     // Create a style module from the given spec.
@@ -13408,20 +13508,20 @@
       function splitSelector(selector) {
         return /^@/.test(selector) ? [selector] : selector.split(/,\s*/);
       }
-      function render3(selectors, spec2, target6, isKeyframes) {
+      function render4(selectors, spec2, target6, isKeyframes) {
         let local2 = [], isAt = /^@(\w+)\b/.exec(selectors[0]), keyframes = isAt && isAt[1] == "keyframes";
         if (isAt && spec2 == null) return target6.push(selectors[0] + ";");
         for (let prop3 in spec2) {
           let value13 = spec2[prop3];
           if (/&/.test(prop3)) {
-            render3(
+            render4(
               prop3.split(/,\s*/).map((part) => selectors.map((sel) => part.replace(/&/, sel))).reduce((a2, b2) => a2.concat(b2)),
               value13,
               target6
             );
           } else if (value13 && typeof value13 == "object") {
             if (!isAt) throw new RangeError("The value of a property (" + prop3 + ") should be a primitive value.");
-            render3(splitSelector(prop3), value13, local2, keyframes);
+            render4(splitSelector(prop3), value13, local2, keyframes);
           } else if (value13 != null) {
             local2.push(prop3.replace(/_.*/, "").replace(/[A-Z]/g, (l) => "-" + l.toLowerCase()) + ": " + value13 + ";");
           }
@@ -13430,7 +13530,7 @@
           target6.push((finish && !isAt && !isKeyframes ? selectors.map(finish) : selectors).join(", ") + " {" + local2.join(" ") + "}");
         }
       }
-      for (let prop3 in spec) render3(splitSelector(prop3), spec[prop3], this.rules);
+      for (let prop3 in spec) render4(splitSelector(prop3), spec[prop3], this.rules);
     }
     // :: () → string
     // Returns a string containing the module's CSS rules.
@@ -13440,8 +13540,8 @@
     // :: () → string
     // Generate a new unique CSS class name.
     static newName() {
-      let id3 = top2[COUNT] || 1;
-      top2[COUNT] = id3 + 1;
+      let id3 = top3[COUNT] || 1;
+      top3[COUNT] = id3 + 1;
       return C + id3.toString(36);
     }
     // :: (union<Document, ShadowRoot>, union<[StyleModule], StyleModule>, ?{nonce: ?string})
@@ -14097,9 +14197,9 @@
     let doc2 = dom.ownerDocument, win = doc2.defaultView || window;
     for (let cur = dom, stop = false; cur && !stop; ) {
       if (cur.nodeType == 1) {
-        let bounding, top3 = cur == doc2.body;
+        let bounding, top4 = cur == doc2.body;
         let scaleX = 1, scaleY = 1;
-        if (top3) {
+        if (top4) {
           bounding = windowRect(win);
         } else {
           if (/^(fixed|sticky)$/.test(getComputedStyle(cur).position))
@@ -14148,7 +14248,7 @@
           moveX = targetLeft - bounding.left;
         }
         if (moveX || moveY) {
-          if (top3) {
+          if (top4) {
             win.scrollBy(moveX, moveY);
           } else {
             let movedX = 0, movedY = 0;
@@ -14174,7 +14274,7 @@
               y = "nearest";
           }
         }
-        if (top3)
+        if (top4)
           break;
         if (rect.top < bounding.top || rect.bottom > bounding.bottom || rect.left < bounding.left || rect.right > bounding.right)
           rect = {
@@ -14254,9 +14354,9 @@
     if (!preventScrollSupported) {
       preventScrollSupported = false;
       for (let i2 = 0; i2 < stack.length; ) {
-        let elt = stack[i2++], top3 = stack[i2++], left = stack[i2++];
-        if (elt.scrollTop != top3)
-          elt.scrollTop = top3;
+        let elt = stack[i2++], top4 = stack[i2++], left = stack[i2++];
+        if (elt.scrollTop != top4)
+          elt.scrollTop = top4;
         if (elt.scrollLeft != left)
           elt.scrollLeft = left;
       }
@@ -14916,7 +15016,7 @@
   }
   var scrollMargins = /* @__PURE__ */ Facet.define();
   function getScrollMargins(view) {
-    let left = 0, right = 0, top3 = 0, bottom2 = 0;
+    let left = 0, right = 0, top4 = 0, bottom3 = 0;
     for (let source3 of view.state.facet(scrollMargins)) {
       let m = source3(view);
       if (m) {
@@ -14925,12 +15025,12 @@
         if (m.right != null)
           right = Math.max(right, m.right);
         if (m.top != null)
-          top3 = Math.max(top3, m.top);
+          top4 = Math.max(top4, m.top);
         if (m.bottom != null)
-          bottom2 = Math.max(bottom2, m.bottom);
+          bottom3 = Math.max(bottom3, m.bottom);
       }
     }
-    return { left, right, top: top3, bottom: bottom2 };
+    return { left, right, top: top4, bottom: bottom3 };
   }
   var styleModule = /* @__PURE__ */ Facet.define();
   var ChangedRange = class _ChangedRange {
@@ -15558,11 +15658,11 @@
     }
   };
   var TilePointer = class {
-    constructor(top3) {
+    constructor(top4) {
       this.index = 0;
       this.beforeBreak = false;
       this.parents = [];
-      this.tile = top3;
+      this.tile = top4;
     }
     // Advance by the given distance. If side is -1, stop leaving or
     // entering tiles, or skipping zero-length tiles, once the distance
@@ -15810,10 +15910,10 @@
           this.wrappers.splice(i2, 1);
       for (let cur = this.blockWrappers; cur.value && cur.from <= this.pos; cur.next())
         if (cur.to >= this.pos) {
-          let wrap4 = new OpenWrapper(cur.from, cur.to, cur.value, cur.rank), i2 = this.wrappers.length;
-          while (i2 > 0 && (this.wrappers[i2 - 1].rank - wrap4.rank || this.wrappers[i2 - 1].to - wrap4.to) < 0)
+          let wrap5 = new OpenWrapper(cur.from, cur.to, cur.value, cur.rank), i2 = this.wrappers.length;
+          while (i2 > 0 && (this.wrappers[i2 - 1].rank - wrap5.rank || this.wrappers[i2 - 1].to - wrap5.to) < 0)
             i2--;
-          this.wrappers.splice(i2, 0, wrap4);
+          this.wrappers.splice(i2, 0, wrap5);
         }
       this.wrapperPos = this.pos;
     }
@@ -15821,12 +15921,12 @@
       var _a2;
       this.updateBlockWrappers();
       let parent2 = this.root;
-      for (let wrap4 of this.wrappers) {
+      for (let wrap5 of this.wrappers) {
         let last4 = parent2.lastChild;
-        if (wrap4.from < this.pos && last4 instanceof BlockWrapperTile && last4.wrapper.eq(wrap4.wrapper)) {
+        if (wrap5.from < this.pos && last4 instanceof BlockWrapperTile && last4.wrapper.eq(wrap5.wrapper)) {
           parent2 = last4;
         } else {
-          let tile = BlockWrapperTile.of(wrap4.wrapper, (_a2 = this.cache.find(BlockWrapperTile, (t2) => t2.wrapper.eq(wrap4.wrapper))) === null || _a2 === void 0 ? void 0 : _a2.dom);
+          let tile = BlockWrapperTile.of(wrap5.wrapper, (_a2 = this.cache.find(BlockWrapperTile, (t2) => t2.wrapper.eq(wrap5.wrapper))) === null || _a2 === void 0 ? void 0 : _a2.dom);
           parent2.append(tile);
           parent2 = tile;
         }
@@ -17916,20 +18016,20 @@
         return;
       this.select(this.lastEvent = event);
       let sx = 0, sy = 0;
-      let left = 0, top3 = 0, right = this.view.win.innerWidth, bottom2 = this.view.win.innerHeight;
+      let left = 0, top4 = 0, right = this.view.win.innerWidth, bottom3 = this.view.win.innerHeight;
       if (this.scrollParents.x)
         ({ left, right } = this.scrollParents.x.getBoundingClientRect());
       if (this.scrollParents.y)
-        ({ top: top3, bottom: bottom2 } = this.scrollParents.y.getBoundingClientRect());
+        ({ top: top4, bottom: bottom3 } = this.scrollParents.y.getBoundingClientRect());
       let margins = getScrollMargins(this.view);
       if (event.clientX - margins.left <= left + dragScrollMargin)
         sx = -dragScrollSpeed(left - event.clientX);
       else if (event.clientX + margins.right >= right - dragScrollMargin)
         sx = dragScrollSpeed(event.clientX - right);
-      if (event.clientY - margins.top <= top3 + dragScrollMargin)
-        sy = -dragScrollSpeed(top3 - event.clientY);
-      else if (event.clientY + margins.bottom >= bottom2 - dragScrollMargin)
-        sy = dragScrollSpeed(event.clientY - bottom2);
+      if (event.clientY - margins.top <= top4 + dragScrollMargin)
+        sy = -dragScrollSpeed(top4 - event.clientY);
+      else if (event.clientY + margins.bottom >= bottom3 - dragScrollMargin)
+        sy = dragScrollSpeed(event.clientY - bottom3);
       this.setScrollSpeed(sx, sy);
     }
     up(event) {
@@ -18534,10 +18634,10 @@
     /**
     @internal
     */
-    constructor(from2, length9, top3, height8, _content) {
+    constructor(from2, length9, top4, height8, _content) {
       this.from = from2;
       this.length = length9;
-      this.top = top3;
+      this.top = top4;
       this.height = height8;
       this._content = _content;
     }
@@ -18711,19 +18811,19 @@
       this.deco = deco;
       this.spaceAbove = 0;
     }
-    mainBlock(top3, offset) {
-      return new BlockInfo(offset, this.length, top3 + this.spaceAbove, this.height - this.spaceAbove, this.deco || 0);
+    mainBlock(top4, offset) {
+      return new BlockInfo(offset, this.length, top4 + this.spaceAbove, this.height - this.spaceAbove, this.deco || 0);
     }
-    blockAt(height8, _oracle, top3, offset) {
-      return this.spaceAbove && height8 < top3 + this.spaceAbove ? new BlockInfo(offset, 0, top3, this.spaceAbove, SpaceDeco) : this.mainBlock(top3, offset);
+    blockAt(height8, _oracle, top4, offset) {
+      return this.spaceAbove && height8 < top4 + this.spaceAbove ? new BlockInfo(offset, 0, top4, this.spaceAbove, SpaceDeco) : this.mainBlock(top4, offset);
     }
-    lineAt(_value, _type, oracle, top3, offset) {
-      let main3 = this.mainBlock(top3, offset);
-      return this.spaceAbove ? this.blockAt(0, oracle, top3, offset).join(main3) : main3;
+    lineAt(_value, _type, oracle, top4, offset) {
+      let main3 = this.mainBlock(top4, offset);
+      return this.spaceAbove ? this.blockAt(0, oracle, top4, offset).join(main3) : main3;
     }
-    forEachLine(from2, to, oracle, top3, offset, f) {
+    forEachLine(from2, to, oracle, top4, offset, f) {
       if (from2 <= offset + this.length && to >= offset)
-        f(this.lineAt(0, QueryType.ByPos, oracle, top3, offset));
+        f(this.lineAt(0, QueryType.ByPos, oracle, top4, offset));
     }
     setMeasuredHeight(measured) {
       let next = measured.heights[measured.index++];
@@ -18753,8 +18853,8 @@
       this.breaks = 0;
       this.spaceAbove = above;
     }
-    mainBlock(top3, offset) {
-      return new BlockInfo(offset, this.length, top3 + this.spaceAbove, this.height - this.spaceAbove, this.breaks);
+    mainBlock(top4, offset) {
+      return new BlockInfo(offset, this.length, top4 + this.spaceAbove, this.height - this.spaceAbove, this.breaks);
     }
     replace(_from, _to, nodes) {
       let node = nodes[0];
@@ -18802,22 +18902,22 @@
       }
       return { firstLine, lastLine, perLine, perChar };
     }
-    blockAt(height8, oracle, top3, offset) {
+    blockAt(height8, oracle, top4, offset) {
       let { firstLine, lastLine, perLine, perChar } = this.heightMetrics(oracle, offset);
       if (oracle.lineWrapping) {
-        let guess = offset + (height8 < oracle.lineHeight ? 0 : Math.round(Math.max(0, Math.min(1, (height8 - top3) / this.height)) * this.length));
+        let guess = offset + (height8 < oracle.lineHeight ? 0 : Math.round(Math.max(0, Math.min(1, (height8 - top4) / this.height)) * this.length));
         let line = oracle.doc.lineAt(guess), lineHeight = perLine + line.length * perChar;
-        let lineTop = Math.max(top3, height8 - lineHeight / 2);
+        let lineTop = Math.max(top4, height8 - lineHeight / 2);
         return new BlockInfo(line.from, line.length, lineTop, lineHeight, 0);
       } else {
-        let line = Math.max(0, Math.min(lastLine - firstLine, Math.floor((height8 - top3) / perLine)));
+        let line = Math.max(0, Math.min(lastLine - firstLine, Math.floor((height8 - top4) / perLine)));
         let { from: from2, length: length9 } = oracle.doc.line(firstLine + line);
-        return new BlockInfo(from2, length9, top3 + perLine * line, perLine, 0);
+        return new BlockInfo(from2, length9, top4 + perLine * line, perLine, 0);
       }
     }
-    lineAt(value13, type, oracle, top3, offset) {
+    lineAt(value13, type, oracle, top4, offset) {
       if (type == QueryType.ByHeight)
-        return this.blockAt(value13, oracle, top3, offset);
+        return this.blockAt(value13, oracle, top4, offset);
       if (type == QueryType.ByPosNoHeight) {
         let { from: from2, to } = oracle.doc.lineAt(value13);
         return new BlockInfo(from2, to - from2, 0, 0, 0);
@@ -18825,14 +18925,14 @@
       let { firstLine, perLine, perChar } = this.heightMetrics(oracle, offset);
       let line = oracle.doc.lineAt(value13), lineHeight = perLine + line.length * perChar;
       let linesAbove = line.number - firstLine;
-      let lineTop = top3 + perLine * linesAbove + perChar * (line.from - offset - linesAbove);
-      return new BlockInfo(line.from, line.length, Math.max(top3, Math.min(lineTop, top3 + this.height - lineHeight)), lineHeight, 0);
+      let lineTop = top4 + perLine * linesAbove + perChar * (line.from - offset - linesAbove);
+      return new BlockInfo(line.from, line.length, Math.max(top4, Math.min(lineTop, top4 + this.height - lineHeight)), lineHeight, 0);
     }
-    forEachLine(from2, to, oracle, top3, offset, f) {
+    forEachLine(from2, to, oracle, top4, offset, f) {
       from2 = Math.max(from2, offset);
       to = Math.min(to, offset + this.length);
       let { firstLine, perLine, perChar } = this.heightMetrics(oracle, offset);
-      for (let pos = from2, lineTop = top3; pos <= to; ) {
+      for (let pos = from2, lineTop = top4; pos <= to; ) {
         let line = oracle.doc.lineAt(pos);
         if (pos == from2) {
           let linesAbove = line.number - firstLine;
@@ -18918,33 +19018,33 @@
     get break() {
       return this.flags & 1;
     }
-    blockAt(height8, oracle, top3, offset) {
-      let mid = top3 + this.left.height;
-      return height8 < mid ? this.left.blockAt(height8, oracle, top3, offset) : this.right.blockAt(height8, oracle, mid, offset + this.left.length + this.break);
+    blockAt(height8, oracle, top4, offset) {
+      let mid = top4 + this.left.height;
+      return height8 < mid ? this.left.blockAt(height8, oracle, top4, offset) : this.right.blockAt(height8, oracle, mid, offset + this.left.length + this.break);
     }
-    lineAt(value13, type, oracle, top3, offset) {
-      let rightTop = top3 + this.left.height, rightOffset = offset + this.left.length + this.break;
+    lineAt(value13, type, oracle, top4, offset) {
+      let rightTop = top4 + this.left.height, rightOffset = offset + this.left.length + this.break;
       let left = type == QueryType.ByHeight ? value13 < rightTop : value13 < rightOffset;
-      let base3 = left ? this.left.lineAt(value13, type, oracle, top3, offset) : this.right.lineAt(value13, type, oracle, rightTop, rightOffset);
+      let base3 = left ? this.left.lineAt(value13, type, oracle, top4, offset) : this.right.lineAt(value13, type, oracle, rightTop, rightOffset);
       if (this.break || (left ? base3.to < rightOffset : base3.from > rightOffset))
         return base3;
       let subQuery = type == QueryType.ByPosNoHeight ? QueryType.ByPosNoHeight : QueryType.ByPos;
       if (left)
         return base3.join(this.right.lineAt(rightOffset, subQuery, oracle, rightTop, rightOffset));
       else
-        return this.left.lineAt(rightOffset, subQuery, oracle, top3, offset).join(base3);
+        return this.left.lineAt(rightOffset, subQuery, oracle, top4, offset).join(base3);
     }
-    forEachLine(from2, to, oracle, top3, offset, f) {
-      let rightTop = top3 + this.left.height, rightOffset = offset + this.left.length + this.break;
+    forEachLine(from2, to, oracle, top4, offset, f) {
+      let rightTop = top4 + this.left.height, rightOffset = offset + this.left.length + this.break;
       if (this.break) {
         if (from2 < rightOffset)
-          this.left.forEachLine(from2, to, oracle, top3, offset, f);
+          this.left.forEachLine(from2, to, oracle, top4, offset, f);
         if (to >= rightOffset)
           this.right.forEachLine(from2, to, oracle, rightTop, rightOffset, f);
       } else {
-        let mid = this.lineAt(rightOffset, QueryType.ByPos, oracle, top3, offset);
+        let mid = this.lineAt(rightOffset, QueryType.ByPos, oracle, top4, offset);
         if (from2 < mid.from)
-          this.left.forEachLine(from2, mid.from - 1, oracle, top3, offset, f);
+          this.left.forEachLine(from2, mid.from - 1, oracle, top4, offset, f);
         if (mid.to >= from2 && mid.from <= to)
           f(mid);
         if (to > mid.to)
@@ -19172,7 +19272,7 @@
     let rect = dom.getBoundingClientRect();
     let doc2 = dom.ownerDocument, win = doc2.defaultView || window;
     let left = Math.max(0, rect.left), right = Math.min(win.innerWidth, rect.right);
-    let top3 = Math.max(0, rect.top), bottom2 = Math.min(win.innerHeight, rect.bottom);
+    let top4 = Math.max(0, rect.top), bottom3 = Math.min(win.innerHeight, rect.bottom);
     for (let parent2 = dom.parentNode; parent2 && parent2 != doc2.body; ) {
       if (parent2.nodeType == 1) {
         let elt = parent2;
@@ -19181,8 +19281,8 @@
           let parentRect = elt.getBoundingClientRect();
           left = Math.max(left, parentRect.left);
           right = Math.min(right, parentRect.right);
-          top3 = Math.max(top3, parentRect.top);
-          bottom2 = Math.min(parent2 == dom.parentNode ? win.innerHeight : bottom2, parentRect.bottom);
+          top4 = Math.max(top4, parentRect.top);
+          bottom3 = Math.min(parent2 == dom.parentNode ? win.innerHeight : bottom3, parentRect.bottom);
         }
         parent2 = style2.position == "absolute" || style2.position == "fixed" ? elt.offsetParent : elt.parentNode;
       } else if (parent2.nodeType == 11) {
@@ -19194,8 +19294,8 @@
     return {
       left: left - rect.left,
       right: Math.max(left, right) - rect.left,
-      top: top3 - (rect.top + paddingTop),
-      bottom: Math.max(top3, bottom2) - (rect.top + paddingTop)
+      top: top4 - (rect.top + paddingTop),
+      bottom: Math.max(top4, bottom3) - (rect.top + paddingTop)
     };
   }
   function inWindow(elt) {
@@ -19468,21 +19568,21 @@
     }
     getViewport(bias, scrollTarget) {
       let marginTop = 0.5 - Math.max(-0.5, Math.min(0.5, bias / 1e3 / 2));
-      let map35 = this.heightMap, oracle = this.heightOracle;
+      let map37 = this.heightMap, oracle = this.heightOracle;
       let { visibleTop, visibleBottom } = this;
-      let viewport = new Viewport(map35.lineAt(visibleTop - marginTop * 1e3, QueryType.ByHeight, oracle, 0, 0).from, map35.lineAt(visibleBottom + (1 - marginTop) * 1e3, QueryType.ByHeight, oracle, 0, 0).to);
+      let viewport = new Viewport(map37.lineAt(visibleTop - marginTop * 1e3, QueryType.ByHeight, oracle, 0, 0).from, map37.lineAt(visibleBottom + (1 - marginTop) * 1e3, QueryType.ByHeight, oracle, 0, 0).to);
       if (scrollTarget) {
         let { head: head5 } = scrollTarget.range;
         if (head5 < viewport.from || head5 > viewport.to) {
           let viewHeight = Math.min(this.editorHeight, this.pixelViewport.bottom - this.pixelViewport.top);
-          let block = map35.lineAt(head5, QueryType.ByPos, oracle, 0, 0), topPos;
+          let block = map37.lineAt(head5, QueryType.ByPos, oracle, 0, 0), topPos;
           if (scrollTarget.y == "center")
             topPos = (block.top + block.bottom) / 2 - viewHeight / 2;
           else if (scrollTarget.y == "start" || scrollTarget.y == "nearest" && head5 < viewport.from)
             topPos = block.top;
           else
             topPos = block.bottom - viewHeight;
-          viewport = new Viewport(map35.lineAt(topPos - 1e3 / 2, QueryType.ByHeight, oracle, 0, 0).from, map35.lineAt(topPos + viewHeight + 1e3 / 2, QueryType.ByHeight, oracle, 0, 0).to);
+          viewport = new Viewport(map37.lineAt(topPos - 1e3 / 2, QueryType.ByHeight, oracle, 0, 0).from, map37.lineAt(topPos + viewHeight + 1e3 / 2, QueryType.ByHeight, oracle, 0, 0).to);
         }
       }
       return viewport;
@@ -19496,18 +19596,18 @@
     viewportIsAppropriate({ from: from2, to }, bias = 0) {
       if (!this.inView)
         return true;
-      let { top: top3 } = this.heightMap.lineAt(from2, QueryType.ByPos, this.heightOracle, 0, 0);
-      let { bottom: bottom2 } = this.heightMap.lineAt(to, QueryType.ByPos, this.heightOracle, 0, 0);
+      let { top: top4 } = this.heightMap.lineAt(from2, QueryType.ByPos, this.heightOracle, 0, 0);
+      let { bottom: bottom3 } = this.heightMap.lineAt(to, QueryType.ByPos, this.heightOracle, 0, 0);
       let { visibleTop, visibleBottom } = this;
-      return (from2 == 0 || top3 <= visibleTop - Math.max(10, Math.min(
+      return (from2 == 0 || top4 <= visibleTop - Math.max(10, Math.min(
         -bias,
         250
         /* VP.MaxCoverMargin */
-      ))) && (to == this.state.doc.length || bottom2 >= visibleBottom + Math.max(10, Math.min(
+      ))) && (to == this.state.doc.length || bottom3 >= visibleBottom + Math.max(10, Math.min(
         bias,
         250
         /* VP.MaxCoverMargin */
-      ))) && (top3 > visibleTop - 2 * 1e3 && bottom2 < visibleBottom + 2 * 1e3);
+      ))) && (top4 > visibleTop - 2 * 1e3 && bottom3 < visibleBottom + 2 * 1e3);
     }
     mapLineGaps(gaps, changes) {
       if (!gaps.length || changes.empty)
@@ -19567,17 +19667,17 @@
         let viewFrom, viewTo;
         if (wrapping) {
           let marginHeight = margin / this.heightOracle.lineLength * this.heightOracle.lineHeight;
-          let top3, bot;
+          let top4, bot;
           if (target6 != null) {
             let targetFrac = findFraction(structure, target6);
             let spaceFrac = ((this.visibleBottom - this.visibleTop) / 2 + marginHeight) / line.height;
-            top3 = targetFrac - spaceFrac;
+            top4 = targetFrac - spaceFrac;
             bot = targetFrac + spaceFrac;
           } else {
-            top3 = (this.visibleTop - line.top - marginHeight) / line.height;
+            top4 = (this.visibleTop - line.top - marginHeight) / line.height;
             bot = (this.visibleBottom - line.top + marginHeight) / line.height;
           }
-          viewFrom = findPosition(structure, top3);
+          viewFrom = findPosition(structure, top4);
           viewTo = findPosition(structure, bot);
         } else {
           let totalWidth = structure.total * this.heightOracle.charWidth;
@@ -19759,10 +19859,10 @@
     constructor(oracle, heightMap, viewports) {
       let vpHeight = 0, base3 = 0, domBase = 0;
       this.viewports = viewports.map(({ from: from2, to }) => {
-        let top3 = heightMap.lineAt(from2, QueryType.ByPos, oracle, 0, 0).top;
-        let bottom2 = heightMap.lineAt(to, QueryType.ByPos, oracle, 0, 0).bottom;
-        vpHeight += bottom2 - top3;
-        return { from: from2, to, top: top3, bottom: bottom2, domTop: 0, domBottom: 0 };
+        let top4 = heightMap.lineAt(from2, QueryType.ByPos, oracle, 0, 0).top;
+        let bottom3 = heightMap.lineAt(to, QueryType.ByPos, oracle, 0, 0).bottom;
+        vpHeight += bottom3 - top4;
+        return { from: from2, to, top: top4, bottom: bottom3, domTop: 0, domBottom: 0 };
       });
       this.scale = (7e6 - vpHeight) / (heightMap.height - vpHeight);
       for (let obj of this.viewports) {
@@ -21757,13 +21857,13 @@
     let result = parts[parts.length - 1];
     if (result == "Space")
       result = " ";
-    let alt9, ctrl, shift2, meta3;
+    let alt10, ctrl, shift2, meta3;
     for (let i2 = 0; i2 < parts.length - 1; ++i2) {
       const mod5 = parts[i2];
       if (/^(cmd|meta|m)$/i.test(mod5))
         meta3 = true;
       else if (/^a(lt)?$/i.test(mod5))
-        alt9 = true;
+        alt10 = true;
       else if (/^(c|ctrl|control)$/i.test(mod5))
         ctrl = true;
       else if (/^s(hift)?$/i.test(mod5))
@@ -21776,7 +21876,7 @@
       } else
         throw new Error("Unrecognized modifier name: " + mod5);
     }
-    if (alt9)
+    if (alt10)
       result = "Alt-" + result;
     if (ctrl)
       result = "Ctrl-" + result;
@@ -21806,10 +21906,10 @@
   var Keymaps = /* @__PURE__ */ new WeakMap();
   function getKeymap(state3) {
     let bindings = state3.facet(keymap);
-    let map35 = Keymaps.get(bindings);
-    if (!map35)
-      Keymaps.set(bindings, map35 = buildKeymap(bindings.reduce((a2, b2) => a2.concat(b2), [])));
-    return map35;
+    let map37 = Keymaps.get(bindings);
+    if (!map37)
+      Keymaps.set(bindings, map37 = buildKeymap(bindings.reduce((a2, b2) => a2.concat(b2), [])));
+    return map37;
   }
   var storedPrefix = null;
   var PrefixTimeout = 4e3;
@@ -21881,7 +21981,7 @@
     return bound;
   }
   var currentKeyEvent = null;
-  function runHandlers(map35, event, view, scope2) {
+  function runHandlers(map37, event, view, scope2) {
     currentKeyEvent = event;
     let name17 = keyName(event);
     let charCode = codePointAt3(name17, 0), isChar = codePointSize2(charCode) == name17.length && name17 != " ";
@@ -21913,7 +22013,7 @@
       }
       return false;
     };
-    let scopeObj = map35[scope2], baseName, shiftName;
+    let scopeObj = map37[scope2], baseName, shiftName;
     if (scopeObj) {
       if (runFor(scopeObj[prefix + modifiers(name17, event, !isChar)])) {
         handled = true;
@@ -21943,10 +22043,10 @@
     Create a marker with the given class and dimensions. If `width`
     is null, the DOM element will get no width style.
     */
-    constructor(className2, left, top3, width8, height8) {
+    constructor(className2, left, top4, width8, height8) {
       this.className = className2;
       this.left = left;
-      this.top = top3;
+      this.top = top4;
       this.width = width8;
       this.height = height8;
     }
@@ -22027,33 +22127,33 @@
     if (visualStart && visualEnd && visualStart.from == visualEnd.from && visualStart.to == visualEnd.to) {
       return pieces(drawForLine(range3.from, range3.to, visualStart));
     } else {
-      let top3 = visualStart ? drawForLine(range3.from, null, visualStart) : drawForWidget(startBlock, false);
-      let bottom2 = visualEnd ? drawForLine(null, range3.to, visualEnd) : drawForWidget(endBlock, true);
+      let top4 = visualStart ? drawForLine(range3.from, null, visualStart) : drawForWidget(startBlock, false);
+      let bottom3 = visualEnd ? drawForLine(null, range3.to, visualEnd) : drawForWidget(endBlock, true);
       let between = [];
-      if ((visualStart || startBlock).to < (visualEnd || endBlock).from - (visualStart && visualEnd ? 1 : 0) || startBlock.widgetLineBreaks > 1 && top3.bottom + view.defaultLineHeight / 2 < bottom2.top)
-        between.push(piece(leftSide, top3.bottom, rightSide, bottom2.top));
-      else if (top3.bottom < bottom2.top && view.elementAtHeight((top3.bottom + bottom2.top) / 2).type == BlockType.Text)
-        top3.bottom = bottom2.top = (top3.bottom + bottom2.top) / 2;
-      return pieces(top3).concat(between).concat(pieces(bottom2));
+      if ((visualStart || startBlock).to < (visualEnd || endBlock).from - (visualStart && visualEnd ? 1 : 0) || startBlock.widgetLineBreaks > 1 && top4.bottom + view.defaultLineHeight / 2 < bottom3.top)
+        between.push(piece(leftSide, top4.bottom, rightSide, bottom3.top));
+      else if (top4.bottom < bottom3.top && view.elementAtHeight((top4.bottom + bottom3.top) / 2).type == BlockType.Text)
+        top4.bottom = bottom3.top = (top4.bottom + bottom3.top) / 2;
+      return pieces(top4).concat(between).concat(pieces(bottom3));
     }
-    function piece(left, top3, right, bottom2) {
-      return new RectangleMarker(className2, left - base3.left, top3 - base3.top, Math.max(0, right - left), bottom2 - top3);
+    function piece(left, top4, right, bottom3) {
+      return new RectangleMarker(className2, left - base3.left, top4 - base3.top, Math.max(0, right - left), bottom3 - top4);
     }
-    function pieces({ top: top3, bottom: bottom2, horizontal }) {
+    function pieces({ top: top4, bottom: bottom3, horizontal }) {
       let pieces2 = [];
       for (let i2 = 0; i2 < horizontal.length; i2 += 2)
-        pieces2.push(piece(horizontal[i2], top3, horizontal[i2 + 1], bottom2));
+        pieces2.push(piece(horizontal[i2], top4, horizontal[i2 + 1], bottom3));
       return pieces2;
     }
     function drawForLine(from3, to2, line) {
-      let top3 = 1e9, bottom2 = -1e9, horizontal = [];
+      let top4 = 1e9, bottom3 = -1e9, horizontal = [];
       function addSpan(from4, fromOpen, to3, toOpen, dir2) {
         let fromCoords = view.coordsAtPos(from4, from4 == line.to ? -2 : 2);
         let toCoords = view.coordsAtPos(to3, to3 == line.from ? 2 : -2);
         if (!fromCoords || !toCoords)
           return;
-        top3 = Math.min(fromCoords.top, toCoords.top, top3);
-        bottom2 = Math.max(fromCoords.bottom, toCoords.bottom, bottom2);
+        top4 = Math.min(fromCoords.top, toCoords.top, top4);
+        bottom3 = Math.max(fromCoords.bottom, toCoords.bottom, bottom3);
         if (dir2 == Direction.LTR)
           horizontal.push(ltr && fromOpen ? leftSide : fromCoords.left, ltr && toOpen ? rightSide : toCoords.right);
         else
@@ -22078,10 +22178,10 @@
         }
       if (horizontal.length == 0)
         addSpan(start2, from3 == null, end, to2 == null, view.textDirection);
-      return { top: top3, bottom: bottom2, horizontal };
+      return { top: top4, bottom: bottom3, horizontal };
     }
-    function drawForWidget(block, top3) {
-      let y = contentRect.top + (top3 ? block.top : block.bottom);
+    function drawForWidget(block, top4) {
+      let y = contentRect.top + (top4 ? block.top : block.bottom);
       return { top: y, bottom: y, horizontal: [] };
     }
   }
@@ -22530,18 +22630,18 @@
         } else if (dom.style.height) {
           dom.style.height = "";
         }
-        let top3 = above ? pos.top - height8 - arrowHeight - offset.y : pos.bottom + arrowHeight + offset.y;
+        let top4 = above ? pos.top - height8 - arrowHeight - offset.y : pos.bottom + arrowHeight + offset.y;
         let right = left + width8;
         if (tView.overlap !== true) {
           for (let r of others)
-            if (r.left < right && r.right > left && r.top < top3 + height8 && r.bottom > top3)
-              top3 = above ? r.top - height8 - 2 - arrowHeight : r.bottom + arrowHeight + 2;
+            if (r.left < right && r.right > left && r.top < top4 + height8 && r.bottom > top4)
+              top4 = above ? r.top - height8 - 2 - arrowHeight : r.bottom + arrowHeight + 2;
         }
         if (this.position == "absolute") {
-          dom.style.top = (top3 - measured.parent.top) / scaleY + "px";
+          dom.style.top = (top4 - measured.parent.top) / scaleY + "px";
           setLeftStyle(dom, (left - measured.parent.left) / scaleX);
         } else {
-          dom.style.top = top3 / scaleY + "px";
+          dom.style.top = top4 / scaleY + "px";
           setLeftStyle(dom, left / scaleX);
         }
         if (arrow) {
@@ -22549,7 +22649,7 @@
           arrow.style.left = arrowLeft / scaleX + "px";
         }
         if (tView.overlap !== true)
-          others.push({ left, top: top3, right, bottom: top3 + height8 });
+          others.push({ left, top: top4, right, bottom: top4 + height8 });
         dom.classList.toggle("cm-tooltip-above", above);
         dom.classList.toggle("cm-tooltip-below", !above);
         if (tView.positioned)
@@ -22849,13 +22949,13 @@
   };
   var tooltipMargin = 4;
   function isInTooltip(tooltip, event) {
-    let { left, right, top: top3, bottom: bottom2 } = tooltip.getBoundingClientRect(), arrow;
+    let { left, right, top: top4, bottom: bottom3 } = tooltip.getBoundingClientRect(), arrow;
     if (arrow = tooltip.querySelector(".cm-tooltip-arrow")) {
       let arrowRect = arrow.getBoundingClientRect();
-      top3 = Math.min(arrowRect.top, top3);
-      bottom2 = Math.max(arrowRect.bottom, bottom2);
+      top4 = Math.min(arrowRect.top, top4);
+      bottom3 = Math.max(arrowRect.bottom, bottom3);
     }
-    return event.clientX >= left - tooltipMargin && event.clientX <= right + tooltipMargin && event.clientY >= top3 - tooltipMargin && event.clientY <= bottom2 + tooltipMargin;
+    return event.clientX >= left - tooltipMargin && event.clientX <= right + tooltipMargin && event.clientY >= top4 - tooltipMargin && event.clientY <= bottom3 + tooltipMargin;
   }
   function isOverRange(view, from2, to, x, y, margin) {
     let rect = view.scrollDOM.getBoundingClientRect();
@@ -23508,11 +23608,11 @@
     names, separated by spaces, in a single property name to map
     multiple node names to a single value.
     */
-    static match(map35) {
+    static match(map37) {
       let direct = /* @__PURE__ */ Object.create(null);
-      for (let prop3 in map35)
+      for (let prop3 in map37)
         for (let name17 of prop3.split(" "))
-          direct[name17] = map35[prop3];
+          direct[name17] = map37[prop3];
       return (node) => {
         for (let groups = node.prop(NodeProp.group), i2 = -1; i2 < (groups ? groups.length : 0); i2++) {
           let found = direct[i2 < 0 ? node.name : groups[i2]];
@@ -24956,9 +25056,9 @@
     Run a full parse, returning the resulting tree.
     */
     parse(input3, fragments, ranges) {
-      let parse7 = this.startParse(input3, fragments, ranges);
+      let parse8 = this.startParse(input3, fragments, ranges);
       for (; ; ) {
-        let done = parse7.advance();
+        let done = parse8.advance();
         if (done)
           return done;
       }
@@ -25162,13 +25262,13 @@
   };
   Rule.empty = new Rule([], 2, null);
   function tagHighlighter(tags2, options2) {
-    let map35 = /* @__PURE__ */ Object.create(null);
+    let map37 = /* @__PURE__ */ Object.create(null);
     for (let style2 of tags2) {
       if (!Array.isArray(style2.tag))
-        map35[style2.tag.id] = style2.class;
+        map37[style2.tag.id] = style2.class;
       else
         for (let tag of style2.tag)
-          map35[tag.id] = style2.class;
+          map37[tag.id] = style2.class;
     }
     let { scope: scope2, all: all4 = null } = options2 || {};
     return {
@@ -25176,7 +25276,7 @@
         let cls = all4;
         for (let tag of tags3) {
           for (let sub3 of tag.set) {
-            let tagClass = map35[sub3.id];
+            let tagClass = map37[sub3.id];
             if (tagClass) {
               cls = cls ? cls + " " + tagClass : tagClass;
               break;
@@ -25635,12 +25735,12 @@
       this.extension = [
         language2.of(this),
         EditorState.languageData.of((state3, pos, side) => {
-          let top3 = topNodeAt(state3, pos, side), data2 = top3.type.prop(languageDataProp);
+          let top4 = topNodeAt(state3, pos, side), data2 = top4.type.prop(languageDataProp);
           if (!data2)
             return [];
-          let base3 = state3.facet(data2), sub3 = top3.type.prop(sublanguageProp);
+          let base3 = state3.facet(data2), sub3 = top4.type.prop(sublanguageProp);
           if (sub3) {
-            let innerNode = top3.resolve(pos - top3.from, side);
+            let innerNode = top4.resolve(pos - top4.from, side);
             for (let sublang of sub3)
               if (sublang.test(innerNode, state3)) {
                 let data3 = state3.facet(sublang.facet);
@@ -32661,7 +32761,7 @@
       return val;
     };
   };
-  var bind6 = /* @__PURE__ */ bind(bindParser);
+  var bind7 = /* @__PURE__ */ bind(bindParser);
   var pure15 = /* @__PURE__ */ pure(applicativeParser);
   var apply4 = /* @__PURE__ */ apply(applyParser);
   var map30 = /* @__PURE__ */ map(functorParser);
@@ -32671,9 +32771,9 @@
   var wrapped = function(openTok) {
     return function(closeTok) {
       return function(valueParser) {
-        return bind6(openTok)(function(open) {
-          return bind6(valueParser)(function(value13) {
-            return bind6(closeTok)(function(close2) {
+        return bind7(openTok)(function(open) {
+          return bind7(valueParser)(function(value13) {
+            return bind7(closeTok)(function(close2) {
               return pure15({
                 open,
                 value: value13,
@@ -32864,7 +32964,7 @@
       return false;
     });
   };
-  var parseTypeNegative = /* @__PURE__ */ bind6(/* @__PURE__ */ tokKeyOperator("-"))(function(negative) {
+  var parseTypeNegative = /* @__PURE__ */ bind7(/* @__PURE__ */ tokKeyOperator("-"))(function(negative) {
     return map30(uncurry(TypeInt.create(new Just(negative))))($$parseInt);
   });
   var tokLeftBrace = /* @__PURE__ */ expect(function(v) {
@@ -32918,7 +33018,7 @@
   });
   var parens = /* @__PURE__ */ wrapped(tokLeftParen)(tokRightParen);
   var parseEmptyRow = function(open) {
-    return bind6(tokRightParen)(function(close2) {
+    return bind7(tokRightParen)(function(close2) {
       return pure15(new TypeRow({
         open,
         value: {
@@ -32945,9 +33045,9 @@
   });
   var braces = /* @__PURE__ */ wrapped(tokLeftBrace)(tokRightBrace);
   var parseTypeVarKinded = function(parseBindingName) {
-    return map30(TypeVarKinded.create)(parens(bind6(parseBindingName)(function(label5) {
-      return bind6(tokDoubleColon)(function(separator) {
-        return bind6($lazy_parseType(550))(function(value13) {
+    return map30(TypeVarKinded.create)(parens(bind7(parseBindingName)(function(label5) {
+      return bind7(tokDoubleColon)(function(separator) {
+        return bind7($lazy_parseType(550))(function(value13) {
           return pure15({
             label: label5,
             separator,
@@ -32961,8 +33061,8 @@
     return alt8(parseTypeVarKinded(parseBindingName))(map30(TypeVarName.create)(parseBindingName));
   };
   var parseTypeParen = function(open) {
-    return bind6($lazy_parseType(507))(function(value13) {
-      return bind6(tokRightParen)(function(close2) {
+    return bind7($lazy_parseType(507))(function(value13) {
+      return bind7(tokRightParen)(function(close2) {
         return pure15(new TypeParens({
           open,
           value: value13,
@@ -32972,8 +33072,8 @@
     });
   };
   var parseRowTailParen = function(open) {
-    return bind6(apply4(map30(Tuple.create)(tokPipe))($lazy_parseType(477)))(function(tail2) {
-      return bind6(tokRightParen)(function(close2) {
+    return bind7(apply4(map30(Tuple.create)(tokPipe))($lazy_parseType(477)))(function(tail2) {
+      return bind7(tokRightParen)(function(close2) {
         return pure15(new TypeRow({
           open,
           value: {
@@ -32986,11 +33086,11 @@
     });
   };
   var parseRowParen = function(open) {
-    return bind6($$try5(apply4(map30(Tuple.create)(parseLabel))(tokDoubleColon)))(function(v) {
-      return bind6($lazy_parseType(459))(function(value13) {
-        return bind6(many2(apply4(map30(Tuple.create)(tokComma))($lazy_parseRowLabel(460))))(function(rest) {
-          return bind6(optional2(apply4(map30(Tuple.create)(tokPipe))($lazy_parseType(461))))(function(tail2) {
-            return bind6(tokRightParen)(function(close2) {
+    return bind7($$try5(apply4(map30(Tuple.create)(parseLabel))(tokDoubleColon)))(function(v) {
+      return bind7($lazy_parseType(459))(function(value13) {
+        return bind7(many2(apply4(map30(Tuple.create)(tokComma))($lazy_parseRowLabel(460))))(function(rest) {
+          return bind7(optional2(apply4(map30(Tuple.create)(tokPipe))($lazy_parseType(461))))(function(tail2) {
+            return bind7(tokRightParen)(function(close2) {
               return pure15(new TypeRow({
                 open,
                 value: {
@@ -33013,9 +33113,9 @@
     });
   };
   var parseKindedVar = function(open) {
-    return bind6($$try5(apply4(map30(Tuple.create)(parens(map30(TypeVar.create)(parseIdent))))(tokDoubleColon)))(function(v) {
-      return bind6($lazy_parseType(497))(function(kind2) {
-        return bind6(tokRightParen)(function(close2) {
+    return bind7($$try5(apply4(map30(Tuple.create)(parens(map30(TypeVar.create)(parseIdent))))(tokDoubleColon)))(function(v) {
+      return bind7($lazy_parseType(497))(function(kind2) {
+        return bind7(tokRightParen)(function(close2) {
           return pure15(new TypeParens({
             open,
             value: new TypeKinded(new TypeParens(v.value0), v.value1, kind2),
@@ -33032,8 +33132,8 @@
   });
   var $lazy_parseRow = /* @__PURE__ */ $runtime_lazy12("parseRow", "PureScript.CST.Parser", function() {
     return defer4(function(v) {
-      return bind6(optional2(separated(tokComma)($lazy_parseRowLabel(513))))(function(labels9) {
-        return bind6(optional2(apply4(map30(Tuple.create)(tokPipe))($lazy_parseType(514))))(function(tail2) {
+      return bind7(optional2(separated(tokComma)($lazy_parseRowLabel(513))))(function(labels9) {
+        return bind7(optional2(apply4(map30(Tuple.create)(tokPipe))($lazy_parseType(514))))(function(tail2) {
           return pure15({
             labels: labels9,
             tail: tail2
@@ -33043,9 +33143,9 @@
     });
   });
   var $lazy_parseRowLabel = /* @__PURE__ */ $runtime_lazy12("parseRowLabel", "PureScript.CST.Parser", function() {
-    return bind6(parseLabel)(function(label5) {
-      return bind6(tokDoubleColon)(function(separator) {
-        return bind6($lazy_parseType(521))(function(value13) {
+    return bind7(parseLabel)(function(label5) {
+      return bind7(tokDoubleColon)(function(separator) {
+        return bind7($lazy_parseType(521))(function(value13) {
           return pure15({
             label: label5,
             separator,
@@ -33057,7 +33157,7 @@
   });
   var $lazy_parseType = /* @__PURE__ */ $runtime_lazy12("parseType", "PureScript.CST.Parser", function() {
     return defer4(function(v) {
-      return bind6($lazy_parseType1(393))(function(ty) {
+      return bind7($lazy_parseType1(393))(function(ty) {
         return alt8(apply4(map30(TypeKinded.create(ty))(tokDoubleColon))($lazy_parseType(394)))(pure15(ty));
       });
     });
@@ -33069,15 +33169,15 @@
   });
   var $lazy_parseType2 = /* @__PURE__ */ $runtime_lazy12("parseType2", "PureScript.CST.Parser", function() {
     return defer4(function(v) {
-      return bind6($lazy_parseType3(404))(function(ty) {
+      return bind7($lazy_parseType3(404))(function(ty) {
         return alt8(apply4(map30(TypeArrow.create(ty))(tokRightArrow))($lazy_parseType1(405)))(alt8(apply4(map30(TypeConstrained.create(ty))(tokRightFatArrow))($lazy_parseType1(406)))(pure15(ty)));
       });
     });
   });
   var $lazy_parseType3 = /* @__PURE__ */ $runtime_lazy12("parseType3", "PureScript.CST.Parser", function() {
     return defer4(function(v) {
-      return bind6($lazy_parseType4(411))(function(ty) {
-        return bind6(many2(apply4(map30(Tuple.create)(parseQualifiedOperator))($lazy_parseType4(412))))(function(ops) {
+      return bind7($lazy_parseType4(411))(function(ty) {
+        return bind7(many2(apply4(map30(Tuple.create)(parseQualifiedOperator))($lazy_parseType4(412))))(function(ops) {
           return pure15((function() {
             var v1 = fromArray(ops);
             if (v1 instanceof Nothing) {
@@ -33101,8 +33201,8 @@
   });
   var $lazy_parseType5 = /* @__PURE__ */ $runtime_lazy12("parseType5", "PureScript.CST.Parser", function() {
     return defer4(function(v) {
-      return bind6($lazy_parseTypeAtom(423))(function(ty) {
-        return bind6(many2($lazy_parseTypeAtom(424)))(function(args) {
+      return bind7($lazy_parseTypeAtom(423))(function(ty) {
+        return bind7(many2($lazy_parseTypeAtom(424)))(function(args) {
           return pure15((function() {
             var v1 = fromArray(args);
             if (v1 instanceof Nothing) {
@@ -33125,7 +33225,7 @@
     });
   });
   var $lazy_parseTypeParens = /* @__PURE__ */ $runtime_lazy12("parseTypeParens", "PureScript.CST.Parser", function() {
-    return bind6(tokLeftParen)(function(open) {
+    return bind7(tokLeftParen)(function(open) {
       return alt8(parseRowParen(open))(alt8(parseRowTailParen(open))(alt8(parseKindedVar(open))(alt8(parseTypeParen(open))(parseEmptyRow(open)))));
     });
   });
@@ -33441,7 +33541,7 @@
   };
 
   // output/Playground.Frontend.Editor/index.js
-  var bind7 = /* @__PURE__ */ bind(bindHalogenM);
+  var bind8 = /* @__PURE__ */ bind(bindHalogenM);
   var get3 = /* @__PURE__ */ get(monadStateHalogenM);
   var discard5 = /* @__PURE__ */ discard(discardUnit)(bindHalogenM);
   var pure16 = /* @__PURE__ */ pure(applicativeHalogenM);
@@ -33484,7 +33584,7 @@
   var handleQuery = function(dictMonadAff) {
     var liftEffect7 = liftEffect(monadEffectHalogenM(dictMonadAff.MonadEffect0()));
     return function(v) {
-      return bind7(get3)(function(state3) {
+      return bind8(get3)(function(state3) {
         if (state3.view instanceof Just) {
           return discard5(liftEffect7(setContent2(state3.view.value0)(v.value0)))(function() {
             return pure16(new Just(v.value1));
@@ -33504,17 +33604,17 @@
     var liftEffect7 = liftEffect(monadEffectHalogenM(dictMonadAff.MonadEffect0()));
     return function(v) {
       if (v instanceof Initialise) {
-        return bind7(get3)(function(state3) {
-          return bind7(getHTMLElementRef(containerRef))(function(mEl) {
+        return bind8(get3)(function(state3) {
+          return bind8(getHTMLElementRef(containerRef))(function(mEl) {
             if (mEl instanceof Nothing) {
               return pure16(unit);
             }
             ;
             if (mEl instanceof Just) {
               var el = toElement(mEl.value0);
-              return bind7(liftEffect7(create3))(function(v1) {
-                return bind7(subscribe2(map32(HandleChange.create)(v1.emitter)))(function() {
-                  return bind7(liftEffect7(createEditor(el)(state3.input.initialDoc)(notify(v1.listener))))(function(view) {
+              return bind8(liftEffect7(create3))(function(v1) {
+                return bind8(subscribe2(map32(HandleChange.create)(v1.emitter)))(function() {
+                  return bind8(liftEffect7(createEditor(el)(state3.input.initialDoc)(notify(v1.listener))))(function(view) {
                     return modify_3(function(v2) {
                       var $32 = {};
                       for (var $33 in v2) {
@@ -33538,7 +33638,7 @@
       }
       ;
       if (v instanceof Finalise) {
-        return bind7(get3)(function(state3) {
+        return bind8(get3)(function(state3) {
           if (state3.view instanceof Just) {
             return liftEffect7(destroy(state3.view.value0));
           }
@@ -33588,7 +33688,7 @@
   // output/Playground.Frontend.SigilView/index.js
   var discard6 = /* @__PURE__ */ discard(discardUnit)(bindHalogenM);
   var put3 = /* @__PURE__ */ put(monadStateHalogenM);
-  var bind8 = /* @__PURE__ */ bind(bindHalogenM);
+  var bind9 = /* @__PURE__ */ bind(bindHalogenM);
   var get4 = /* @__PURE__ */ get(monadStateHalogenM);
   var pure17 = /* @__PURE__ */ pure(applicativeHalogenM);
   var identity14 = /* @__PURE__ */ identity(categoryFn);
@@ -33612,7 +33712,7 @@
   var containerRef2 = "sigil-view";
   var component2 = function(dictMonadAff) {
     var liftEffect7 = liftEffect(monadEffectHalogenM(dictMonadAff.MonadEffect0()));
-    var render3 = function(v) {
+    var render4 = function(v) {
       return span3([ref2(containerRef2), class_("sigil-view")])([]);
     };
     var handleAction3 = function(v) {
@@ -33623,8 +33723,8 @@
       }
       ;
       if (v instanceof Render) {
-        return bind8(get4)(function(state3) {
-          return bind8(getHTMLElementRef(containerRef2))(function(mEl) {
+        return bind9(get4)(function(state3) {
+          return bind9(getHTMLElementRef(containerRef2))(function(mEl) {
             if (mEl instanceof Nothing) {
               return pure17(unit);
             }
@@ -33657,7 +33757,7 @@
     };
     return mkComponent({
       initialState: identity14,
-      render: render3,
+      render: render4,
       "eval": mkEval({
         handleQuery: defaultEval.handleQuery,
         finalize: defaultEval.finalize,
@@ -33668,6 +33768,254 @@
         }
       })
     });
+  };
+
+  // output/Playground.Frontend.Value/index.js
+  var map33 = /* @__PURE__ */ map(functorMaybe);
+  var traverse3 = /* @__PURE__ */ traverse(traversableArray)(applicativeMaybe);
+  var bind10 = /* @__PURE__ */ bind(bindMaybe);
+  var alt9 = /* @__PURE__ */ alt(altMaybe);
+  var PVNull = /* @__PURE__ */ (function() {
+    function PVNull2() {
+    }
+    ;
+    PVNull2.value = new PVNull2();
+    return PVNull2;
+  })();
+  var PVBool = /* @__PURE__ */ (function() {
+    function PVBool2(value0) {
+      this.value0 = value0;
+    }
+    ;
+    PVBool2.create = function(value0) {
+      return new PVBool2(value0);
+    };
+    return PVBool2;
+  })();
+  var PVNumber = /* @__PURE__ */ (function() {
+    function PVNumber2(value0) {
+      this.value0 = value0;
+    }
+    ;
+    PVNumber2.create = function(value0) {
+      return new PVNumber2(value0);
+    };
+    return PVNumber2;
+  })();
+  var PVString = /* @__PURE__ */ (function() {
+    function PVString2(value0) {
+      this.value0 = value0;
+    }
+    ;
+    PVString2.create = function(value0) {
+      return new PVString2(value0);
+    };
+    return PVString2;
+  })();
+  var PVArray = /* @__PURE__ */ (function() {
+    function PVArray2(value0) {
+      this.value0 = value0;
+    }
+    ;
+    PVArray2.create = function(value0) {
+      return new PVArray2(value0);
+    };
+    return PVArray2;
+  })();
+  var PVCtor = /* @__PURE__ */ (function() {
+    function PVCtor2(value0, value1) {
+      this.value0 = value0;
+      this.value1 = value1;
+    }
+    ;
+    PVCtor2.create = function(value0) {
+      return function(value1) {
+        return new PVCtor2(value0, value1);
+      };
+    };
+    return PVCtor2;
+  })();
+  var PVRaw = /* @__PURE__ */ (function() {
+    function PVRaw2(value0) {
+      this.value0 = value0;
+    }
+    ;
+    PVRaw2.create = function(value0) {
+      return new PVRaw2(value0);
+    };
+    return PVRaw2;
+  })();
+  var fromObject = function(o) {
+    var v = lookup3("args")(o);
+    var v1 = lookup3("$ctor")(o);
+    var v2 = function(v3) {
+      var v4 = lookup3("$raw")(o);
+      var v5 = function(v6) {
+        return Nothing.value;
+      };
+      if (v4 instanceof Just) {
+        var $15 = toString(v4.value0);
+        if ($15 instanceof Just) {
+          return new Just(new PVRaw($15.value0));
+        }
+        ;
+        return v5(true);
+      }
+      ;
+      return v5(true);
+    };
+    if (v1 instanceof Just && v instanceof Just) {
+      var $20 = toString(v1.value0);
+      if ($20 instanceof Just) {
+        var $21 = toArray(v.value0);
+        if ($21 instanceof Just) {
+          return map33(PVCtor.create($20.value0))(traverse3(fromJson)($21.value0));
+        }
+        ;
+        return v2(true);
+      }
+      ;
+      return v2(true);
+    }
+    ;
+    return v2(true);
+  };
+  var fromJson = function(j) {
+    var caseString = map33(PVString.create)(toString(j));
+    var caseObject = bind10(toObject(j))(fromObject);
+    var caseNumber = map33(PVNumber.create)(toNumber2(j));
+    var caseNull = (function() {
+      var $26 = isNull2(j);
+      if ($26) {
+        return new Just(PVNull.value);
+      }
+      ;
+      return Nothing.value;
+    })();
+    var caseBool = map33(PVBool.create)(toBoolean(j));
+    var caseArray = bind10(toArray(j))(function(xs) {
+      return map33(PVArray.create)(traverse3(fromJson)(xs));
+    });
+    return alt9(caseNull)(alt9(caseBool)(alt9(caseNumber)(alt9(caseString)(alt9(caseArray)(caseObject)))));
+  };
+  var parse7 = function(s) {
+    var v = jsonParser(s);
+    if (v instanceof Left) {
+      return new PVRaw(s);
+    }
+    ;
+    if (v instanceof Right) {
+      var v1 = fromJson(v.value0);
+      if (v1 instanceof Just) {
+        return v1.value0;
+      }
+      ;
+      if (v1 instanceof Nothing) {
+        return new PVRaw(s);
+      }
+      ;
+      throw new Error("Failed pattern match at Playground.Frontend.Value (line 37, column 17 - line 39, column 23): " + [v1.constructor.name]);
+    }
+    ;
+    throw new Error("Failed pattern match at Playground.Frontend.Value (line 35, column 11 - line 39, column 23): " + [v.constructor.name]);
+  };
+
+  // output/Data.Number.Format/foreign.js
+  function wrap4(method2) {
+    return function(d) {
+      return function(num) {
+        return method2.apply(num, [d]);
+      };
+    };
+  }
+  var toPrecisionNative = wrap4(Number.prototype.toPrecision);
+  var toFixedNative = wrap4(Number.prototype.toFixed);
+  var toExponentialNative = wrap4(Number.prototype.toExponential);
+  function toString2(num) {
+    return num.toString();
+  }
+
+  // output/Playground.Frontend.ValueView/index.js
+  var show4 = /* @__PURE__ */ show(showInt);
+  var append6 = /* @__PURE__ */ append(semigroupArray);
+  var bind11 = /* @__PURE__ */ bind(bindArray);
+  var map34 = /* @__PURE__ */ map(functorArray);
+  var punct = function(s) {
+    return span3([class_("pv-punct")])([text5(s)]);
+  };
+  var hspan = function(cls) {
+    return function(txt) {
+      return span3([class_(cls)])([text5(txt)]);
+    };
+  };
+  var formatNumber2 = function(n) {
+    var asInt = round2(n);
+    var $9 = toNumber(asInt) === n;
+    if ($9) {
+      return show4(asInt);
+    }
+    ;
+    return toString2(n);
+  };
+  var renderCtor = function(name17) {
+    return function(args) {
+      var v = length3(args);
+      if (v === 0) {
+        return span3([class_("pv-ctor pv-ctor-nullary")])([span3([class_("pv-ctor-name")])([text5(name17)])]);
+      }
+      ;
+      return span3([class_("pv-ctor")])(append6([span3([class_("pv-ctor-name")])([text5(name17)])])(bind11(args)(function(a2) {
+        return [punct(" "), renderArg(a2)];
+      })));
+    };
+  };
+  var renderArray = function(xs) {
+    var interspersed = intersperse(punct(", "))(map34(render2)(xs));
+    return span3([class_("pv-array")])(append6([punct("[")])(append6(interspersed)([punct("]")])));
+  };
+  var renderArg = function(v) {
+    if (v instanceof PVCtor && length3(v.value1) > 0) {
+      return span3([class_("pv-parens")])([punct("("), render2(v), punct(")")]);
+    }
+    ;
+    return render2(v);
+  };
+  var render2 = function(v) {
+    if (v instanceof PVNull) {
+      return hspan("pv-null")("null");
+    }
+    ;
+    if (v instanceof PVBool) {
+      return hspan("pv-bool")((function() {
+        if (v.value0) {
+          return "true";
+        }
+        ;
+        return "false";
+      })());
+    }
+    ;
+    if (v instanceof PVNumber) {
+      return hspan("pv-number")(formatNumber2(v.value0));
+    }
+    ;
+    if (v instanceof PVString) {
+      return span3([class_("pv-string")])([text5('"' + (v.value0 + '"'))]);
+    }
+    ;
+    if (v instanceof PVArray) {
+      return renderArray(v.value0);
+    }
+    ;
+    if (v instanceof PVCtor) {
+      return renderCtor(v.value0)(v.value1);
+    }
+    ;
+    if (v instanceof PVRaw) {
+      return span3([class_("pv-raw")])([text5(v.value0)]);
+    }
+    ;
+    throw new Error("Failed pattern match at Playground.Frontend.ValueView (line 21, column 10 - line 31, column 64): " + [v.constructor.name]);
   };
 
   // output/Playground.Frontend.Worker/foreign.js
@@ -33707,7 +34055,7 @@
   };
 
   // output/Playground.Frontend.Worker/index.js
-  var bind9 = /* @__PURE__ */ bind(/* @__PURE__ */ bindExceptT(monadIdentity));
+  var bind16 = /* @__PURE__ */ bind(/* @__PURE__ */ bindExceptT(monadIdentity));
   var readProp2 = /* @__PURE__ */ readProp(monadIdentity);
   var readString2 = /* @__PURE__ */ readString(monadIdentity);
   var Emit = /* @__PURE__ */ (function() {
@@ -33754,7 +34102,7 @@
   var postJs = _postJs;
   var decode2 = function(root) {
     var readField = function(key) {
-      var v3 = runExcept(bind9(readProp2(key)(root))(readString2));
+      var v3 = runExcept(bind16(readProp2(key)(root))(readString2));
       if (v3 instanceof Right) {
         return new Just(v3.value0);
       }
@@ -33887,7 +34235,7 @@
       return "endLine";
     }
   };
-  var map33 = /* @__PURE__ */ map(functorEither);
+  var map35 = /* @__PURE__ */ map(functorEither);
   var idIsSymbol = {
     reflectSymbol: function() {
       return "id";
@@ -34004,7 +34352,7 @@
         }
         ;
         if (otherwise) {
-          return map33(Just.create)(decode(positionCodec)(json2));
+          return map35(Just.create)(decode(positionCodec)(json2));
         }
         ;
         throw new Error("Failed pattern match at Playground.Session (line 113, column 5 - line 115, column 58): " + [json2.constructor.name]);
@@ -34134,14 +34482,14 @@
   })();
 
   // output/Playground.Frontend.Shell/index.js
-  var bind10 = /* @__PURE__ */ bind(bindHalogenM);
+  var bind17 = /* @__PURE__ */ bind(bindHalogenM);
   var get6 = /* @__PURE__ */ get(monadStateHalogenM);
   var discard7 = /* @__PURE__ */ discard(discardUnit)(bindHalogenM);
   var pure18 = /* @__PURE__ */ pure(applicativeHalogenM);
   var modify_4 = /* @__PURE__ */ modify_2(monadStateHalogenM);
-  var map34 = /* @__PURE__ */ map(functorEmitter);
-  var bind16 = /* @__PURE__ */ bind(bindMaybe);
-  var show4 = /* @__PURE__ */ show(showInt);
+  var map36 = /* @__PURE__ */ map(functorEmitter);
+  var bind18 = /* @__PURE__ */ bind(bindMaybe);
+  var show5 = /* @__PURE__ */ show(showInt);
   var $$delete5 = /* @__PURE__ */ $$delete(ordString);
   var map112 = /* @__PURE__ */ map(functorArray);
   var fromFoldable8 = /* @__PURE__ */ fromFoldable(ordString)(foldableArray);
@@ -34240,7 +34588,7 @@
   var workerTimeoutMs = 3e3;
   var teardownExecution = function(dictMonadAff) {
     var liftEffect7 = liftEffect(monadEffectHalogenM(dictMonadAff.MonadEffect0()));
-    return bind10(get6)(function(s) {
+    return bind17(get6)(function(s) {
       return discard7((function() {
         if (s.worker instanceof Just) {
           return liftEffect7(terminate(s.worker.value0));
@@ -34250,7 +34598,7 @@
           return pure18(unit);
         }
         ;
-        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 243, column 3 - line 245, column 25): " + [s.worker.constructor.name]);
+        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 246, column 3 - line 248, column 25): " + [s.worker.constructor.name]);
       })())(function() {
         return discard7((function() {
           if (s.workerSub instanceof Just) {
@@ -34261,7 +34609,7 @@
             return pure18(unit);
           }
           ;
-          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 246, column 3 - line 248, column 25): " + [s.workerSub.constructor.name]);
+          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 249, column 3 - line 251, column 25): " + [s.workerSub.constructor.name]);
         })())(function() {
           return discard7((function() {
             if (s.workerTimeout instanceof Just) {
@@ -34272,7 +34620,7 @@
               return pure18(unit);
             }
             ;
-            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 249, column 3 - line 251, column 25): " + [s.workerTimeout.constructor.name]);
+            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 252, column 3 - line 254, column 25): " + [s.workerTimeout.constructor.name]);
           })())(function() {
             return modify_4(function(v) {
               var $118 = {};
@@ -34316,7 +34664,7 @@
       return [pre([class_("runtime-error")])([text5("runtime: " + v.value0)])];
     }
     ;
-    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 404, column 22 - line 409, column 6): " + [v.constructor.name]);
+    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 408, column 22 - line 413, column 6): " + [v.constructor.name]);
   };
   var renderHeader = function(state3) {
     return header([class_("playground-header")])([div2([class_("title-group")])([h1_([text5("PureScript Playground")]), p([class_("subtitle")])([text5("Edit the module and the cells; auto-compiles 400ms after you stop typing.")])]), button([class_("compile-btn"), disabled10(state3.compiling), onClick(function(v) {
@@ -34367,11 +34715,11 @@
           $124.cellResults = empty2;
           return $124;
         }))(function() {
-          return bind10(liftEffect7(create3))(function(v) {
-            return bind10(subscribe2(map34(HandleWorkerMessage.create)(v.emitter)))(function(subId) {
-              return bind10(liftEffect7(spawnWorker(notify(v.listener))))(function(worker) {
+          return bind17(liftEffect7(create3))(function(v) {
+            return bind17(subscribe2(map36(HandleWorkerMessage.create)(v.emitter)))(function(subId) {
+              return bind17(liftEffect7(spawnWorker(notify(v.listener))))(function(worker) {
                 return discard7(liftEffect7(postJs(worker)(js)))(function() {
-                  return bind10(fork2(discard7(liftAff2(delay(workerTimeoutMs)))(function() {
+                  return bind17(fork2(discard7(liftAff2(delay(workerTimeoutMs)))(function() {
                     return handleAction2(dictMonadAff)(WorkerTimeout.value);
                   })))(function(timeoutId) {
                     return modify_4(function(v1) {
@@ -34403,7 +34751,7 @@
     var updateCell = function(id3) {
       return function(src9) {
         return function(cells2) {
-          return fromMaybe(cells2)(bind16(findIndex(function($224) {
+          return fromMaybe(cells2)(bind18(findIndex(function($224) {
             return /* @__PURE__ */ (function(v) {
               return v === id3;
             })((function(v) {
@@ -34470,7 +34818,7 @@
       ;
       if (v instanceof AddCell) {
         return discard7(modify_4(function(s) {
-          var newId = "c" + show4(s.nextCellId);
+          var newId = "c" + show5(s.nextCellId);
           var newCell = {
             id: newId,
             kind: "expr",
@@ -34517,7 +34865,7 @@
       }
       ;
       if (v instanceof ScheduleCompile) {
-        return bind10(get6)(function(s) {
+        return bind17(get6)(function(s) {
           return discard7((function() {
             if (s.pendingCompile instanceof Just) {
               return kill(s.pendingCompile.value0);
@@ -34527,9 +34875,9 @@
               return pure18(unit);
             }
             ;
-            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 167, column 5 - line 169, column 27): " + [s.pendingCompile.constructor.name]);
+            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 170, column 5 - line 172, column 27): " + [s.pendingCompile.constructor.name]);
           })())(function() {
-            return bind10(fork2(discard7(liftAff2(delay(debounceMs)))(function() {
+            return bind17(fork2(discard7(liftAff2(delay(debounceMs)))(function() {
               return handleAction2(dictMonadAff)(Compile.value);
             })))(function(fid) {
               return modify_4(function(v1) {
@@ -34565,7 +34913,7 @@
           $158.pendingCompile = Nothing.value;
           return $158;
         }))(function() {
-          return bind10(get6)(function(s) {
+          return bind17(get6)(function(s) {
             var req = {
               module: {
                 source: s.moduleSource
@@ -34573,7 +34921,7 @@
               cells: map112(mkCell)(s.cells)
             };
             var bodyJson = stringify(encode2(compileRequestCodec)(req));
-            return bind10(liftAff2(request3({
+            return bind17(liftAff2(request3({
               headers: defaultRequest.headers,
               username: defaultRequest.username,
               password: defaultRequest.password,
@@ -34646,14 +34994,14 @@
                       return startExecution(dictMonadAff)(v1.value0.js.value0);
                     }
                     ;
-                    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 214, column 11 - line 216, column 41): " + [v1.value0.js.constructor.name]);
+                    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 217, column 11 - line 219, column 41): " + [v1.value0.js.constructor.name]);
                   });
                 }
                 ;
-                throw new Error("Failed pattern match at Playground.Frontend.Shell (line 198, column 25 - line 216, column 41): " + [v1.constructor.name]);
+                throw new Error("Failed pattern match at Playground.Frontend.Shell (line 201, column 25 - line 219, column 41): " + [v1.constructor.name]);
               }
               ;
-              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 194, column 5 - line 216, column 41): " + [result.constructor.name]);
+              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 197, column 5 - line 219, column 41): " + [result.constructor.name]);
             });
           });
         });
@@ -34670,7 +35018,7 @@
               ;
             }
             ;
-            $181.cellResults = insert9(v.value0.value0)(v.value0.value1)(s.cellResults);
+            $181.cellResults = insert9(v.value0.value0)(parse7(v.value0.value1))(s.cellResults);
             return $181;
           });
         }
@@ -34711,7 +35059,7 @@
           });
         }
         ;
-        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 217, column 30 - line 225, column 78): " + [v.value0.constructor.name]);
+        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 220, column 30 - line 228, column 78): " + [v.value0.constructor.name]);
       }
       ;
       if (v instanceof WorkerTimeout) {
@@ -34731,11 +35079,11 @@
         });
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 146, column 16 - line 228, column 22): " + [v.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 149, column 16 - line 231, column 22): " + [v.constructor.name]);
     };
   };
   var cellColorClass = function(idx) {
-    return "cell-color-" + show4(mod4(idx)(8));
+    return "cell-color-" + show5(mod4(idx)(8));
   };
   var attribute = function(state3) {
     return function(e) {
@@ -34759,21 +35107,21 @@
       if (e.filename instanceof Just && e.position instanceof Just) {
         var $202 = endsWith("Playground/User.purs")(e.filename.value0);
         if ($202) {
-          return "module \u25B8 line " + show4(e.position.value0.startLine);
+          return "module \u25B8 line " + show5(e.position.value0.startLine);
         }
         ;
         var $203 = endsWith("Main.purs")(e.filename.value0);
         if ($203) {
           var v = findCellAt(state3.cellRanges)(e.position.value0.startLine);
           if (v instanceof Just) {
-            return "cell " + (v.value0.id + (" \u25B8 line " + show4((e.position.value0.startLine - v.value0.startLine | 0) + 1 | 0)));
+            return "cell " + (v.value0.id + (" \u25B8 line " + show5((e.position.value0.startLine - v.value0.startLine | 0) + 1 | 0)));
           }
           ;
           if (v instanceof Nothing) {
-            return "synthesis \u25B8 Main.purs line " + show4(e.position.value0.startLine);
+            return "synthesis \u25B8 Main.purs line " + show5(e.position.value0.startLine);
           }
           ;
-          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 480, column 9 - line 485, column 71): " + [v.constructor.name]);
+          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 484, column 9 - line 489, column 71): " + [v.constructor.name]);
         }
         ;
         return e.filename.value0;
@@ -34815,7 +35163,7 @@
         return [];
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 417, column 20 - line 420, column 20): " + [state3.transportError.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 421, column 20 - line 424, column 20): " + [state3.transportError.constructor.name]);
     })();
     var compileRows = map112(attributedRow(state3)("compile"))(state3.errors);
     var rows4 = append14(transportRow)(append14(compileRows)(warningRows));
@@ -34837,14 +35185,14 @@
             return function(cell) {
               var v = lookup7(cell.id)(st.cellResults);
               if (v instanceof Just) {
-                return pre([class_("gutter-value")])([text5(v.value0)]);
+                return div2([class_("gutter-value")])([render2(v.value0)]);
               }
               ;
               if (v instanceof Nothing) {
                 return span3([class_("muted")])([text5("\u2014")]);
               }
               ;
-              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 397, column 25 - line 401, column 66): " + [v.constructor.name]);
+              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 400, column 25 - line 405, column 66): " + [v.constructor.name]);
             };
           };
           var renderType = function(st) {
@@ -34860,7 +35208,7 @@
                 return span3([class_("muted gutter-type")])([text5("\u2014")]);
               }
               ;
-              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 391, column 24 - line 396, column 78): " + [v.constructor.name]);
+              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 394, column 24 - line 399, column 78): " + [v.constructor.name]);
             };
           };
           return div2([class_("gutter-row " + cellColorClass(idx))])([span3([class_("gutter-cell-id")])([text5(c.id)]), div2([class_("gutter-body")])([renderType(state3)(c), renderValue(state3)(c)])]);
@@ -34920,7 +35268,7 @@
       })])([text5("+ add cell")])])));
     };
   };
-  var render2 = function(dictMonadAff) {
+  var render3 = function(dictMonadAff) {
     var renderModuleColumn1 = renderModuleColumn(dictMonadAff);
     var renderCellsColumn1 = renderCellsColumn(dictMonadAff);
     var renderGutterColumn1 = renderGutterColumn(dictMonadAff);
@@ -34937,7 +35285,7 @@
   var component3 = function(dictMonadAff) {
     return mkComponent({
       initialState,
-      render: render2(dictMonadAff),
+      render: render3(dictMonadAff),
       "eval": mkEval({
         handleQuery: defaultEval.handleQuery,
         receive: defaultEval.receive,
@@ -34949,11 +35297,11 @@
   };
 
   // output/Playground.Frontend.Main/index.js
-  var bind11 = /* @__PURE__ */ bind(bindAff);
+  var bind19 = /* @__PURE__ */ bind(bindAff);
   var component4 = /* @__PURE__ */ component3(monadAffAff);
   var pure19 = /* @__PURE__ */ pure(applicativeAff);
-  var main2 = /* @__PURE__ */ runHalogenAff(/* @__PURE__ */ bind11(awaitBody)(function(body2) {
-    return bind11(runUI2(component4)(unit)(body2))(function() {
+  var main2 = /* @__PURE__ */ runHalogenAff(/* @__PURE__ */ bind19(awaitBody)(function(body2) {
+    return bind19(runUI2(component4)(unit)(body2))(function() {
       return pure19(unit);
     });
   }));
