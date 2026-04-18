@@ -5,7 +5,7 @@ module Playground.Server.Synthesize
 
 import Prelude
 
-import Data.Array (filter, findIndex, length, mapMaybe, null, snoc, uncons) as Array
+import Data.Array (filter, findIndex, head, length, mapMaybe, null, snoc, uncons) as Array
 import Data.Array (mapMaybe)
 import Data.Foldable (foldMap)
 import Data.Maybe (Maybe(..), isJust)
@@ -58,10 +58,13 @@ extractImports :: String -> String
 extractImports src =
   let
     lines = Str.split (Pattern "\n") src
-    collected = go false [] lines
+    collected = Array.filter notDuplicatePrelude (go false [] lines)
   in
     Str.joinWith "\n" collected
   where
+  -- The synthesised Main already imports Prelude; skip the user's
+  -- version if they had an identical bare `import Prelude` line.
+  notDuplicatePrelude line = Str.trim line /= "import Prelude"
   go :: Boolean -> Array String -> Array String -> Array String
   go seenImport acc rest = case Array.uncons rest of
     Nothing -> acc
@@ -143,7 +146,31 @@ buildMain userImports cells =
       <> (if Array.null exprCells then "  pure unit\n" else foldMap emitLine exprCells)
   where
   isExpr (Cell c) = c.kind == "expr"
-  letSource (Cell c) = if c.kind == "let" then Just c.source else Nothing
+  letSource (Cell c) =
+    if c.kind == "let" then Just (normaliseLetSource c) else Nothing
+  -- A let-cell's source may already be of form `name = expr` (the
+  -- user typed a binding), or just `expr` (they toggled [expr] →
+  -- [let] without editing). Normalise: if there's no top-level `=`
+  -- wrap the source as `<cell_id> = <source>` so the cell id doubles
+  -- as the binding name.
+  normaliseLetSource c =
+    if hasTopLevelEq c.source
+      then c.source
+      else c.id <> " = " <> c.source
+
+-- | Rough check: does this source look like a top-level binding (has
+-- | an `=` outside an initial expression)? The check is intentionally
+-- | shallow — an `=` anywhere in the first line counts. Good enough
+-- | for the common cases: `x = 5`, `f x = x + 1`, `double 21` (no =).
+-- | Mis-classifies things like `[x == y]` but that's fine for MVP
+-- | since such sources are unusual let-cell content.
+hasTopLevelEq :: String -> Boolean
+hasTopLevelEq src =
+  case Str.split (Pattern "\n") src of
+    [] -> false
+    arr -> case Array.head arr of
+      Just firstLine -> isJust (Str.indexOf (Pattern "=") firstLine)
+      Nothing -> false
 
 -- | For each expr cell, find the inclusive line range its
 -- | `cell_<id> = …` binding occupies in the synthesised Main.purs.

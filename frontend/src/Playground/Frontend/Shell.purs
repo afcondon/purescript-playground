@@ -97,21 +97,71 @@ starterModule :: String
 starterModule =
   "module Scratch where\n\n\
   \import Prelude\n\n\
-  \double :: Int -> Int\n\
-  \double x = x * 2\n"
+  \import Data.Either (Either(..))\n\
+  \import Data.Maybe (Maybe(..))\n\n\
+  \-- Safe division: Nothing on divide-by-zero, Just q otherwise.\n\
+  \divSafe :: Int -> Int -> Maybe Int\n\
+  \divSafe _ 0 = Nothing\n\
+  \divSafe n d = Just (n / d)\n"
 
+-- | Starter cells laid out as two short lessons:
+-- |
+-- |   c1            Just 20      — Maybe is "uncertainty made explicit"
+-- |   c2  do-block   Just 30     ┐ same computation, two notations
+-- |   c3  >>= form   Just 30     ┘ (do is sugar for chained bind)
+-- |
+-- |   c4  Array      [...]       ┐ same shape, three different
+-- |   c5  Either     Right 30    │ Monad instances — uncertainty,
+-- |   c1 above       Just 20     ┘ non-determinism, error-or-result
+-- |
+-- | The "click" moment: c2/c3 produce identical values (do is sugar
+-- | for >>=), and c1/c4/c5 are the same do-shape over Maybe / Array /
+-- | Either, demonstrating the abstracted pattern. Watch the *types*
+-- | column — the structure of failure/branching/error is in the type.
 starterCells :: Array CellRec
 starterCells =
-  [ { id: "c1", kind: "expr", source: "double 21" }
-  , { id: "c2", kind: "expr", source: "map double [1, 2, 3, 4, 5]" }
-  , { id: "c3", kind: "expr", source: "double 21 + double 21" }
+  [ { id: "c1"
+    , kind: "expr"
+    , source: "divSafe 100 5"
+    }
+  , { id: "c2"
+    , kind: "expr"
+    , source:
+        "do\n\
+        \  a <- divSafe 100 5\n\
+        \  b <- divSafe 200 a\n\
+        \  pure (a + b)"
+    }
+  , { id: "c3"
+    , kind: "expr"
+    , source:
+        "divSafe 100 5 >>= \\a ->\n\
+        \  divSafe 200 a >>= \\b ->\n\
+        \    pure (a + b)"
+    }
+  , { id: "c4"
+    , kind: "expr"
+    , source:
+        "do\n\
+        \  x <- [1, 2, 3]\n\
+        \  y <- [10, 20]\n\
+        \  pure (x + y)"
+    }
+  , { id: "c5"
+    , kind: "expr"
+    , source:
+        "do\n\
+        \  x <- (Right 10 :: Either String Int)\n\
+        \  y <- Right 20\n\
+        \  pure (x + y)"
+    }
   ]
 
 initialState :: forall i. i -> State
 initialState _ =
   { moduleSource: starterModule
   , cells: starterCells
-  , nextCellId: 4
+  , nextCellId: 6
   , compiling: false
   , errors: []
   , warnings: []

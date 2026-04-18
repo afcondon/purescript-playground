@@ -136,8 +136,8 @@ body {
   gap: 0.25rem;
   margin-bottom: 0.75rem;
   min-height: 80px;
-  border-left: 3px solid var(--cell-bar, var(--rule));
-  padding-left: 0.5rem;
+  border-left: 5px solid var(--cell-bar, var(--rule));
+  padding-left: 0.6rem;
 }
 
 .cell-meta {
@@ -211,40 +211,65 @@ body {
   border-color: var(--accent);
 }
 
-/* CM6 hover-type tooltip */
+/* CM6 hover-type tooltip — inverted card so Sigil-rendered signatures
+   read as a distinct overlay rather than blending into the page. */
 .cm-tooltip.cm-tooltip-hover {
-  background: #fdfdfc;
-  border: 1px solid var(--rule);
-  padding: 0.5rem 0.65rem;
-  max-width: 480px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
-  border-radius: 2px;
+  background: #1d1d1b;
+  border: 1px solid #2e2e2a;
+  padding: 0.55rem 0.75rem;
+  max-width: 520px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+  border-radius: 3px;
+  color: #ecece8;
 }
 
 .cm-tooltip-type {
   font-family: var(--mono);
   font-size: 12px;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .cm-tooltip-name {
-  color: var(--fg);
+  color: #ecece8;
   font-weight: 600;
 }
 
 .cm-tooltip-dcolon {
-  color: var(--muted);
+  color: #8a8a85;
 }
 
 .cm-tooltip-ty {
-  color: var(--accent);
+  color: #6fb6d4;  /* soft petrol for the type body */
 }
 
 .cm-tooltip-module {
-  margin-top: 0.2rem;
-  color: var(--muted);
+  margin-top: 0.3rem;
+  color: #8a8a85;
   font-family: var(--mono);
   font-size: 11px;
+}
+
+/* Sigil's own markup, re-themed for the dark card. Its stylesheet
+   uses #1a1a1a on name, #999/#888 on punct — we override to light
+   counterparts. */
+.cm-tooltip-hover .sig-full,
+.cm-tooltip-hover .sig-full * {
+  color: inherit;
+}
+.cm-tooltip-hover .sig-name { color: #ecece8; }
+.cm-tooltip-hover .sig-dcolon,
+.cm-tooltip-hover .sig-sep { color: #8a8a85; }
+.cm-tooltip-hover .sig-quant-sym,
+.cm-tooltip-hover .sig-quant-dot,
+.cm-tooltip-hover .sig-ctx-class { color: #d8b470; }
+.cm-tooltip-hover .sig-body {
+  border-left-color: #3e3e3a;
+}
+.cm-tooltip-hover .sig-arrow-chain > li + li::before {
+  color: #b8b8b2;
+}
+.cm-tooltip-hover .sig-leader {
+  border-bottom-color: #3e3e3a;
 }
 
 /* Gutter column: per-cell results */
@@ -265,22 +290,23 @@ body {
   grid-template-columns: 2.5rem 1fr;
   column-gap: 0.75rem;
   align-items: start;
-  border-left: 3px solid var(--cell-bar, var(--rule));
-  padding-left: 0.5rem;
+  border-left: 5px solid var(--cell-bar, var(--rule));
+  padding-left: 0.6rem;
 }
 
-/* Cell colour palette — 8 muted Swiss-style accents that cycle via
-   .cell-color-N classes. Both the cell row and its matching gutter
-   row carry the same class, so the colour visibly threads across the
-   page from edit surface to value/type display. */
-.cell-color-0 { --cell-bar: #2b5f75; }  /* petrol */
-.cell-color-1 { --cell-bar: #8a6a2b; }  /* ochre */
-.cell-color-2 { --cell-bar: #6f4a6f; }  /* plum */
-.cell-color-3 { --cell-bar: #5e7155; }  /* sage */
-.cell-color-4 { --cell-bar: #9e5a3c; }  /* terracotta */
-.cell-color-5 { --cell-bar: #5b6c7a; }  /* slate */
-.cell-color-6 { --cell-bar: #3d7a72; }  /* teal */
-.cell-color-7 { --cell-bar: #8a5e6a; }  /* mauve */
+/* Cell colour palette — 8 Swiss-style accents that cycle via
+   .cell-color-N classes. Bright enough to distinguish at 5px bar
+   width while still restrained (not UI candy). Both the cell row
+   and its matching gutter row carry the same class, so the colour
+   visibly threads across the page from edit surface to value/type. */
+.cell-color-0 { --cell-bar: #1f7aa5; }  /* petrol */
+.cell-color-1 { --cell-bar: #c08a1e; }  /* ochre */
+.cell-color-2 { --cell-bar: #8f3d9a; }  /* plum */
+.cell-color-3 { --cell-bar: #5c9340; }  /* sage */
+.cell-color-4 { --cell-bar: #d06a2b; }  /* terracotta */
+.cell-color-5 { --cell-bar: #4b6b8a; }  /* slate */
+.cell-color-6 { --cell-bar: #1f9a84; }  /* teal */
+.cell-color-7 { --cell-bar: #b85470; }  /* rose */
 
 .cell-row .cell-id,
 .gutter-row .gutter-cell-id {
