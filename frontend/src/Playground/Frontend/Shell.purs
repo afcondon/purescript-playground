@@ -36,6 +36,7 @@ import Playground.Frontend.Worker (Worker, WorkerMessage(..))
 import Playground.Frontend.Worker as Worker
 import Playground.Session
   ( Cell(..)
+  , CellEmit(..)
   , CellRange(..)
   , CellType(..)
   , CompileError(..)
@@ -53,6 +54,7 @@ type State =
   { moduleSource :: String
   , cells :: Array CellRec
   , nextCellId :: Int
+  , runtime :: String             -- "browser" | "node" — which adapter to use
   , compiling :: Boolean
   , errors :: Array CompileError
   , warnings :: Array CompileError
@@ -90,6 +92,7 @@ data Action
   | AddCell
   | RemoveCell String
   | ToggleCellKind String
+  | SetRuntime String
   | HandleWorkerMessage WorkerMessage
   | WorkerTimeout
 
@@ -162,6 +165,7 @@ initialState _ =
   { moduleSource: starterModule
   , cells: starterCells
   , nextCellId: 6
+  , runtime: "browser"
   , compiling: false
   , errors: []
   , warnings: []
@@ -225,6 +229,11 @@ handleAction = case _ of
       , cellTypes = Map.delete id s.cellTypes
       }
     handleAction ScheduleCompile
+  SetRuntime r -> do
+    s0 <- H.get
+    when (s0.runtime /= r) do
+      H.modify_ _ { runtime = r, cellResults = Map.empty }
+      handleAction ScheduleCompile
   ScheduleCompile -> do
     s <- H.get
     case s.pendingCompile of
@@ -246,6 +255,7 @@ handleAction = case _ of
       req = CompileRequest
         { "module": UserModule { source: s.moduleSource }
         , cells: map mkCell s.cells
+        , runtime: s.runtime
         }
       bodyJson = stringify (CA.encode compileRequestCodec req)
     result <- H.liftAff $ AX.request $ AX.defaultRequest
@@ -274,7 +284,17 @@ handleAction = case _ of
             , cellRanges = r.cellLines
             , cellTypes = typesMap
             }
-          case r.js of
+          -- Dispatch on which adapter produced the response:
+          --   - Node / server-side: emits are already populated;
+          --     fold them into cellResults directly, no Worker.
+          --   - Browser / client-side: we get JS, run it in a Worker.
+          if not (Array.null r.emits) then do
+            teardownExecution
+            H.modify_ \s ->
+              let decoded = Map.fromFoldable
+                    ( map (\(CellEmit e) -> Tuple e.id (Value.parse e.value)) r.emits )
+              in s { cellResults = decoded }
+          else case r.js of
             Nothing -> teardownExecution
             Just js -> startExecution js
   HandleWorkerMessage msg -> case msg of
@@ -373,6 +393,10 @@ renderHeader state =
                 "Edit the module and the cells; auto-compiles 400ms after you stop typing."
             ]
         ]
+    , HH.div [ HP.class_ (H.ClassName "runtime-toggle") ]
+        [ runtimeButton state "browser" "Browser"
+        , runtimeButton state "node" "Node"
+        ]
     , HH.button
         [ HP.class_ (H.ClassName "compile-btn")
         , HP.disabled state.compiling
@@ -380,6 +404,19 @@ renderHeader state =
         ]
         [ HH.text (if state.compiling then "Compiling…" else "Compile") ]
     ]
+
+runtimeButton :: forall m. State -> String -> String -> H.ComponentHTML Action Slots m
+runtimeButton state value label =
+  HH.button
+    [ HP.class_
+        ( H.ClassName
+            ( "runtime-btn"
+                <> (if state.runtime == value then " runtime-active" else "")
+            )
+        )
+    , HE.onClick \_ -> SetRuntime value
+    ]
+    [ HH.text label ]
 
 renderModuleColumn :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
 renderModuleColumn state =

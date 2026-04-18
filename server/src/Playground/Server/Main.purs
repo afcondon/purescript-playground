@@ -15,12 +15,15 @@ import Routing.Duplex (RouteDuplex', root)
 import Routing.Duplex.Generic (noArgs, sum)
 import Routing.Duplex.Generic.Syntax ((/))
 
+import Playground.Server.Adapter (Adapter)
 import Playground.Server.Adapter.BrowserWorker (browserWorker)
+import Playground.Server.Adapter.NodeProcess (nodeProcess)
 import Playground.Server.Compile as Compile
 import Playground.Server.Ide as Ide
 import Playground.Server.Synthesize (synthesize)
 import Playground.Session
   ( CompileError(..)
+  , CompileRequest(..)
   , CompileResponse(..)
   , IdeHit
   , IdeQuery(..)
@@ -55,7 +58,16 @@ errorJson code msg =
           ]
       , types: []
       , cellLines: []
+      , emits: []
+      , runtime: "browser"
       }
+
+-- | Pick the adapter for the request's `runtime` field. Falls back to
+-- | the browser adapter for unknown / empty values.
+pickAdapter :: String -> Adapter
+pickAdapter = case _ of
+  "node" -> nodeProcess
+  _ -> browserWorker
 
 ideResponseJson :: Array IdeHit -> String
 ideResponseJson hits =
@@ -89,9 +101,10 @@ main = serve { port: 3050, hostname: "0.0.0.0" }
                 Left decodeErr ->
                   ok' jsonCors
                     (errorJson "BadRequest" (CA.printJsonDecodeError decodeErr))
-                Right req -> do
+                Right req@(CompileRequest r) -> do
                   let synth = synthesize req
-                  out <- liftAff $ Compile.compileSources browserWorker synth
+                      adapter = pickAdapter r.runtime
+                  out <- liftAff $ Compile.compileSources adapter synth
                   ok' jsonCors out
           IdeType -> do
             bodyStr <- toString body

@@ -43,9 +43,16 @@ cellCodec = CA.prismaticCodec "Cell" (Just <<< Cell) un $
   where un (Cell r) = r
 
 -- | What the frontend submits on each compile.
+-- |
+-- | `runtime` names the host the cells should run on. "browser" (the
+-- | default) bundles for the browser and leaves execution to the
+-- | client's Web Worker. "node" has the backend spawn a Node
+-- | child-process and run the bundle server-side, returning emits
+-- | in-band.
 newtype CompileRequest = CompileRequest
   { "module" :: UserModule
   , cells :: Array Cell
+  , runtime :: String
   }
 
 compileRequestCodec :: JsonCodec CompileRequest
@@ -53,22 +60,39 @@ compileRequestCodec = CA.prismaticCodec "CompileRequest" (Just <<< CompileReques
   CAR.object "CompileRequest"
     { "module": userModuleCodec
     , cells: CA.array cellCodec
+    , runtime: CA.string
     }
   where un (CompileRequest r) = r
 
 -- | What the backend returns on each compile.
 -- |
--- | `js` present on success, absent on failure. `errors` carries
--- | structured compiler errors (via `purs --json-errors`), including a
--- | position where available, so the frontend can attribute each error
--- | back to the originating cell via `cellLines`.
+-- | `js` present on success for *client-side* runtimes (browser Worker);
+-- | absent on failure and for server-side runtimes that already ran the
+-- | bundle. `emits` is populated by server-side runtimes with the
+-- | collected cell emissions; empty for client-side. `runtime` names
+-- | which adapter produced this response.
 newtype CompileResponse = CompileResponse
   { js :: Maybe String
   , warnings :: Array CompileError
   , errors :: Array CompileError
   , types :: Array CellType
   , cellLines :: Array CellRange
+  , emits :: Array CellEmit
+  , runtime :: String
   }
+
+-- | A single (cellId, JSON-encoded PlaygroundValue) pair emitted by a
+-- | server-side adapter's run. Same wire format the client-side Worker
+-- | would produce via __playground_emit.
+newtype CellEmit = CellEmit { id :: String, value :: String }
+
+cellEmitCodec :: JsonCodec CellEmit
+cellEmitCodec = CA.prismaticCodec "CellEmit" (Just <<< CellEmit) un $
+  CAR.object "CellEmit"
+    { id: CA.string
+    , value: CA.string
+    }
+  where un (CellEmit r) = r
 
 -- | A single compiler error or warning. `filename` and `position` are
 -- | optional because backend-internal errors (e.g. a file-write failure)
@@ -147,6 +171,8 @@ compileResponseCodec = CA.prismaticCodec "CompileResponse" (Just <<< CompileResp
     , errors: CA.array compileErrorCodec
     , types: CA.array cellTypeCodec
     , cellLines: CA.array cellRangeCodec
+    , emits: CA.array cellEmitCodec
+    , runtime: CA.string
     }
   where un (CompileResponse r) = r
 

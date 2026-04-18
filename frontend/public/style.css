@@ -57,6 +57,38 @@ body {
   font-size: 0.8rem;
 }
 
+.runtime-toggle {
+  display: inline-flex;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+.runtime-btn {
+  font: inherit;
+  padding: 0.35rem 0.75rem;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--rule);
+  color: var(--muted);
+  cursor: pointer;
+  letter-spacing: 0.04em;
+}
+
+.runtime-btn:last-child { border-right: none; }
+
+.runtime-btn.runtime-active {
+  background: var(--accent);
+  color: #fdfdfc;
+}
+
+.runtime-btn:not(.runtime-active):hover {
+  background: #f4f4f1;
+  color: var(--fg);
+}
+
 .compile-btn {
   font: inherit;
   padding: 0.35rem 1rem;

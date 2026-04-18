@@ -14,21 +14,23 @@ import Effect.Aff (Aff)
 import Playground.Server.Adapter (Adapter)
 import Playground.Server.Ide as Ide
 import Playground.Session
-  ( CellRange
+  ( CellEmit
+  , CellRange
   , CompileError(..)
   , CompileResponse(..)
+  , cellEmitCodec
   , compileErrorCodec
   , compileResponseCodec
   , nullableStringCodec
   )
 
--- | Intermediate record an Adapter returns over the FFI. Compile.purs
--- | decodes it, decorates with types, and assembles the final response.
+-- | Intermediate record an Adapter returns over the FFI.
 type BuildResult =
   { js :: Maybe String
   , warnings :: Array CompileError
   , errors :: Array CompileError
   , cellIds :: Array String
+  , emits :: Array CellEmit
   }
 
 buildResultCodec :: CA.JsonCodec BuildResult
@@ -37,6 +39,7 @@ buildResultCodec = CAR.object "BuildResult"
   , warnings: CA.array compileErrorCodec
   , errors: CA.array compileErrorCodec
   , cellIds: CA.array CA.string
+  , emits: CA.array cellEmitCodec
   }
 
 mkTransportError :: String -> CompileError
@@ -70,17 +73,29 @@ compileSources adapter s = do
             ]
         , types: []
         , cellLines: s.cellLines
+        , emits: []
+        , runtime: adapter.name
         }
     Right r -> do
       types <- case r.js of
         Just _ -> Ide.queryCellTypes r.cellIds
-        Nothing -> pure []
+        Nothing ->
+          -- Server-side adapters (Node) don't return JS, but we still
+          -- want types for their cells. Externs are up to date from
+          -- the build step.
+          if not (null r.errors) then pure []
+          else Ide.queryCellTypes r.cellIds
       pure $ encodeResponse $ CompileResponse
         { js: r.js
         , warnings: r.warnings
         , errors: r.errors
         , types
         , cellLines: s.cellLines
+        , emits: r.emits
+        , runtime: adapter.name
         }
   where
   encodeResponse = stringify <<< CA.encode compileResponseCodec
+  null xs = case xs of
+    [] -> true
+    _ -> false
