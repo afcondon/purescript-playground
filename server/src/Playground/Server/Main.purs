@@ -28,12 +28,14 @@ import Playground.Server.Session (ModulePatch(..), SessionStore)
 import Playground.Server.Session as Session
 import Data.String as String
 import Playground.Session
-  ( CompileError(..)
+  ( CellType
+  , CompileError(..)
   , CompileResponse(..)
   , IdeHit
   , IdeQuery(..)
   , IdeResponse(..)
   , UserModule(..)
+  , cellTypeCodec
   , compileRequestCodec
   , compileResponseCodec
   , ideQueryCodec
@@ -48,6 +50,7 @@ data Route
   | SessionCellAppend
   | SessionCellAt String
   | SessionRuntime
+  | SessionTypes
   | IdeType
   | IdeComplete
   | IdeSearch
@@ -63,6 +66,7 @@ route = root $ sum
   , "SessionCellAppend": "session" / "cells" / noArgs
   , "SessionCellAt": "session" / "cells" / segment
   , "SessionRuntime": "session" / "runtime" / noArgs
+  , "SessionTypes": "session" / "types" / noArgs
   , "IdeType": "ide" / "type" / noArgs
   , "IdeComplete": "ide" / "complete" / noArgs
   , "IdeSearch": "ide" / "search" / noArgs
@@ -176,6 +180,14 @@ ideResponseJson :: Array IdeHit -> String
 ideResponseJson hits =
   stringify (CA.encode ideResponseCodec (IdeResponse { hits }))
 
+-- | Narrow "types only" response for `GET /session/types`. Wraps
+-- | the existing `cellTypeCodec` array in an object so the shape is
+-- | stable regardless of whether we later need to add sibling
+-- | fields (e.g. module-level declarations).
+typesResponseJson :: Array CellType -> String
+typesResponseJson types =
+  stringify (CA.encode (CAR.object "TypesResponse" { types: CA.array cellTypeCodec }) { types })
+
 parseBody
   :: forall a
    . JsonCodec a
@@ -283,6 +295,10 @@ mkRouter store { route: r, method, body } =
           Right { runtime } -> do
             resp <- liftAff (Session.setRuntime store runtime)
             ok' jsonCors (snapshotJson resp)
+
+      SessionTypes -> do
+        CompileResponse r <- liftEffect (Session.get store)
+        ok' jsonCors (typesResponseJson r.types)
 
       IdeType -> do
         bodyStr <- toString body
