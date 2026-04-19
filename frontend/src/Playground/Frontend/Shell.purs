@@ -5,7 +5,9 @@ import Prelude
 import Affjax.RequestBody as RB
 import Affjax.ResponseFormat as RF
 import Affjax.Web as AX
-import Data.Argonaut.Core (stringify)
+import Control.Alt ((<|>))
+import Data.Argonaut.Core (Json, stringify)
+import Data.Argonaut.Core as AJ
 import Data.Array (filter, findIndex, mapWithIndex, modifyAt, snoc)
 import Data.Array as Array
 import Data.String as Str
@@ -15,10 +17,12 @@ import Data.HTTP.Method (Method(..))
 import Data.Map (Map)
 import Data.Map as Map
 import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
 import Data.Time.Duration (Milliseconds(..))
 import Effect.Aff (delay)
 import Effect.Aff.Class (class MonadAff)
+import Foreign.Object as Object
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
@@ -84,6 +88,14 @@ type State =
                                      -- and keep editors editable. false:
                                      -- observe agent writes live, editors
                                      -- are read-only.
+  -- What we last pushed to the server. Used by Compile to diff the
+  -- current state against the server's view so we can send granular
+  -- PATCHes (POST /session/module, PATCH /session/cells/:id) instead
+  -- of the coarse POST /session/compile that would clobber any
+  -- agent-initiated writes landing in fields the human didn't touch.
+  , lastSyncedModule :: String
+  , lastSyncedCells :: Map String { source :: String, kind :: String }
+  , lastSyncedRuntime :: String
   }
 
 type Slots =
@@ -144,6 +156,12 @@ initialState _ =
      , workerSub: Nothing
      , workerTimeout: Nothing
      , driveMode: true
+     -- Empty strings / maps so the first Compile pass falls into the
+     -- "everything changed, do a full /session/compile" branch and
+     -- seeds lastSynced* from the server's response.
+     , lastSyncedModule: ""
+     , lastSyncedCells: Map.empty
+     , lastSyncedRuntime: ""
      }
   where
   -- Cell ids are "c1", "c2", …; pick an int strictly above the
@@ -257,53 +275,14 @@ handleAction = case _ of
       , pendingCompile = Nothing
       }
     s <- H.get
-    let
-      req = CompileRequest
-        { "module": UserModule { source: s.moduleSource }
-        , cells: map mkCell s.cells
-        , runtime: s.runtime
-        }
-      bodyJson = stringify (CA.encode compileRequestCodec req)
-    result <- H.liftAff $ AX.request $ AX.defaultRequest
-      { method = Left POST
-      , url = backendUrl <> "/session/compile"
-      , responseFormat = RF.json
-      , content = Just (RB.string bodyJson)
-      }
-    case result of
-      Left err ->
-        H.modify_ _
-          { compiling = false, transportError = Just (AX.printError err) }
-      Right { body } -> case CA.decode compileResponseCodec body of
-        Left decodeErr ->
-          H.modify_ _
-            { compiling = false
-            , transportError = Just ("decode: " <> CA.printJsonDecodeError decodeErr)
-            }
-        Right (CompileResponse r) -> do
-          let typesMap = Map.fromFoldable
-                ( map (\(CellType ct) -> Tuple ct.id ct.signature) r.types )
-          H.modify_ _
-            { compiling = false
-            , errors = r.errors
-            , warnings = r.warnings
-            , cellRanges = r.cellLines
-            , cellTypes = typesMap
-            }
-          decorateErrors r.errors r.cellLines
-          -- Dispatch on which adapter produced the response:
-          --   - Node / server-side: emits are already populated;
-          --     fold them into cellResults directly, no Worker.
-          --   - Browser / client-side: we get JS, run it in a Worker.
-          if not (Array.null r.emits) then do
-            teardownExecution
-            H.modify_ \s' ->
-              let decoded = Map.fromFoldable
-                    ( map (\(CellEmit e) -> Tuple e.id (Value.parse e.value)) r.emits )
-              in s' { cellResults = decoded }
-          else case r.js of
-            Nothing -> teardownExecution
-            Just js -> startExecution js
+    -- Decide granular vs full: granular is safe only when the only
+    -- diffs vs the server are text-edits to the module or existing
+    -- cells. Any structural change (cells added, removed, kind
+    -- flipped, runtime switched) falls back to the coarse
+    -- POST /session/compile.
+    if needsFullCompile s
+      then runFullCompile s
+      else runGranularCompile s
   HandleWorkerMessage msg -> case msg of
     Emit id value ->
       H.modify_ \s -> s { cellResults = Map.insert id (Value.parse value) s.cellResults }
@@ -320,7 +299,6 @@ handleAction = case _ of
     pollRemote
     schedulePoll
   where
-  mkCell c = Cell { id: c.id, kind: c.kind, source: c.source }
   updateCell id src cells =
     fromMaybe cells do
       idx <- findIndex (_.id >>> (_ == id)) cells
@@ -328,6 +306,154 @@ handleAction = case _ of
   flipKind = case _ of
     "let" -> "expr"
     _ -> "let"
+
+-- | Decide whether to use POST /session/compile (clobbers everything
+-- | on the server with our local view) or per-field granular PATCHes
+-- | (only the fields we actually changed). Granular is only safe if
+-- | our diff vs the server is limited to text edits on the module
+-- | and existing cells. Anything else — cells added/removed, kind
+-- | flipped, runtime switched — requires the full compile so the
+-- | server ends up with the structural shape we expect.
+needsFullCompile :: State -> Boolean
+needsFullCompile s =
+  s.runtime /= s.lastSyncedRuntime
+    || Array.length s.cells /= Map.size s.lastSyncedCells
+    || Array.any cellStructureDiverged s.cells
+  where
+  cellStructureDiverged c = case Map.lookup c.id s.lastSyncedCells of
+    Nothing -> true
+    Just last -> last.kind /= c.kind
+
+-- | Granular path: POST /session/module if the module's text changed,
+-- | then PATCH /session/cells/:id for every cell whose source changed.
+-- | Each call returns a full CompileResponse; only the last is worth
+-- | applying to the UI. If nothing actually changed, clear the
+-- | "compiling" indicator and stop.
+runGranularCompile
+  :: forall o m
+   . MonadAff m
+  => State
+  -> H.HalogenM State Action Slots o m Unit
+runGranularCompile s = do
+  let moduleDirty = s.moduleSource /= s.lastSyncedModule
+      cellsDirty = Array.filter cellSourceChanged s.cells
+      cellSourceChanged c = case Map.lookup c.id s.lastSyncedCells of
+        Just last -> last.source /= c.source
+        Nothing -> true
+  if not moduleDirty && Array.null cellsDirty
+    then H.modify_ _ { compiling = false }
+    else do
+      moduleResp <-
+        if moduleDirty
+          then Just <$> httpJson POST
+            (backendUrl <> "/session/module")
+            (stringify (encodeJsonObject [ Tuple "source" s.moduleSource ]))
+          else pure Nothing
+      cellResps <- for cellsDirty \c -> httpJson PATCH
+        (backendUrl <> "/session/cells/" <> c.id)
+        (stringify (encodeJsonObject [ Tuple "source" c.source ]))
+      let lastResp = Array.last cellResps <|> moduleResp
+      case lastResp of
+        Just (Right resp) -> applyCompileResponse resp
+        Just (Left err) -> H.modify_ _
+          { compiling = false, transportError = Just err }
+        Nothing -> H.modify_ _ { compiling = false }
+
+-- | Fallback path: POST the full state to /session/compile, let the
+-- | server `replaceAll` its view to match ours. Only runs when the
+-- | diff is too structural (add/remove cell, kind flip, runtime
+-- | change) for granular endpoints to express — and note that in
+-- | Drive mode this still clobbers any concurrent agent writes to
+-- | fields the human hasn't touched. That's the known limitation
+-- | documented on the Drive/Observe commit.
+runFullCompile
+  :: forall o m
+   . MonadAff m
+  => State
+  -> H.HalogenM State Action Slots o m Unit
+runFullCompile s = do
+  let
+    req = CompileRequest
+      { "module": UserModule { source: s.moduleSource }
+      , cells: map (\c -> Cell { id: c.id, kind: c.kind, source: c.source }) s.cells
+      , runtime: s.runtime
+      }
+    bodyJson = stringify (CA.encode compileRequestCodec req)
+  result <- httpJson POST (backendUrl <> "/session/compile") bodyJson
+  case result of
+    Left err -> H.modify_ _
+      { compiling = false, transportError = Just err }
+    Right resp -> applyCompileResponse resp
+
+-- | Shared CompileResponse application: clear compiling, update
+-- | errors/warnings/types/ranges, re-decorate editors, dispatch to
+-- | the worker or fold in server-side emits, and snapshot the
+-- | server's view into lastSynced* so the next Compile can diff.
+applyCompileResponse
+  :: forall o m
+   . MonadAff m
+  => CompileResponse
+  -> H.HalogenM State Action Slots o m Unit
+applyCompileResponse (CompileResponse r) = do
+  let
+    typesMap = Map.fromFoldable
+      ( map (\(CellType ct) -> Tuple ct.id ct.signature) r.types )
+    UserModule rm = r."module"
+    syncedCells = Map.fromFoldable
+      ( map (\(Cell c) -> Tuple c.id { source: c.source, kind: c.kind }) r.cells )
+  H.modify_ _
+    { compiling = false
+    , errors = r.errors
+    , warnings = r.warnings
+    , cellRanges = r.cellLines
+    , cellTypes = typesMap
+    , lastSyncedModule = rm.source
+    , lastSyncedCells = syncedCells
+    , lastSyncedRuntime = r.runtime
+    }
+  decorateErrors r.errors r.cellLines
+  if not (Array.null r.emits) then do
+    teardownExecution
+    H.modify_ \s' ->
+      let decoded = Map.fromFoldable
+            ( map (\(CellEmit e) -> Tuple e.id (Value.parse e.value)) r.emits )
+      in s' { cellResults = decoded }
+  else case r.js of
+    Nothing -> teardownExecution
+    Just js -> startExecution js
+
+-- | Affjax wrapper: fires an HTTP request with a JSON body (may be
+-- | empty string for GETs), decodes the response as a CompileResponse,
+-- | and collapses transport + decode failures into a single Left.
+httpJson
+  :: forall m
+   . MonadAff m
+  => Method
+  -> String
+  -> String
+  -> m (Either String CompileResponse)
+httpJson method url bodyJson = do
+  result <- H.liftAff $ AX.request $ AX.defaultRequest
+    { method = Left method
+    , url = url
+    , responseFormat = RF.json
+    , content = if Str.null bodyJson then Nothing else Just (RB.string bodyJson)
+    }
+  pure case result of
+    Left err -> Left (AX.printError err)
+    Right { body } -> case CA.decode compileResponseCodec body of
+      Left decodeErr -> Left ("decode: " <> CA.printJsonDecodeError decodeErr)
+      Right resp -> Right resp
+
+-- | Build a JSON object from a list of string-keyed string values.
+-- | We roll this by hand instead of reaching for a codec because each
+-- | endpoint takes a different tiny shape and codecs would be more
+-- | ceremony than the endpoint bodies deserve.
+encodeJsonObject :: Array (Tuple String String) -> Json
+encodeJsonObject pairs =
+  AJ.fromObject (Object.fromFoldable (map encodeEntry pairs))
+  where
+  encodeEntry (Tuple k v) = Tuple k (AJ.fromString v)
 
 -- | Initial page load: pull the server's session so a second Claude's
 -- | writes survive a force-reload. If the server is at its pristine
@@ -463,6 +589,8 @@ applyRemote r = do
       cellRecs = map (\(Cell c) -> { id: c.id, kind: c.kind, source: c.source }) r.cells
       resultsMap = Map.fromFoldable
         ( map (\(CellEmit e) -> Tuple e.id (Value.parse e.value)) r.emits )
+      syncedCells = Map.fromFoldable
+        ( map (\(Cell c) -> Tuple c.id { source: c.source, kind: c.kind }) r.cells )
   H.modify_ _
     { moduleSource = rm.source
     , cells = cellRecs
@@ -472,6 +600,9 @@ applyRemote r = do
     , cellRanges = r.cellLines
     , errors = r.errors
     , warnings = r.warnings
+    , lastSyncedModule = rm.source
+    , lastSyncedCells = syncedCells
+    , lastSyncedRuntime = r.runtime
     }
   decorateErrors r.errors r.cellLines
   if not (Array.null r.emits) then
