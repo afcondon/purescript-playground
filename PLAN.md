@@ -646,22 +646,23 @@ friction other Claude flagged in the eval.
   `POST /session/module` / `PATCH /session/cells/:id` instead of
   `POST /session/compile`. Cell-source edits no longer clobber
   other fields; see commit 8d8cc81 for the limitation boundary.
+- Frontend-emitted structured module PATCHes — module text edits
+  now diff against lastSynced and emit `appendBody` /
+  `replaceRange` instead of full-source POST (366667d). Closes
+  most of the Drive-mode module-text collision window; pure
+  insertions and pure deletions still fall back to full replace.
+- `GET /session/types` — narrow read, no ~60KB bundle (950938f).
+- `POST /session/export` + `POST /session/import` — portable
+  snapshot of the input slice (module + cells + runtime),
+  round-trippable without derived cruft (acddadc).
 
 **Still queued:**
 
-- Frontend-emitted structured module PATCHes — computing
-  `addImport` / `appendBody` / `replaceRange` from the buffer's
-  diff instead of POSTing the full module source. Closes the
-  last Drive-mode clobber window (human + agent both editing
-  module text).
 - Granular cell lifecycle from the UI — AddCell / RemoveCell /
   ToggleKind currently fall back to full compile because they'd
   need the frontend to let the server assign cell ids.
-- `POST /session/export` + `POST /session/import`, plus
-  `GET /sessions` history. First-class checkpointing; eliminates
-  the hand-rolled `checkpoint.json`/`replay.py` reflex.
-- `GET /session/types` — narrow read for tight type-checking loops
-  where `js` (~80KB) is pure overhead.
+- `GET /sessions` history — persistent checkpoint listing, needs
+  on-disk storage. Skipped in the 2026-04-19 export/import pass.
 - Doc additions: shell-quoting warning (`\` in POST bodies, Python
   raw-string prefix), let-cell composability example, the emit wire
   format (already landed in CLAUDE-PAIR.md).
