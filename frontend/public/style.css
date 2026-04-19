@@ -94,7 +94,7 @@ body {
   font-size: 0.75rem;
 }
 
-.starter-btn, .in-scope-btn {
+.starter-btn, .in-scope-btn, .drive-mode-btn {
   font: inherit;
   font-family: var(--sans);
   font-size: 0.75rem;
@@ -108,8 +108,12 @@ body {
 }
 
 .starter-btn:hover,
-.in-scope-btn:hover { background: #f4f4f1; }
+.in-scope-btn:hover,
+.drive-mode-btn:hover { background: #f4f4f1; }
 .in-scope-btn.active { background: var(--accent); color: #fdfdfc; border-color: var(--accent); }
+
+.drive-mode-btn.drive-mode-driving { background: var(--accent); color: #fdfdfc; border-color: var(--accent); }
+.drive-mode-btn.drive-mode-observing { background: transparent; color: var(--fg); }
 
 .starter-menu {
   position: absolute;

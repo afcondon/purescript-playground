@@ -6,6 +6,7 @@ module Playground.Frontend.CodeMirror
   , setContent
   , destroy
   , setErrors
+  , setEditable
   ) where
 
 import Prelude
@@ -43,6 +44,8 @@ foreign import _destroy :: EditorView -> Effect Unit
 
 foreign import _setErrors :: EditorView -> Array ErrorSpan -> Effect Unit
 
+foreign import _setEditable :: EditorView -> Boolean -> Effect Unit
+
 -- | Hover-tooltip renderer: parses a `purs ide` type string and emits
 -- | Sigil HTML. JS calls this synchronously from the hover callback;
 -- | falls back to a plain `<code>` if Sigil can't parse the input.
@@ -64,6 +67,9 @@ createEditor el initialDoc onChange =
 
 setErrors :: EditorView -> Array ErrorSpan -> Effect Unit
 setErrors = _setErrors
+
+setEditable :: EditorView -> Boolean -> Effect Unit
+setEditable = _setEditable
 
 getContent :: EditorView -> Effect String
 getContent = _getContent

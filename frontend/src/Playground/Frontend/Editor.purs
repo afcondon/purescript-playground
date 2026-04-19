@@ -25,10 +25,12 @@ type Input = { initialDoc :: String, tag :: String }
 data Output = Changed String
 
 -- | External queries: replace content (unused now), push a list of
--- | inline error spans to be decorated on the editor.
+-- | inline error spans to be decorated on the editor, toggle
+-- | whether the view accepts user input.
 data Query a
   = ReplaceContent String a
   | SetErrors (Array CM.ErrorSpan) a
+  | SetEditable Boolean a
 
 data Action
   = Initialise
@@ -133,5 +135,12 @@ handleQuery = case _ of
     case state.view of
       Just view -> do
         liftEffect (CM.setErrors view spans)
+        pure (Just next)
+      Nothing -> pure (Just next)
+  SetEditable editable next -> do
+    state <- H.get
+    case state.view of
+      Just view -> do
+        liftEffect (CM.setEditable view editable)
         pure (Just next)
       Nothing -> pure (Just next)

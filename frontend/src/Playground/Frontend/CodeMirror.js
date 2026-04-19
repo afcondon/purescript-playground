@@ -1,5 +1,12 @@
 import { EditorView, keymap, lineNumbers, drawSelection, hoverTooltip, Decoration } from '@codemirror/view';
-import { EditorState, StateField, StateEffect, Annotation } from '@codemirror/state';
+import { EditorState, StateField, StateEffect, Annotation, Compartment } from '@codemirror/state';
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import {
+  bracketMatching, indentOnInput, StreamLanguage,
+  syntaxHighlighting, HighlightStyle,
+} from '@codemirror/language';
+import { haskell } from '@codemirror/legacy-modes/mode/haskell';
+import { tags as t } from '@lezer/highlight';
 
 // Marks transactions we originate from PureScript (setContent /
 // setErrors) so the updateListener below can distinguish them from
@@ -8,13 +15,13 @@ import { EditorState, StateField, StateEffect, Annotation } from '@codemirror/st
 // re-render with stale state and call _setContent again — a classic
 // CM6/parent-state ping-pong.
 const programmaticAnnotation = Annotation.define();
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-import {
-  bracketMatching, indentOnInput, StreamLanguage,
-  syntaxHighlighting, HighlightStyle,
-} from '@codemirror/language';
-import { haskell } from '@codemirror/legacy-modes/mode/haskell';
-import { tags as t } from '@lezer/highlight';
+
+// Compartment wrapping the EditorView.editable facet so we can
+// reconfigure the editor between editable/read-only at runtime
+// without rebuilding the whole state. A single Compartment identity
+// is shared across all views — it acts as a key that CM uses to
+// find the compartment within each view's own state.
+const editableCompartment = new Compartment();
 
 // Light syntax-highlight theme keyed to the page palette.
 // Swiss-style: a small, muted set of hues that carry meaning without
@@ -193,6 +200,7 @@ export const _createEditor = (parent) => (initialDoc) => (onChange) => (renderTy
         StreamLanguage.define(haskell),
         syntaxHighlighting(playgroundHighlightStyle),
         errorsField,
+        editableCompartment.of(EditorView.editable.of(true)),
         typeHover,
         EditorView.updateListener.of((update) => {
           // onChange is an EffectFn1 — call once, no trailing thunk.
@@ -228,3 +236,9 @@ export const _setContent = (view) => (content) => () => {
 };
 
 export const _destroy = (view) => () => view.destroy();
+
+export const _setEditable = (view) => (editable) => () => {
+  view.dispatch({
+    effects: editableCompartment.reconfigure(EditorView.editable.of(editable)),
+  });
+};

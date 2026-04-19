@@ -79,6 +79,11 @@ type State =
   , worker :: Maybe Worker
   , workerSub :: Maybe H.SubscriptionId
   , workerTimeout :: Maybe H.ForkId
+  , driveMode :: Boolean            -- true: human is driving, suppress
+                                     -- agent-writes from the poll loop
+                                     -- and keep editors editable. false:
+                                     -- observe agent writes live, editors
+                                     -- are read-only.
   }
 
 type Slots =
@@ -108,6 +113,7 @@ data Action
   | ToggleStarterMenu
   | LoadStarter String
   | ToggleInScope
+  | ToggleDriveMode
   | HandleWorkerMessage WorkerMessage
   | WorkerTimeout
   | PollServer              -- 2s tick — pull remote snapshot, apply
@@ -137,6 +143,7 @@ initialState _ =
      , worker: Nothing
      , workerSub: Nothing
      , workerTimeout: Nothing
+     , driveMode: true
      }
   where
   -- Cell ids are "c1", "c2", …; pick an int strictly above the
@@ -223,6 +230,16 @@ handleAction = case _ of
         }
       handleAction ScheduleCompile
   ToggleInScope -> H.modify_ \s -> s { inScopeOpen = not s.inScopeOpen }
+  ToggleDriveMode -> do
+    s <- H.get
+    let newMode = not s.driveMode
+    H.modify_ _ { driveMode = newMode }
+    -- Propagate to every live editor so CM6 updates its read-only
+    -- state. Cells in state reflect what Halogen knows about; any
+    -- slot-mounted editor with an id in that list receives the tell.
+    _ <- H.tell _moduleEditor unit (Editor.SetEditable newMode)
+    for_ s.cells \c ->
+      H.tell _cellEditor c.id (Editor.SetEditable newMode)
   ScheduleCompile -> do
     s <- H.get
     case s.pendingCompile of
@@ -372,7 +389,11 @@ pollRemote
 pollRemote = do
   s <- H.get
   now <- H.liftEffect nowMs
-  when (now - s.lastUserEditAt > 2000.0) do
+  -- Skip entirely when the human is driving: agent writes sit on
+  -- the server until they toggle to Observe. Idle check otherwise
+  -- prevents the remote's stale-by-one-keystroke state from
+  -- fighting active typing every 2s.
+  when (not s.driveMode && now - s.lastUserEditAt > 2000.0) do
     result <- H.liftAff $ AX.request $ AX.defaultRequest
       { method = Left GET
       , url = backendUrl <> "/session"
@@ -630,6 +651,21 @@ renderHeader state =
         , runtimeButton state "node" "Node"
         , runtimeButton state "purerl" "Purerl"
         ]
+    , HH.button
+        [ HP.class_
+            ( H.ClassName
+                ( "drive-mode-btn"
+                    <> (if state.driveMode then " drive-mode-driving" else " drive-mode-observing")
+                )
+            )
+        , HP.title
+            ( if state.driveMode
+                then "You are driving. Agent writes are held on the server; click to observe them live."
+                else "You are observing. Click to take over; agent writes will be suppressed."
+            )
+        , HE.onClick \_ -> ToggleDriveMode
+        ]
+        [ HH.text (if state.driveMode then "● Drive" else "○ Observe") ]
     , HH.button
         [ HP.class_
             ( H.ClassName
