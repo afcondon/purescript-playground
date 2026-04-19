@@ -16,7 +16,9 @@ import Data.Either (Either(..))
 import Data.HTTP.Method (Method(..))
 import Data.Map (Map)
 import Data.Map as Map
+import Data.Int (toNumber)
 import Data.Maybe (Maybe(..), fromMaybe)
+import Data.String.Pattern (Pattern(..))
 import Data.Traversable (for)
 import Data.Tuple (Tuple(..))
 import Data.Time.Duration (Milliseconds(..))
@@ -345,9 +347,7 @@ runGranularCompile s = do
     else do
       moduleResp <-
         if moduleDirty
-          then Just <$> httpJson POST
-            (backendUrl <> "/session/module")
-            (stringify (encodeJsonObject [ Tuple "source" s.moduleSource ]))
+          then Just <$> sendModuleEdit s.lastSyncedModule s.moduleSource
           else pure Nothing
       cellResps <- for cellsDirty \c -> httpJson PATCH
         (backendUrl <> "/session/cells/" <> c.id)
@@ -358,6 +358,102 @@ runGranularCompile s = do
         Just (Left err) -> H.modify_ _
           { compiling = false, transportError = Just err }
         Nothing -> H.modify_ _ { compiling = false }
+
+-- | Turn a user-driven module text edit into the narrowest PATCH the
+-- | server will accept, so concurrent agent edits to untouched lines
+-- | survive. Three branches, in order of specificity:
+-- |   - Pure-append (new == old ++ suffix): PATCH appendBody.
+-- |   - Single contiguous line range diff: PATCH replaceRange.
+-- |   - Anything else (pure line insertion, tangled multi-range edit):
+-- |     fall back to POST /session/module, which is a full replace.
+sendModuleEdit
+  :: forall m
+   . MonadAff m
+  => String
+  -> String
+  -> m (Either String CompileResponse)
+sendModuleEdit old new =
+  case computeModuleDiff old new of
+    DiffAppend suffix -> httpJson PATCH
+      (backendUrl <> "/session/module")
+      (stringify (encodeJsonObject [ Tuple "appendBody" suffix ]))
+    DiffReplaceRange sl el text -> httpJson PATCH
+      (backendUrl <> "/session/module")
+      (stringify (encodeReplaceRange sl el text))
+    DiffFullReplace -> httpJson POST
+      (backendUrl <> "/session/module")
+      (stringify (encodeJsonObject [ Tuple "source" new ]))
+  where
+  encodeReplaceRange sl el text =
+    AJ.fromObject (Object.fromFoldable
+      [ Tuple "replaceRange"
+          (AJ.fromObject (Object.fromFoldable
+            [ Tuple "startLine" (AJ.fromNumber (toNumber sl))
+            , Tuple "endLine" (AJ.fromNumber (toNumber el))
+            , Tuple "text" (AJ.fromString text)
+            ]))
+      ])
+
+-- | Categorised line-level diff between two strings. `DiffAppend`
+-- | strictly extends the old source; `DiffReplaceRange` swaps in a
+-- | single contiguous run of lines; `DiffFullReplace` is the "too
+-- | tangled for a single PATCH" bucket.
+data ModuleDiff
+  = DiffAppend String
+  | DiffReplaceRange Int Int String
+  | DiffFullReplace
+
+computeModuleDiff :: String -> String -> ModuleDiff
+computeModuleDiff old new =
+  if pureAppend
+    then DiffAppend (Str.drop (Str.length old) new)
+    else
+      let
+        oldLines = Str.split (Pattern "\n") old
+        newLines = Str.split (Pattern "\n") new
+        oldLen = Array.length oldLines
+        newLen = Array.length newLines
+        prefix = lcpLines oldLines newLines
+        -- Cap the suffix scan so it can't overlap the prefix in
+        -- either array.
+        capped = min (oldLen - prefix) (newLen - prefix)
+        suffix = lcsLines oldLines newLines capped
+        startLine = prefix + 1
+        endLine = oldLen - suffix
+        newSlice = Array.slice prefix (newLen - suffix) newLines
+        text = Str.joinWith "\n" newSlice
+      in
+        -- Two cases that can't round-trip through replaceRange:
+        --   - `endLine < startLine` means a pure insertion (zero
+        --     lines replaced by new text) — replaceRange requires
+        --     endLine >= startLine.
+        --   - `text == ""` with a range that actually has lines in
+        --     it means a pure deletion; the server's replaceLineRange
+        --     would insert an empty line rather than collapse, which
+        --     would make our next diff fire again (ping-pong).
+        -- Both fall back to the full-replace POST.
+        if endLine < startLine || Str.null text
+          then DiffFullReplace
+          else DiffReplaceRange startLine endLine text
+  where
+  pureAppend =
+    Str.length new > Str.length old
+      && Str.take (Str.length old) new == old
+  lcpLines xs ys = go 0
+    where
+    go i
+      | i >= Array.length xs = i
+      | i >= Array.length ys = i
+      | Array.index xs i /= Array.index ys i = i
+      | otherwise = go (i + 1)
+  lcsLines xs ys cap = go 0
+    where
+    xLen = Array.length xs
+    yLen = Array.length ys
+    go i
+      | i >= cap = i
+      | Array.index xs (xLen - 1 - i) /= Array.index ys (yLen - 1 - i) = i
+      | otherwise = go (i + 1)
 
 -- | Fallback path: POST the full state to /session/compile, let the
 -- | server `replaceAll` its view to match ours. Only runs when the
