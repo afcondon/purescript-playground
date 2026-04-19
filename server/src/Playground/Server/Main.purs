@@ -28,8 +28,10 @@ import Playground.Server.Session (ModulePatch(..), SessionStore)
 import Playground.Server.Session as Session
 import Data.String as String
 import Playground.Session
-  ( CellType
+  ( Cell
+  , CellType
   , CompileError(..)
+  , CompileRequest(..)
   , CompileResponse(..)
   , IdeHit
   , IdeQuery(..)
@@ -51,6 +53,8 @@ data Route
   | SessionCellAt String
   | SessionRuntime
   | SessionTypes
+  | SessionExport
+  | SessionImport
   | IdeType
   | IdeComplete
   | IdeSearch
@@ -67,6 +71,8 @@ route = root $ sum
   , "SessionCellAt": "session" / "cells" / segment
   , "SessionRuntime": "session" / "runtime" / noArgs
   , "SessionTypes": "session" / "types" / noArgs
+  , "SessionExport": "session" / "export" / noArgs
+  , "SessionImport": "session" / "import" / noArgs
   , "IdeType": "ide" / "type" / noArgs
   , "IdeComplete": "ide" / "complete" / noArgs
   , "IdeSearch": "ide" / "search" / noArgs
@@ -188,6 +194,15 @@ typesResponseJson :: Array CellType -> String
 typesResponseJson types =
   stringify (CA.encode (CAR.object "TypesResponse" { types: CA.array cellTypeCodec }) { types })
 
+-- | Serialise just the *input* slice of the session state as a
+-- | CompileRequest — the portable shape that `POST /session/import`
+-- | accepts. Derived fields (errors, warnings, js, emits) are
+-- | recomputable and intentionally absent from the exported shape.
+compileRequestJson :: UserModule -> Array Cell -> String -> String
+compileRequestJson m cs r =
+  stringify (CA.encode compileRequestCodec
+    (CompileRequest { "module": m, cells: cs, runtime: r }))
+
 parseBody
   :: forall a
    . JsonCodec a
@@ -299,6 +314,18 @@ mkRouter store { route: r, method, body } =
       SessionTypes -> do
         CompileResponse r <- liftEffect (Session.get store)
         ok' jsonCors (typesResponseJson r.types)
+
+      SessionExport -> do
+        CompileResponse r <- liftEffect (Session.get store)
+        ok' jsonCors (compileRequestJson r."module" r.cells r.runtime)
+
+      SessionImport -> do
+        bodyStr <- toString body
+        case parseBody compileRequestCodec bodyStr of
+          Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
+          Right req -> do
+            resp <- liftAff (Session.replaceAll store req)
+            ok' jsonCors (snapshotJson resp)
 
       IdeType -> do
         bodyStr <- toString body
