@@ -632,13 +632,34 @@ HTTP API surface is untouched.
 Pure additions, no architectural change. Closes the practitioner
 friction other Claude flagged in the eval.
 
-- `PATCH /session/module` — structured edits: `{addImport: "X"}`,
-  `{appendBody: "..."}`, `{replaceRange: {startLine, endLine, text}}`.
-  Replaces the current full-body POST for small changes; kills the
-  "GET, string-replace in Python, POST back" lurch.
+**Landed 2026-04-19:**
+
+- `PATCH /session/module` — server accepts structured edits:
+  `{addImport: "X"}`, `{appendBody: "..."}`,
+  `{replaceRange: {startLine, endLine, text}}`. Agent-side the
+  round-trip is now surgical; no more "GET, string-replace in
+  Python, POST back."
+- Drive/Observe toggle — human picks between driving (agent writes
+  held on server until the human yields) and observing (agent
+  writes applied live, editors read-only).
+- Frontend granular compile — text edits now hit
+  `POST /session/module` / `PATCH /session/cells/:id` instead of
+  `POST /session/compile`. Cell-source edits no longer clobber
+  other fields; see commit 8d8cc81 for the limitation boundary.
+
+**Still queued:**
+
+- Frontend-emitted structured module PATCHes — computing
+  `addImport` / `appendBody` / `replaceRange` from the buffer's
+  diff instead of POSTing the full module source. Closes the
+  last Drive-mode clobber window (human + agent both editing
+  module text).
+- Granular cell lifecycle from the UI — AddCell / RemoveCell /
+  ToggleKind currently fall back to full compile because they'd
+  need the frontend to let the server assign cell ids.
 - `POST /session/export` + `POST /session/import`, plus
-  `GET /sessions` history. First-class checkpointing; eliminates the
-  hand-rolled `checkpoint.json`/`replay.py` reflex.
+  `GET /sessions` history. First-class checkpointing; eliminates
+  the hand-rolled `checkpoint.json`/`replay.py` reflex.
 - `GET /session/types` — narrow read for tight type-checking loops
   where `js` (~80KB) is pure overhead.
 - Doc additions: shell-quoting warning (`\` in POST bodies, Python
