@@ -22,8 +22,9 @@ import Routing.Duplex (RouteDuplex', root, segment)
 import Routing.Duplex.Generic (noArgs, sum)
 import Routing.Duplex.Generic.Syntax ((/))
 
+import Data.Int as Int
 import Playground.Server.Ide as Ide
-import Playground.Server.Session (SessionStore)
+import Playground.Server.Session (ModulePatch(..), SessionStore)
 import Playground.Server.Session as Session
 import Data.String as String
 import Playground.Session
@@ -103,6 +104,50 @@ parseCellPatch raw = case jsonParser raw of
 
 runtimeBodyCodec :: JsonCodec { runtime :: String }
 runtimeBodyCodec = CAR.object "RuntimeBody" { runtime: CA.string }
+
+-- | PATCH /session/module body decoder. Body must be a JSON object
+-- | containing exactly one of:
+-- |   {"addImport": "Data.Array"}
+-- |   {"appendBody": "...source..."}
+-- |   {"replaceRange": {"startLine": N, "endLine": M, "text": "..."}}
+parseModulePatch :: String -> Either String ModulePatch
+parseModulePatch raw = case jsonParser raw of
+  Left e -> Left ("bad JSON: " <> e)
+  Right j -> case toObject j of
+    Nothing -> Left "bad request: expected a JSON object"
+    Just o ->
+      case Object.lookup "addImport" o, Object.lookup "appendBody" o, Object.lookup "replaceRange" o of
+        Just v, Nothing, Nothing -> case AJ.toString v of
+          Just s -> Right (AddImport s)
+          Nothing -> Left "addImport must be a string"
+        Nothing, Just v, Nothing -> case AJ.toString v of
+          Just s -> Right (AppendBody s)
+          Nothing -> Left "appendBody must be a string"
+        Nothing, Nothing, Just v -> parseReplaceRange v
+        Nothing, Nothing, Nothing ->
+          Left "expected one of: addImport, appendBody, replaceRange"
+        _, _, _ ->
+          Left "expected exactly one of: addImport, appendBody, replaceRange"
+  where
+  parseReplaceRange v = case toObject v of
+    Nothing -> Left "replaceRange must be an object"
+    Just o -> do
+      sl <- pickInt "startLine" o
+      el <- pickInt "endLine" o
+      tx <- pickStr "text" o
+      pure (ReplaceRange { startLine: sl, endLine: el, text: tx })
+  pickInt key o = case Object.lookup key o of
+    Nothing -> Left ("missing field: " <> key)
+    Just v -> case AJ.toNumber v of
+      Nothing -> Left (key <> " must be a number")
+      Just n -> case Int.fromNumber n of
+        Just i -> Right i
+        Nothing -> Left (key <> " must be a non-fractional number")
+  pickStr key o = case Object.lookup key o of
+    Nothing -> Left ("missing field: " <> key)
+    Just v -> case AJ.toString v of
+      Just s -> Right s
+      Nothing -> Left (key <> " must be a string")
 
 -- ============================================================
 -- Response assembly
@@ -191,13 +236,24 @@ mkRouter store { route: r, method, body } =
             Right req -> liftAff (Session.replaceAll store req)
         ok' jsonCors (snapshotJson resp)
 
-      SessionModule -> do
-        bodyStr <- toString body
-        case parseBody moduleBodyCodec bodyStr of
-          Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
-          Right { source } -> do
-            resp <- liftAff (Session.updateModule store (UserModule { source }))
-            ok' jsonCors (snapshotJson resp)
+      SessionModule -> case method of
+        Post -> do
+          bodyStr <- toString body
+          case parseBody moduleBodyCodec bodyStr of
+            Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
+            Right { source } -> do
+              resp <- liftAff (Session.updateModule store (UserModule { source }))
+              ok' jsonCors (snapshotJson resp)
+        Patch -> do
+          bodyStr <- toString body
+          case parseModulePatch bodyStr of
+            Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
+            Right patch -> do
+              result <- liftAff (Session.patchModule store patch)
+              case result of
+                Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
+                Right resp -> ok' jsonCors (snapshotJson resp)
+        _ -> ok' jsonCors (errorSnapshotJson "MethodNotAllowed" "module endpoint accepts POST or PATCH")
 
       SessionCellAppend -> do
         bodyStr <- toString body

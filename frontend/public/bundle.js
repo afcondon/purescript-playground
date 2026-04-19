@@ -36358,14 +36358,14 @@
                       var $334 = !$$null2(v12.value0.emits);
                       if ($334) {
                         return discard7(teardownExecution1)(function() {
-                          return modify_4(function(s1) {
+                          return modify_4(function(s$prime) {
                             var decoded = fromFoldable8(map36(function(v2) {
                               return new Tuple(v2.id, parse7(v2.value));
                             })(v12.value0.emits));
                             var $336 = {};
-                            for (var $337 in s1) {
-                              if ({}.hasOwnProperty.call(s1, $337)) {
-                                $336[$337] = s1[$337];
+                            for (var $337 in s$prime) {
+                              if ({}.hasOwnProperty.call(s$prime, $337)) {
+                                $336[$337] = s$prime[$337];
                               }
                               ;
                             }

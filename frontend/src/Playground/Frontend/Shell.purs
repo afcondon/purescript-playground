@@ -274,10 +274,10 @@ handleAction = case _ of
           --   - Browser / client-side: we get JS, run it in a Worker.
           if not (Array.null r.emits) then do
             teardownExecution
-            H.modify_ \s ->
+            H.modify_ \s' ->
               let decoded = Map.fromFoldable
                     ( map (\(CellEmit e) -> Tuple e.id (Value.parse e.value)) r.emits )
-              in s { cellResults = decoded }
+              in s' { cellResults = decoded }
           else case r.js of
             Nothing -> teardownExecution
             Just js -> startExecution js

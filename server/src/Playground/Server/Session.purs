@@ -1,20 +1,24 @@
 module Playground.Server.Session
   ( SessionStore
+  , ModulePatch(..)
   , newStore
   , get
   , compileAndStore
   , replaceAll
   , updateModule
+  , patchModule
   , appendCell
   , updateCell
   , removeCell
   , setRuntime
+  , applyModulePatch
   ) where
 
 import Prelude
 
 import Data.Array (filter, findIndex, modifyAt, snoc)
 import Data.Array as Array
+import Data.Either (Either(..))
 import Data.Int (fromString) as Int
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String as Str
@@ -40,6 +44,21 @@ import Playground.Session
   , CompileResponse(..)
   , UserModule(..)
   )
+
+-- | A structured edit to the user module's source. PATCH /session/module
+-- | takes one of these and applies it under the session lock without
+-- | requiring the agent to GET → string-replace → POST the whole body.
+data ModulePatch
+  = AddImport String
+  -- ^ Add `import <name>` after the last existing import line (or after
+  -- the module header if none). No-op if the import is already present
+  -- under any form (`import X`, `import X (...)`, `import X as Y`).
+  | AppendBody String
+  -- ^ Append text to the end of the module source, with a separating
+  -- newline if the source doesn't already end in one.
+  | ReplaceRange { startLine :: Int, endLine :: Int, text :: String }
+  -- ^ Replace lines [startLine, endLine] (1-indexed, inclusive) with
+  -- `text`. `text` may itself contain newlines (multi-line replacement).
 
 -- | Live session state: the human's (or Claude's) last-submitted
 -- | inputs plus the most recent compile's derived outputs. A single
@@ -177,6 +196,104 @@ replaceAll store (CompileRequest r) = withUpdate store \s -> s
 
 updateModule :: SessionStore -> UserModule -> Aff CompileResponse
 updateModule store m = withUpdate store _ { "module" = m }
+
+-- | Apply a structured edit to the current module source. Returns
+-- | `Left` (with a diagnostic message) when the patch is invalid
+-- | against the current source (e.g. ReplaceRange out of bounds);
+-- | otherwise applies the patch, recompiles, and returns the new
+-- | snapshot. Lock semantics match `withUpdate`.
+patchModule
+  :: SessionStore
+  -> ModulePatch
+  -> Aff (Either String CompileResponse)
+patchModule (SessionStore { lock, state }) patch = do
+  _ <- AVar.take lock
+  Aff.finally (AVar.put unit lock) do
+    s0 <- liftEffect (Ref.read state)
+    let UserModule m = s0."module"
+    case applyModulePatch patch m.source of
+      Left err -> pure (Left err)
+      Right newSrc -> do
+        let s1 = s0 { "module" = UserModule { source: newSrc } }
+        liftEffect (Ref.write s1 state)
+        resp <- compileNow s1
+        liftEffect $ Ref.modify_ (_ { lastResponse = Just resp }) state
+        pure (Right resp)
+
+-- | Pure: apply a `ModulePatch` to a source string. Exposed for
+-- | testability.
+applyModulePatch :: ModulePatch -> String -> Either String String
+applyModulePatch patch src = case patch of
+  AddImport name ->
+    if hasImport name src
+      then Right src
+      else Right (insertImport name src)
+  AppendBody text ->
+    Right (ensureTrailingNewline src <> text)
+  ReplaceRange { startLine, endLine, text } ->
+    replaceLineRange startLine endLine text src
+
+-- | Match `import <name>` ignoring trailing qualifiers/aliases. Lines
+-- | are trimmed before comparison.
+hasImport :: String -> String -> Boolean
+hasImport name src =
+  Array.any matches (Str.split (Pattern "\n") src)
+  where
+  prefix = "import " <> name
+  matches line = case Str.stripPrefix (Pattern prefix) (Str.trim line) of
+    Nothing -> false
+    Just rest ->
+      Str.length rest == 0
+        || Str.take 1 rest == " "
+        || Str.take 1 rest == "\t"
+        || Str.take 1 rest == "("
+
+-- | Insert `import <name>` after the last existing import line. If
+-- | there are no imports, insert after the `module ... where` header.
+-- | If there's no header either, prepend the line.
+insertImport :: String -> String -> String
+insertImport name src =
+  let lines = Str.split (Pattern "\n") src
+      newLine = "import " <> name
+      anchor = case Array.findLastIndex isImport lines of
+        Just i -> Just i
+        Nothing -> Array.findIndex isModuleHeader lines
+  in case anchor of
+       Just i ->
+         Str.joinWith "\n"
+           (Array.take (i + 1) lines <> [ newLine ] <> Array.drop (i + 1) lines)
+       Nothing -> newLine <> "\n" <> src
+  where
+  isImport l = case Str.stripPrefix (Pattern "import ") (Str.trim l) of
+    Just _ -> true
+    Nothing -> false
+  isModuleHeader l = case Str.stripPrefix (Pattern "module ") (Str.trim l) of
+    Just _ -> true
+    Nothing -> false
+
+ensureTrailingNewline :: String -> String
+ensureTrailingNewline s
+  | Str.length s == 0 = s
+  | Str.take 1 (Str.drop (Str.length s - 1) s) == "\n" = s
+  | otherwise = s <> "\n"
+
+-- | Replace lines [startLine, endLine] (1-indexed, inclusive) with
+-- | `text`. `text` may itself contain newlines.
+replaceLineRange :: Int -> Int -> String -> String -> Either String String
+replaceLineRange startLine endLine text src
+  | startLine < 1 = Left ("startLine must be >= 1 (got " <> show startLine <> ")")
+  | endLine < startLine =
+      Left ("endLine (" <> show endLine <> ") must be >= startLine (" <> show startLine <> ")")
+  | otherwise =
+      let lines = Str.split (Pattern "\n") src
+          n = Array.length lines
+      in if endLine > n
+           then Left ("endLine " <> show endLine <> " exceeds line count " <> show n)
+           else
+             let before = Array.take (startLine - 1) lines
+                 after = Array.drop endLine lines
+                 inserted = Str.split (Pattern "\n") text
+             in Right $ Str.joinWith "\n" (before <> inserted <> after)
 
 appendCell :: SessionStore -> { source :: String, kind :: String } -> Aff CompileResponse
 appendCell store { source, kind } = withUpdate store \s ->

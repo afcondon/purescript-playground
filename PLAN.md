@@ -478,6 +478,155 @@ the agent's existing workflows (days); B opens a new output
 dimension (weeks); C is an architectural shift (weeks); D can run
 parallel to C; E is the longest horizon.
 
+Forward-looking ideas that haven't been assigned a phase yet
+(sidecar UI delivery, `purs ide rebuild` as a perf lever,
+content-addressed cell IDs) live in
+[EVAL-NOTES.md](./EVAL-NOTES.md) under the 2026-04-19 section.
+
+### Phase A0 — Architectural prerequisite: Aff-isolated editor
+
+Uncovered 2026-04-19 while attempting a Drive/Observe frontend
+toggle (to let the human "grab the conch" and stop the frontend's
+auto-compile racing with the agent's API writes). The toggle
+itself is a tiny feature, but implementing it exposed a livelock
+in the existing editor↔Shell coupling: clicking into the editor
+in Drive mode + typing hung the whole app. Pausing the debugger
+caught the Aff scheduler (`run3` / par-trampoline) busy in
+different locations each time — classic livelock, not deadlock.
+
+The attempt was reverted; this section captures the refactor
+needed before Drive/Observe (or any lock protocol between
+parent and editor) can be re-attempted safely.
+
+#### The problem: Input-as-sync
+
+Today the Editor is a Halogen child component. Its CM6 view is
+driven by:
+
+- **Down**: `Shell` re-renders on state change, passes a new
+  `Input { initialDoc, tag }` to the `HH.slot _moduleEditor`.
+  Editor's `receive` handler fires `UpdateInput`, which compares
+  `input.initialDoc` against its own `currentDoc`. On mismatch it
+  calls `CM.setContent`, which dispatches a doc-replace
+  transaction into the CM6 view.
+- **Up**: on user typing, CM6's `updateListener` fires
+  `onChange(newContent)`. Editor's `HandleChange` action sets
+  `currentDoc` and raises `Changed`. Shell handles it as
+  `ModuleChanged`, stamps an edit, modifies `moduleSource`,
+  schedules a debounced compile.
+
+This is cheap *when nothing else is writing*, but the sync
+mechanism is the `Input` record itself: Halogen's re-render
+behaviour determines when `receive` fires, and the Editor's
+reconciliation (setContent on mismatch) can — under the right
+ordering — feed its own `onChange` back through the parent.
+Fragile. The 2026-04-19 livelock was exactly this: a re-render
+cascade where each `setContent` from a mid-action state update
+re-triggered `onChange` → `ModuleChanged` → another state update
+→ another re-render → another `setContent`, ad infinitum.
+
+#### The target: Editor as an Aff-owned service
+
+The fix is to stop using `Input` as the sync channel. Instead:
+
+- The Editor owns the CM6 view and the authoritative doc string.
+  It is a long-lived Aff service (a fiber, or an Aff process
+  started during `Initialise`) — the Shell does **not** touch
+  the view directly through re-renders.
+- Communication between Shell and Editor is only through
+  explicit message channels: two `AVar`s (or an `HS.Emitter` pair,
+  or a queue abstraction). The wire types are explicit:
+  - **ShellToEditor** messages (Shell requests the Editor to do
+    something): `ReplaceDoc String`, `SetEditable Boolean`,
+    `SetErrors (Array ErrorSpan)`. Sent via an outbound AVar the
+    Editor reads.
+  - **EditorToShell** messages (the Editor notifies Shell of user
+    activity): `UserTyped String`. Sent via an inbound AVar the
+    Shell subscribes to.
+- Halogen's `Input` becomes a configuration bootstrap only —
+  passed on mount, never used as an ongoing sync mechanism. No
+  `receive`-driven reconciliation.
+- Only one writer at a time is allowed to mutate the doc:
+  - When the human is typing (local input), the Editor owns the
+    doc; Shell requests (`ReplaceDoc`) are buffered or rejected
+    until the user pauses.
+  - When the agent's write lands (via SSE or poll), Shell sends
+    `ReplaceDoc`; Editor updates its view and emits
+    `UserTyped` only for genuine *user* input, not for doc
+    changes it applied itself.
+
+This mirrors a proper actor/CSP pattern: each party has a single
+inbox, writes are linearised, and no loop can form because no
+party reacts to its own emissions.
+
+#### Concrete shape
+
+```
+                 ┌─────────────────┐
+                 │      Shell      │
+                 │  (Halogen root) │
+                 └───────┬─────────┘
+                         │
+         Shell→Editor    │    Editor→Shell
+         (AVar / queue)  │    (AVar / HS.Emitter)
+                         │
+                 ┌───────▼─────────┐
+                 │  Editor fiber   │       (owns CM6 view)
+                 │                 │
+                 │  - applies      │
+                 │    ReplaceDoc   │
+                 │  - decorates    │
+                 │    errors       │
+                 │  - emits        │
+                 │    UserTyped    │
+                 │  - toggles      │
+                 │    editable     │
+                 └─────────────────┘
+```
+
+- `ShellToEditor` is a buffered channel (multiple writes collapse
+  into the latest, so a burst of agent writes doesn't queue).
+- `EditorToShell` is a strict queue (every keystroke matters).
+- The Editor fiber's main loop: `forever $ race takeShellToEditor
+  waitForCMUpdate >>= applyOrForward`.
+
+#### What this unblocks
+
+- **Drive/Observe toggle** re-lands as Shell sending
+  `SetEditable Boolean`; no FFI Compartment fiddling needed at
+  the call site, because `SetEditable` is a regular message and
+  the Editor fiber applies it cleanly between its other work.
+- **Multi-client conch protocol** (multiple Claudes + human
+  races): the Shell↔Editor channel becomes the model for a
+  broader **Session↔Driver** channel. `POST /session/lock` with
+  client-ids becomes feasible because we already have the
+  discipline of "only one party can write, requests are
+  linearised."
+- **Sidecar mode** (EVAL-NOTES 2026-04-19): if the editor lives
+  in the user's editor-of-choice instead of in Atelier, the
+  Editor fiber abstraction lets us swap the CM6-owning fiber for
+  a file-watching fiber without the Shell noticing.
+
+#### Open questions (to resolve during design, not now)
+
+- `AVar` vs `HS.Emitter` vs custom Queue — which gives us
+  collapse-to-latest on the Shell→Editor side? May need a tiny
+  `LatestRef` helper.
+- Does the Editor fiber run inside Halogen's `HalogenM` (via
+  `subscribe`) or outside it (raw `Aff.forkAff`)? Halogen-inside
+  is more idiomatic; raw Aff is freer but loses Halogen's
+  subscription cleanup.
+- How do we express "the Editor is still initialising" in the
+  message shape? Send a `Ready` message first? Buffer Shell→Editor
+  until `Ready`?
+
+#### What this doesn't change
+
+The Halogen Shell still owns everything non-editor (runtime
+selector, compile state, errors panel, cells list structure,
+poll timer). Only the Editor component is re-architected. The
+HTTP API surface is untouched.
+
 ### Phase A — Finish the agent REPL's ergonomics
 
 Pure additions, no architectural change. Closes the practitioner
@@ -518,6 +667,21 @@ type-driven mime-dispatch upfront. If we later want type-driven
 representations (records get a table view automatically, etc.),
 promote the machinery from cell-kind to type-indexed without
 breaking the wire format.
+
+**The representation tag does double duty.** It's both a *render
+contract* (the viz pane knows how to display `image/svg+xml`)
+and a *wiring contract* — a future DAG cell consuming
+`text/x-bar-chart-data+json` plugs into anything producing it,
+*regardless of the underlying PureScript type*. PureScript type
+is the cell's *internal* implementation; representation tag is
+the *interchange* type. Two cells with different PS types can
+both produce `text/x-graph+json` and be DAG-compatible without
+sharing a typeclass — they share a *representation*. Phase B is
+therefore not just "add a viz pane" — it's introducing the type
+system the Phase E (ShapedSteer-inspired) DAG will run on.
+Probably wants a registered namespace
+(`application/x-hylograph.bar-chart-data+json` or similar) plus
+pluggable renderers + codecs per representation.
 
 - Values optionally carry
   `representations :: Array { mime :: String, data :: String }`
@@ -590,8 +754,14 @@ What transfers cleanly:
 - Adapter abstraction (browser / node / purerl) as a template for
   ShapedSteer's multiple executors; adding "human input" and "AI"
   executor cell-kinds is a natural extension there.
-- The ToPlaygroundValue + MIME-representations machinery from
-  Phase B — same dual-axis idea transfers directly.
+- The Phase B representation system *is* the wiring vocabulary.
+  Today's Atelier cell is the degenerate case of a ShapedSteer
+  node — implicit scope (whatever the module exports), no
+  declared inputs, single output. ShapedSteer adds declared
+  typed inputs to each cell, and the representation tags from
+  Phase B become the type system that wiring runs on. The
+  `ToPlaygroundValue` + MIME-representations machinery transfers
+  directly.
 - The Claude-pair HTTP API surface as a proof that
   agent-driven-by-default works; ShapedSteer's analogue of this is
   probably bigger surface but same shape.

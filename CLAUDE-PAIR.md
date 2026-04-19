@@ -140,6 +140,23 @@ Every write triggers a recompile. The response body is the full new session snap
 { "source": "module Scratch where\nimport Prelude\n\nfoo :: Int\nfoo = 42\n" }
 ```
 
+`PATCH /session/module` — structured edit, no need to GET → string-replace → POST the whole body. Body must contain exactly one of:
+
+```json
+{ "addImport": "Data.Array" }
+```
+Inserts `import Data.Array` after the last existing import (or after the `module ... where` header if none). No-op if any form of `import Data.Array...` is already present (`import X`, `import X (...)`, `import X as Y`).
+
+```json
+{ "appendBody": "\nfoo :: Int\nfoo = 42\n" }
+```
+Appends to the end of the module source, with a separating newline if the source doesn't already end in one.
+
+```json
+{ "replaceRange": { "startLine": 6, "endLine": 7, "text": "foo :: Int\nfoo = 99" } }
+```
+Replaces lines `[startLine, endLine]` (1-indexed, inclusive) with `text`. `text` may itself contain newlines (multi-line replacement). Out-of-bounds ranges return `BadRequest` in the response's `errors` field without modifying state.
+
 `POST /session/cells` — append a cell. Body:
 ```json
 { "source": "foo + 1", "kind": "expr" }

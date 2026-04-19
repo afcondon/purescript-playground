@@ -104,3 +104,145 @@ instance-chain semantics empirically), or (b) an explicit escape
 hatch like `fromGeneric` that users wire into a bespoke
 `ToPlaygroundValue` instance. Worth revisiting if this shows up as
 a real friction in evaluation.
+
+## 2026-04-19
+
+Reactions to PLAN.md after the rename and the Phases A–E framing
+landed. None of these are commitments — they're sharpenings and
+forward looks that surfaced in the post-eval design conversation.
+
+### UI delivery — two independent knobs, not two modes
+
+**Observation trigger:** thinking about how Atelier would scale to
+larger projects + an editor-of-choice.
+
+**Idea:** the UI is not "scratchpad mode vs project mode" as a
+single switch — it's two *independent* choices:
+
+- **Code source**: Atelier-owned module column (today's three-
+  column layout) vs. editor-owned (sidecar — user's editor holds
+  the source; Atelier shows two columns: cells + values/types).
+- **Viz pane**: present vs. absent, driven by the active cell's
+  declared representation kind (Phase B).
+
+Four configurations including "sidecar + viz," which is probably
+the ShapedSteer-adjacent sweet spot — user iterates on a data viz
+in their editor; Atelier shows cell probes against the project +
+a Hylograph render pane.
+
+**Sidecar rough sketch**: backend watches project files on disk;
+module column disappears from the UI; cells run in scope of
+whichever module the user has focused. Eliminates the "module
+column race against the human" problem entirely — human edits in
+their editor, agent writes via the API, both reconciled by the
+filesystem.
+
+Open questions: does the sidecar talk LSP to the editor or just
+file-watch? How does the agent know which module is "active"?
+Do we keep the three-column standalone mode, or generalise to
+"sidecar always on, standalone watches a tmpdir"?
+
+### Cells ↔ ShapedSteer nodes correspondence
+
+**Observation trigger:** mapping Atelier's evolution against
+ShapedSteer's vision.
+
+**Idea:** today's Atelier cell is the *degenerate case* of a
+ShapedSteer node:
+
+- Atelier cell: implicit scope (whatever the module exports),
+  emits a value, no declared inputs.
+- ShapedSteer node: declared typed inputs, declared typed output,
+  scope = explicit input list.
+
+Each phase adds explicitness: today, scope is implicit; Phase B,
+output representation declared; ShapedSteer, inputs declared too.
+The progression is continuous, not a leap. (PLAN.md Phase E
+section sharpened to reflect this.)
+
+### Representation tag = render contract AND wiring contract
+
+**Observation trigger:** asking whether Phase B's representations
+are just for rendering.
+
+**Idea:** the representation tag does double duty:
+
+- *Render contract*: the viz pane knows how to display
+  `image/svg+xml`, `text/x-hats+json`, etc.
+- *Wiring contract*: a future DAG cell consuming
+  `text/x-bar-chart-data+json` plugs into anything producing it,
+  *regardless of the underlying PureScript type*.
+
+PureScript type is the cell's *internal* implementation;
+representation tag is the *interchange* type. Two cells with
+different PS types can both produce `text/x-graph+json` and be
+DAG-compatible without sharing a typeclass.
+
+Implication: Phase B isn't "add a viz pane" — it's introducing
+the type system the ShapedSteer DAG (Phase E) will run on.
+Probably wants a registered namespace
+(`application/x-hylograph.bar-chart-data+json` or similar) plus
+pluggable renderers + codecs per representation. (PLAN.md Phase B
+section sharpened to reflect this.)
+
+### `purs ide rebuild` as a Phase A perf lever
+
+**Observation trigger:** VS Code's PureScript extension is snappy;
+Atelier full-recompiles via `spago bundle` on every write.
+
+**Idea:** `purs ide` already supports single-module incremental
+rebuild via the `rebuild` command. We use it for type queries but
+not for compilation. For module-only edits, `purs ide rebuild
+Main.purs` skips the full bundle and just produces updated
+externs + JS for the changed module.
+
+Constraint: we still need a runnable JS bundle for the
+Worker/Node executor, so a full bundle is required *eventually*.
+But it could happen async, off the hot path — return types
+immediately, update the value pane when the bundle is ready.
+Splits the response: agent gets type feedback in <100ms, render
+pane updates a beat later.
+
+Belongs in Phase A as a perf option; pairs naturally with Phase D
+(multi-module) where incremental matters more.
+
+### Promotion paths as a first-class design principle
+
+**Observation trigger:** thinking about what Atelier feeds into
+when it stops being a scratchpad.
+
+**Idea:** Atelier already conceptually has two promotion paths
+but they're implicit. Worth elevating to design principle:
+
+- **Cell → red/green test.** A cell `f 21 == 42` is a test
+  assertion in disguise. The Phase A "promote cell → module
+  function" affordance generalises to "promote cell → test in
+  some target project's test/ tree."
+- **Module → project source.** The Atelier module is scratch;
+  once it's earned its place, it becomes a real module in some
+  target project under `src/`.
+
+Both promotions need a *target* — which project? Phase D's
+project-context binding answers this. Once you're bound to a
+project, "promote" has a destination.
+
+Connects to the existing "Rapid development environment with
+AI-mediated lift" framing in PLAN.md.
+
+### Unison atomization — research note (not roadmap)
+
+**Observation trigger:** broad design thinking about what makes
+Atelier feel different.
+
+**Idea (research, not roadmap):** Unison content-addresses every
+definition by the hash of its normalised AST. No file imports —
+named pointers to hashes. This makes replay deterministic, value
+diffs trivial (other Claude wanted these), and naming churn-free
+(rename ≠ propagation; hash is the ID, name is a label).
+
+Atelier won't turn PureScript into Unison. But for export/import
+(Phase A), value-diffs (other Claude's ask), and DAG node
+addressing (ShapedSteer), treating cells as content-addressed by
+their AST hash is worth keeping in mind. Cell-id today is
+frontend-assigned; cell-id later could be hash-of-content + a
+generational suffix for repeats.
