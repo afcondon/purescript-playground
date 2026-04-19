@@ -105,7 +105,12 @@ handleAction = case _ of
         Just view -> liftEffect (CM.setContent view input.initialDoc)
         Nothing -> pure unit
       H.modify_ _ { currentDoc = input.initialDoc }
-    H.modify_ _ { input = input }
+    -- `tag` is constant per slot, so we only need to store `input`
+    -- when it actually changed. Halogen hands us a fresh record on
+    -- every parent render; if we blindly stored it, Editor would
+    -- re-render on every keystroke even when nothing had changed.
+    when (input.tag /= state.input.tag) do
+      H.modify_ _ { input = input }
   HandleChange content -> do
     H.modify_ _ { currentDoc = content }
     H.raise (Changed content)

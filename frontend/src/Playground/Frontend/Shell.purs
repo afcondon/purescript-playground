@@ -169,12 +169,18 @@ handleAction = case _ of
     hydrateFromServer
     schedulePoll
   ModuleChanged src -> do
-    stampEdit
+    -- Commit the user's content BEFORE any other state change.
+    -- Halogen re-renders after each H.modify_; if stampEdit runs
+    -- first, the intermediate render has moduleSource still at the
+    -- old value, and the editor's UpdateInput receives stale
+    -- initialDoc and clobbers the user's just-typed character via
+    -- setContent.
     H.modify_ _ { moduleSource = src }
+    stampEdit
     handleAction ScheduleCompile
   CellChanged id src -> do
-    stampEdit
     H.modify_ \s -> s { cells = updateCell id src s.cells }
+    stampEdit
     handleAction ScheduleCompile
   AddCell -> do
     H.modify_ \s ->

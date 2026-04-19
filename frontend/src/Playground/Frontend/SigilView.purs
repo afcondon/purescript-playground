@@ -52,8 +52,13 @@ component = H.mkComponent
 
   handleAction = case _ of
     SetInput input -> do
-      H.put input
-      handleAction Render
+      state <- H.get
+      -- parseToRenderType runs the full PureScript CST parser; doing
+      -- it on every parent re-render (i.e. every keystroke) is what
+      -- turned the gutter into a keystroke-time hot loop.
+      when (input.typeString /= state.typeString) do
+        H.put input
+        handleAction Render
     Render -> do
       state <- H.get
       mEl <- H.getHTMLElementRef containerRef

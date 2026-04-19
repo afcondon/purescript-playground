@@ -1,5 +1,13 @@
 import { EditorView, keymap, lineNumbers, drawSelection, hoverTooltip, Decoration } from '@codemirror/view';
-import { EditorState, StateField, StateEffect } from '@codemirror/state';
+import { EditorState, StateField, StateEffect, Annotation } from '@codemirror/state';
+
+// Marks transactions we originate from PureScript (setContent /
+// setErrors) so the updateListener below can distinguish them from
+// user input. Without this, _setContent fires updateListener, which
+// calls onChange, which raises back up to the parent, which may
+// re-render with stale state and call _setContent again — a classic
+// CM6/parent-state ping-pong.
+const programmaticAnnotation = Annotation.define();
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import {
   bracketMatching, indentOnInput, StreamLanguage,
@@ -188,8 +196,15 @@ export const _createEditor = (parent) => (initialDoc) => (onChange) => (renderTy
         typeHover,
         EditorView.updateListener.of((update) => {
           // onChange is an EffectFn1 — call once, no trailing thunk.
+          // Skip transactions we initiated ourselves (setContent);
+          // only user edits should propagate back up to Halogen.
           if (update.docChanged) {
-            onChange(update.state.doc.toString());
+            const programmatic = update.transactions.some(
+              (tr) => tr.annotation(programmaticAnnotation) === true,
+            );
+            if (!programmatic) {
+              onChange(update.state.doc.toString());
+            }
           }
         }),
         EditorView.theme({
@@ -208,6 +223,7 @@ export const _getContent = (view) => () => view.state.doc.toString();
 export const _setContent = (view) => (content) => () => {
   view.dispatch({
     changes: { from: 0, to: view.state.doc.length, insert: content },
+    annotations: [programmaticAnnotation.of(true)],
   });
 };
 
