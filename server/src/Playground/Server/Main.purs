@@ -12,15 +12,16 @@ import Data.Either (Either(..))
 import Foreign.Object as Object
 import Data.Generic.Rep (class Generic)
 import Data.Maybe (Maybe(..))
+import Data.Traversable (traverse)
 import Effect (Effect)
 import Effect.Aff (Aff)
 import Effect.Aff.Class (liftAff)
 import Effect.Class (liftEffect)
 import HTTPurple (Method(..), Request, ResponseM, ServerM, ok', serve, toString)
 import HTTPurple.Headers (headers)
-import Routing.Duplex (RouteDuplex', root, segment)
+import Routing.Duplex (RouteDuplex', flag, root, segment)
 import Routing.Duplex.Generic (noArgs, sum)
-import Routing.Duplex.Generic.Syntax ((/))
+import Routing.Duplex.Generic.Syntax ((/), (?))
 
 import Data.Int as Int
 import Playground.Server.Ide as Ide
@@ -48,7 +49,7 @@ data Route
   = Health
   | SessionGet
   | SessionCompile
-  | SessionModule
+  | SessionModule { preview :: Boolean }
   | SessionCellAppend
   | SessionCellAt String
   | SessionRuntime
@@ -66,7 +67,7 @@ route = root $ sum
   { "Health": "health" / noArgs
   , "SessionGet": "session" / noArgs
   , "SessionCompile": "session" / "compile" / noArgs
-  , "SessionModule": "session" / "module" / noArgs
+  , "SessionModule": "session" / "module" ? { preview: flag }
   , "SessionCellAppend": "session" / "cells" / noArgs
   , "SessionCellAt": "session" / "cells" / segment
   , "SessionRuntime": "session" / "runtime" / noArgs
@@ -118,6 +119,8 @@ runtimeBodyCodec = CAR.object "RuntimeBody" { runtime: CA.string }
 -- | PATCH /session/module body decoder. Body must be a JSON object
 -- | containing exactly one of:
 -- |   {"addImport": "Data.Array"}
+-- |   {"addImport": {"module": "Data.Array", "alias": "Array",
+-- |                  "names": ["length", "take"]}} (alias + names optional)
 -- |   {"appendBody": "...source..."}
 -- |   {"replaceRange": {"startLine": N, "endLine": M, "text": "..."}}
 parseModulePatch :: String -> Either String ModulePatch
@@ -127,9 +130,7 @@ parseModulePatch raw = case jsonParser raw of
     Nothing -> Left "bad request: expected a JSON object"
     Just o ->
       case Object.lookup "addImport" o, Object.lookup "appendBody" o, Object.lookup "replaceRange" o of
-        Just v, Nothing, Nothing -> case AJ.toString v of
-          Just s -> Right (AddImport s)
-          Nothing -> Left "addImport must be a string"
+        Just v, Nothing, Nothing -> AddImport <$> parseImportSpec v
         Nothing, Just v, Nothing -> case AJ.toString v of
           Just s -> Right (AppendBody s)
           Nothing -> Left "appendBody must be a string"
@@ -139,6 +140,15 @@ parseModulePatch raw = case jsonParser raw of
         _, _, _ ->
           Left "expected exactly one of: addImport, appendBody, replaceRange"
   where
+  parseImportSpec v = case AJ.toString v of
+    Just s -> Right { "module": s, alias: Nothing, names: Nothing }
+    Nothing -> case toObject v of
+      Nothing -> Left "addImport must be a string or {module, alias?, names?} object"
+      Just o -> do
+        m <- pickStr "module" o
+        a <- pickOptStr "alias" o
+        ns <- pickOptStrArray "names" o
+        pure { "module": m, alias: a, names: ns }
   parseReplaceRange v = case toObject v of
     Nothing -> Left "replaceRange must be an object"
     Just o -> do
@@ -158,6 +168,21 @@ parseModulePatch raw = case jsonParser raw of
     Just v -> case AJ.toString v of
       Just s -> Right s
       Nothing -> Left (key <> " must be a string")
+  pickOptStr key o = case Object.lookup key o of
+    Nothing -> Right Nothing
+    Just v -> case AJ.toString v of
+      Just s -> Right (Just s)
+      Nothing -> Left (key <> " must be a string when present")
+  pickOptStrArray key o = case Object.lookup key o of
+    Nothing -> Right Nothing
+    Just v -> case AJ.toArray v of
+      Nothing -> Left (key <> " must be an array when present")
+      Just arr -> do
+        strs <- traverse (asString key) arr
+        pure (Just strs)
+  asString key v = case AJ.toString v of
+    Just s -> Right s
+    Nothing -> Left (key <> " entries must be strings")
 
 -- ============================================================
 -- Response assembly
@@ -263,7 +288,7 @@ mkRouter store { route: r, method, body } =
             Right req -> liftAff (Session.replaceAll store req)
         ok' jsonCors (snapshotJson resp)
 
-      SessionModule -> case method of
+      SessionModule { preview } -> case method of
         Post -> do
           bodyStr <- toString body
           case parseBody moduleBodyCodec bodyStr of
@@ -276,7 +301,8 @@ mkRouter store { route: r, method, body } =
           case parseModulePatch bodyStr of
             Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
             Right patch -> do
-              result <- liftAff (Session.patchModule store patch)
+              let apply = if preview then Session.previewModulePatch else Session.patchModule
+              result <- liftAff (apply store patch)
               case result of
                 Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
                 Right resp -> ok' jsonCors (snapshotJson resp)

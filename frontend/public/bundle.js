@@ -36612,7 +36612,7 @@
           return pure19(unit);
         }
         ;
-        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 788, column 3 - line 790, column 25): " + [s.worker.constructor.name]);
+        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 792, column 3 - line 794, column 25): " + [s.worker.constructor.name]);
       })())(function() {
         return discard8((function() {
           if (s.workerSub instanceof Just) {
@@ -36623,7 +36623,7 @@
             return pure19(unit);
           }
           ;
-          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 791, column 3 - line 793, column 25): " + [s.workerSub.constructor.name]);
+          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 795, column 3 - line 797, column 25): " + [s.workerSub.constructor.name]);
         })())(function() {
           return discard8((function() {
             if (s.workerTimeout instanceof Just) {
@@ -36634,7 +36634,7 @@
               return pure19(unit);
             }
             ;
-            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 794, column 3 - line 796, column 25): " + [s.workerTimeout.constructor.name]);
+            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 798, column 3 - line 800, column 25): " + [s.workerTimeout.constructor.name]);
           })())(function() {
             return modify_4(function(v) {
               var $237 = {};
@@ -36696,7 +36696,7 @@
       return [pre([class_("runtime-error")])([text5("runtime: " + v.value0)])];
     }
     ;
-    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1100, column 22 - line 1105, column 6): " + [v.constructor.name]);
+    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1104, column 22 - line 1109, column 6): " + [v.constructor.name]);
   };
   var renderInScopePanel = function(state3) {
     var renderList = function(title4) {
@@ -36732,8 +36732,9 @@
       };
       var sameRuntime = r.runtime === s.runtime;
       var sameModule = r.module.source === s.moduleSource;
+      var sameErrors = length3(r.errors) === length3(s.errors);
       var sameCells = cellsMatch(s.cells)(r.cells);
-      return !(sameModule && (sameRuntime && sameCells));
+      return !(sameModule && (sameRuntime && (sameCells && sameErrors)));
     };
   };
   var partitionErrorsByEditor = function(errs) {
@@ -36797,7 +36798,7 @@
                 };
               }
               ;
-              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 756, column 11 - line 769, column 94): " + [v1.constructor.name]);
+              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 760, column 11 - line 773, column 94): " + [v1.constructor.name]);
             }
             ;
           }
@@ -36851,7 +36852,7 @@
       worker: Nothing.value,
       workerSub: Nothing.value,
       workerTimeout: Nothing.value,
-      driveMode: true,
+      driveMode: false,
       lastSyncedModule: "",
       lastSyncedCells: empty2,
       lastSyncedRuntime: ""
@@ -37095,7 +37096,7 @@
         return "Starter \u25BE";
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 935, column 18 - line 937, column 27): " + [v.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 939, column 18 - line 941, column 27): " + [v.constructor.name]);
     })();
     return div2([class_("starter-dropdown")])([button([class_("starter-btn"), onClick(function(v) {
       return ToggleStarterMenu.value;
@@ -37185,7 +37186,7 @@
             return "synthesis \u25B8 Main.purs line " + show5(e.position.value0.startLine);
           }
           ;
-          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1201, column 9 - line 1206, column 71): " + [v.constructor.name]);
+          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1205, column 9 - line 1210, column 71): " + [v.constructor.name]);
         }
         ;
         return e.filename.value0;
@@ -37227,7 +37228,7 @@
         return [];
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1138, column 20 - line 1141, column 20): " + [state3.transportError.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1142, column 20 - line 1145, column 20): " + [state3.transportError.constructor.name]);
     })();
     var compileRows = map36(attributedRow(state3)("compile"))(state3.errors);
     var rows4 = append14(transportRow)(append14(compileRows)(warningRows));
@@ -37256,7 +37257,7 @@
                 return span3([class_("muted")])([text5("\u2014")]);
               }
               ;
-              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1092, column 25 - line 1097, column 66): " + [v.constructor.name]);
+              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1096, column 25 - line 1101, column 66): " + [v.constructor.name]);
             };
           };
           var renderType = function(st) {
@@ -37272,7 +37273,7 @@
                 return span3([class_("muted gutter-type")])([text5("\u2014")]);
               }
               ;
-              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1086, column 24 - line 1091, column 78): " + [v.constructor.name]);
+              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1090, column 24 - line 1095, column 78): " + [v.constructor.name]);
             };
           };
           return div2([class_("gutter-row " + cellColorClass(idx))])([span3([class_("gutter-cell-id")])([text5(c2.id)]), div2([class_("gutter-body")])([renderType(state3)(c2), renderValue(state3)(c2)])]);
@@ -37320,7 +37321,7 @@
               return "";
             }
             ;
-            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1128, column 14 - line 1130, column 18): " + [v.constructor.name]);
+            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1132, column 14 - line 1134, column 18): " + [v.constructor.name]);
           })();
           return div2([class_("render-row " + cellColorClass(idx))])([slot_22(_render)(c2.id)(component1)({
             json: cellJson
@@ -38104,7 +38105,7 @@
             return startExecution(dictMonadAff)(r.js.value0);
           }
           ;
-          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 711, column 8 - line 713, column 33): " + [r.js.constructor.name]);
+          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 715, column 8 - line 717, column 33): " + [r.js.constructor.name]);
         });
       });
     };

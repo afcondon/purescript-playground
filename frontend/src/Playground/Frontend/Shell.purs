@@ -162,7 +162,7 @@ initialState _ =
      , worker: Nothing
      , workerSub: Nothing
      , workerTimeout: Nothing
-     , driveMode: true
+     , driveMode: false
      -- Empty strings / maps so the first Compile pass falls into the
      -- "everything changed, do a full /session/compile" branch and
      -- seeds lastSynced* from the server's response.
@@ -635,15 +635,18 @@ pollRemote = do
           when (remoteDiffers s r) (applyRemote r)
 
 -- | Does the remote snapshot differ from what the frontend is
--- | currently showing, in a way that merits overwriting? We compare
--- | only input state (module, cells, runtime) — derived fields
--- | change on every compile even when nothing semantically differs.
+-- | currently showing, in a way that merits overwriting? Compares
+-- | input state (module, cells, runtime) AND the error count —
+-- | a server-side recompile that only changes derived fields
+-- | (e.g. the agent force-recompiles the same source to clear a
+-- | stale diagnostic) must still flush the frontend's banner.
 remoteDiffers
   :: forall r
    . State
   -> { "module" :: UserModule
      , cells :: Array Cell
      , runtime :: String
+     , errors :: Array CompileError
      | r }
   -> Boolean
 remoteDiffers s r =
@@ -651,7 +654,8 @@ remoteDiffers s r =
       sameModule = rm.source == s.moduleSource
       sameRuntime = r.runtime == s.runtime
       sameCells = cellsMatch s.cells r.cells
-  in not (sameModule && sameRuntime && sameCells)
+      sameErrors = Array.length r.errors == Array.length s.errors
+  in not (sameModule && sameRuntime && sameCells && sameErrors)
   where
   cellsMatch local remote =
     Array.length local == Array.length remote

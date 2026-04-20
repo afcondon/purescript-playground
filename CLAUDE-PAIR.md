@@ -146,8 +146,11 @@ Every write triggers a recompile. The response body is the full new session snap
 
 ```json
 { "addImport": "Data.Array" }
+{ "addImport": { "module": "Data.Array", "alias": "Array" } }
+{ "addImport": { "module": "Data.Number", "names": ["sqrt", "pi"] } }
+{ "addImport": { "module": "Data.Array", "alias": "A", "names": ["length", "take"] } }
 ```
-Inserts `import Data.Array` after the last existing import (or after the `module ... where` header if none). No-op if any form of `import Data.Array...` is already present (`import X`, `import X (...)`, `import X as Y`).
+Inserts an import after the last existing import (or after the `module ... where` header if none). The string form becomes `import X`; the object form combines into `import M (names) as A` (either `alias` or `names` may be omitted). No-op if any form of that module is already imported — to change an existing import's alias or names, use `replaceRange`.
 
 ```json
 { "appendBody": "\nfoo :: Int\nfoo = 42\n" }
@@ -202,13 +205,13 @@ One recompile, one response — the full new snapshot. Useful for seeding a star
 
 ### Write — dry-run / preview
 
-Every write endpoint accepts a `?preview=true` query parameter. With preview, the server evaluates the write against the current session and returns what the compile result would be, but **does not apply** the change. Use this when you want to validate a sketch before disturbing the human's editor.
+`PATCH /session/module?preview=true` evaluates the patch against the current session and returns what the compile result would be, but **does not apply** the change. Use this when you want to validate a sketch before disturbing the human's editor. (Other write endpoints don't currently honour `?preview=true` — that's a known gap.)
 
 ### Push — live updates to the UI
 
-`GET /session/events` — Server-Sent Events stream. The frontend subscribes on mount; any state change (from the human OR from you) emits a `session-updated` event whose data is the new snapshot.
+The frontend **polls** `GET /session` every 2s while in Observe mode (polling is suspended in Drive to avoid fighting live typing). Writes you make via the API appear in the browser within ~2s.
 
-This means: when you write via the API, the human sees your edit appear in the browser ~immediately. That's the core of the pair-programming vibe.
+There is no server-sent-events stream yet — the UI's awareness of your writes is strictly pull-based. That means an `errors: []` response from a `POST /session/compile` will clear the human's stale error banner on the next poll tick (≤2s), not instantly.
 
 ## Etiquette
 
@@ -223,7 +226,8 @@ This means: when you write via the API, the human sees your edit appear in the b
 - The Playground hasn't been run against a large real project yet. Package-set binding is designed but not yet shipped. Full-project binding (cells importing user modules) is further out.
 - `purs ide` is a subprocess of the backend; the first type query after backend boot has a ~2s warm-up. Subsequent queries are ~50ms.
 - The `js` field in a session snapshot is large (kilobytes) for a non-trivial compile. If you're round-tripping state a lot, use `GET /session/types` for the narrower read.
-- There's currently one render area (the values/types gutter). Progressive work in-flight adds multiple render columns, SVG rendering, and Hylograph-libs-in-the-browser-runtime. Until that lands, "rendering a bubble pack" means emitting SVG-as-string or JSON the human pastes elsewhere to view.
+- **The render column paints per-cell, not per-session.** Every expr-cell has its own render surface aligned to its row. If two cells emit renderable values (say c3 emits an SVG string and c5 emits a `ForceRender`), both paint simultaneously — there is no arbitration, no "which cell wins". Render contracts today: a `String` starting with `<svg` → `innerHTML` of the row; a `Playground.Runtime.ForceRender` value → animated d3-force simulation; anything else → the row stays blank (the value still appears in the values column and its type in the gutter).
+- Multiple independent render panels per cell (e.g. side-by-side comparisons, HATS-driven Hylograph-libs rendering) are not shipped yet.
 
 ## The evaluation the human and I are trying to run
 

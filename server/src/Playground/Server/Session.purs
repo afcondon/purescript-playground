@@ -1,12 +1,14 @@
 module Playground.Server.Session
   ( SessionStore
   , ModulePatch(..)
+  , ImportSpec
   , newStore
   , get
   , compileAndStore
   , replaceAll
   , updateModule
   , patchModule
+  , previewModulePatch
   , appendCell
   , updateCell
   , removeCell
@@ -49,16 +51,28 @@ import Playground.Session
 -- | takes one of these and applies it under the session lock without
 -- | requiring the agent to GET → string-replace → POST the whole body.
 data ModulePatch
-  = AddImport String
-  -- ^ Add `import <name>` after the last existing import line (or after
-  -- the module header if none). No-op if the import is already present
-  -- under any form (`import X`, `import X (...)`, `import X as Y`).
+  = AddImport ImportSpec
+  -- ^ Add an import after the last existing import line (or after the
+  -- module header if none). The generated line shape follows the spec:
+  -- `import M`, `import M as A`, `import M (f, g)`, or
+  -- `import M (f, g) as A`. No-op if the module is already imported in
+  -- any form; to change alias or names on an existing import, use
+  -- ReplaceRange instead.
   | AppendBody String
   -- ^ Append text to the end of the module source, with a separating
   -- newline if the source doesn't already end in one.
   | ReplaceRange { startLine :: Int, endLine :: Int, text :: String }
   -- ^ Replace lines [startLine, endLine] (1-indexed, inclusive) with
   -- `text`. `text` may itself contain newlines (multi-line replacement).
+
+-- | Spec for an import line. `module` is the fully-qualified name;
+-- | `alias` and `names` are independently optional and combine into
+-- | the standard PureScript surface syntax.
+type ImportSpec =
+  { "module" :: String
+  , alias :: Maybe String
+  , names :: Maybe (Array String)
+  }
 
 -- | Live session state: the human's (or Claude's) last-submitted
 -- | inputs plus the most recent compile's derived outputs. A single
@@ -220,18 +234,51 @@ patchModule (SessionStore { lock, state }) patch = do
         liftEffect $ Ref.modify_ (_ { lastResponse = Just resp }) state
         pure (Right resp)
 
+-- | Trial-apply a `ModulePatch` — compile against the resulting
+-- | source, return the compile response, but do not write the new
+-- | source or the response back into session state. Intended for
+-- | agents that want to probe a change's error/type implications
+-- | before committing it (PATCH /session/module?preview=true).
+previewModulePatch
+  :: SessionStore
+  -> ModulePatch
+  -> Aff (Either String CompileResponse)
+previewModulePatch (SessionStore { lock, state }) patch = do
+  _ <- AVar.take lock
+  Aff.finally (AVar.put unit lock) do
+    s0 <- liftEffect (Ref.read state)
+    let UserModule m = s0."module"
+    case applyModulePatch patch m.source of
+      Left err -> pure (Left err)
+      Right newSrc -> do
+        let s1 = s0 { "module" = UserModule { source: newSrc } }
+        resp <- compileNow s1
+        pure (Right resp)
+
 -- | Pure: apply a `ModulePatch` to a source string. Exposed for
 -- | testability.
 applyModulePatch :: ModulePatch -> String -> Either String String
 applyModulePatch patch src = case patch of
-  AddImport name ->
-    if hasImport name src
+  AddImport spec ->
+    if hasImport spec."module" src
       then Right src
-      else Right (insertImport name src)
+      else Right (insertImport (renderImport spec) src)
   AppendBody text ->
     Right (ensureTrailingNewline src <> text)
   ReplaceRange { startLine, endLine, text } ->
     replaceLineRange startLine endLine text src
+
+-- | Render an ImportSpec as a single PureScript import line.
+renderImport :: ImportSpec -> String
+renderImport spec =
+  "import " <> spec."module" <> namesBit <> aliasBit
+  where
+  namesBit = case spec.names of
+    Just ns -> " (" <> Str.joinWith ", " ns <> ")"
+    Nothing -> ""
+  aliasBit = case spec.alias of
+    Just a -> " as " <> a
+    Nothing -> ""
 
 -- | Match `import <name>` ignoring trailing qualifiers/aliases. Lines
 -- | are trimmed before comparison.
@@ -248,13 +295,12 @@ hasImport name src =
         || Str.take 1 rest == "\t"
         || Str.take 1 rest == "("
 
--- | Insert `import <name>` after the last existing import line. If
--- | there are no imports, insert after the `module ... where` header.
--- | If there's no header either, prepend the line.
+-- | Insert a pre-rendered import line after the last existing import.
+-- | If there are no imports, insert after the `module ... where`
+-- | header. If there's no header either, prepend the line.
 insertImport :: String -> String -> String
-insertImport name src =
+insertImport newLine src =
   let lines = Str.split (Pattern "\n") src
-      newLine = "import " <> name
       anchor = case Array.findLastIndex isImport lines of
         Just i -> Just i
         Nothing -> Array.findIndex isModuleHeader lines
