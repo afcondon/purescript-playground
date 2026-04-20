@@ -8,6 +8,11 @@ dist/
 *.log
 .DS_Store
 
+# Local Claude Code settings (per-machine permission grants) and the
+# runtime file purs ide writes next to the project root.
+.claude/settings.local.json
+.psc-ide-port
+
 # Spago lock files: commit to library repos, not to app repos with fast-moving deps.
 # For now we keep them committed; remove from tracking later if they churn.
 *.pdf
