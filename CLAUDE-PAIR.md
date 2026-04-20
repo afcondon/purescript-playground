@@ -226,7 +226,30 @@ There is no server-sent-events stream yet — the UI's awareness of your writes 
 - The Playground hasn't been run against a large real project yet. Package-set binding is designed but not yet shipped. Full-project binding (cells importing user modules) is further out.
 - `purs ide` is a subprocess of the backend; the first type query after backend boot has a ~2s warm-up. Subsequent queries are ~50ms.
 - The `js` field in a session snapshot is large (kilobytes) for a non-trivial compile. If you're round-tripping state a lot, use `GET /session/types` for the narrower read.
-- **The render column paints per-cell, not per-session.** Every expr-cell has its own render surface aligned to its row. If two cells emit renderable values (say c3 emits an SVG string and c5 emits a `ForceRender`), both paint simultaneously — there is no arbitration, no "which cell wins". Render contracts today: a `String` starting with `<svg` → `innerHTML` of the row; a `Playground.Runtime.ForceRender` value → animated d3-force simulation; anything else → the row stays blank (the value still appears in the values column and its type in the gutter).
+- **The render column paints per-cell, not per-session.** Every expr-cell has its own render surface aligned to its row. If two cells emit renderable values (say c3 emits an SVG string and c5 emits a `ForceRender`), both paint simultaneously — there is no arbitration, no "which cell wins". Render contracts today: a `String` starting with `<svg` → `innerHTML` of the row; a `Playground.Runtime.ForceRender` value → animated d3-force simulation (see below); anything else → the row stays blank (the value still appears in the values column and its type in the gutter).
+- `ForceRender` takes an explicit `forces :: Array AtelierForceSpec` — the simulation has no implicit defaults. Declare each force you want:
+
+  ```purescript
+  import Playground.Runtime (ForceRender(..), AtelierForceSpec(..))
+
+  demo = ForceRender
+    { nodes:  [ { id: "a", radius: 8.0, fill: "#c74e4e", label: "A" }, ... ]
+    , links:  [ { source: "a", target: "b" }, ... ]
+    , width:  800.0
+    , height: 800.0
+    , forces:
+        [ ManyBody  { name: "charge",    strength: -30.0 }
+        , Collide   { name: "collision", radius: 10.0, strength: 0.7 }
+        , Link      { name: "links",     distance: 40.0, strength: 0.4 }
+        , Center    { name: "centre",    x: 400.0, y: 400.0 }
+        , PositionX { name: "fx",        x: 400.0, strength: 0.05 }
+        , PositionY { name: "fy",        y: 400.0, strength: 0.05 }
+        ]
+    }
+  ```
+
+  Forces available in v1: `ManyBody`, `Collide`, `Link`, `Center`, `PositionX`, `PositionY`. Each carries a `name` (for disambiguation) plus its own parameters. Omit a force family if you don't want it — an empty `forces: []` means the simulation runs without any force pulling the nodes, so they stay put.
+
 - Multiple independent render panels per cell (e.g. side-by-side comparisons, HATS-driven Hylograph-libs rendering) are not shipped yet.
 
 ## The evaluation the human and I are trying to run

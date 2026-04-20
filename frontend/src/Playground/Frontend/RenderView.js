@@ -63,14 +63,53 @@ export const _cleanup = (el) => () => {
   el.innerHTML = "";
 };
 
+// Records nested inside a PVCtor come through wrapped in `$record`;
+// constructor values come through as { $ctor, args: [...] }. Unwrap
+// one level in either direction.
+const unwrapRecord = (r) => (r && r.$record) ? r.$record : r;
+
+// Translate one AtelierForceSpec constructor value into the d3-force
+// call that realises it. Returns null for unknown constructors so the
+// caller can skip without aborting the whole setup.
+function applyForceSpec(sim, links, spec) {
+  if (!spec || !spec.$ctor || !Array.isArray(spec.args) || !spec.args[0]) return;
+  const cfg = unwrapRecord(spec.args[0]);
+  const name = cfg.name;
+  switch (spec.$ctor) {
+    case "ManyBody":
+      sim.force(name, d3Force.forceManyBody().strength(cfg.strength));
+      return;
+    case "Collide":
+      sim.force(name, d3Force.forceCollide(cfg.radius).strength(cfg.strength));
+      return;
+    case "Link":
+      sim.force(
+        name,
+        d3Force
+          .forceLink(links)
+          .id((d) => d.id)
+          .distance(cfg.distance)
+          .strength(cfg.strength),
+      );
+      return;
+    case "Center":
+      sim.force(name, d3Force.forceCenter(cfg.x, cfg.y));
+      return;
+    case "PositionX":
+      sim.force(name, d3Force.forceX(cfg.x).strength(cfg.strength));
+      return;
+    case "PositionY":
+      sim.force(name, d3Force.forceY(cfg.y).strength(cfg.strength));
+      return;
+    // Unknown constructor: silently skip. A newer Runtime.purs may
+    // emit specs this frontend doesn't yet understand.
+  }
+}
+
 function renderForce(container, spec) {
-  // Records nested inside a PVCtor come through still wrapped in their
-  // `$record` envelope — unwrap each node/link before use. Also clone so
-  // d3-force can mutate (adds x/y/vx/vy) without touching the
-  // PureScript-provided records.
-  const unwrap = (r) => (r && r.$record) ? r.$record : r;
-  const nodes = (spec.nodes || []).map((n) => ({ ...unwrap(n) }));
-  const links = (spec.links || []).map((l) => ({ ...unwrap(l) }));
+  const nodes = (spec.nodes || []).map((n) => ({ ...unwrapRecord(n) }));
+  const links = (spec.links || []).map((l) => ({ ...unwrapRecord(l) }));
+  const forces = spec.forces || [];
   const width = typeof spec.width === "number" ? spec.width : 400;
   const height = typeof spec.height === "number" ? spec.height : 400;
 
@@ -110,25 +149,21 @@ function renderForce(container, spec) {
   container.innerHTML = "";
   container.appendChild(svg);
 
-  const sim = d3Force
-    .forceSimulation(nodes)
-    .force("charge", d3Force.forceManyBody().strength(-30))
-    .force("link", d3Force.forceLink(links).id((d) => d.id).distance(40))
-    .force("center", d3Force.forceCenter(width / 2, height / 2))
-    .force("collide", d3Force.forceCollide((d) => (d.radius ?? 3) + 1))
-    .on("tick", () => {
-      for (let i = 0; i < nodeEls.length; i++) {
-        nodeEls[i].setAttribute("cx", nodes[i].x);
-        nodeEls[i].setAttribute("cy", nodes[i].y);
-      }
-      for (let i = 0; i < linkEls.length; i++) {
-        const l = links[i];
-        linkEls[i].setAttribute("x1", l.source.x ?? 0);
-        linkEls[i].setAttribute("y1", l.source.y ?? 0);
-        linkEls[i].setAttribute("x2", l.target.x ?? 0);
-        linkEls[i].setAttribute("y2", l.target.y ?? 0);
-      }
-    });
+  const sim = d3Force.forceSimulation(nodes);
+  for (const f of forces) applyForceSpec(sim, links, f);
+  sim.on("tick", () => {
+    for (let i = 0; i < nodeEls.length; i++) {
+      nodeEls[i].setAttribute("cx", nodes[i].x);
+      nodeEls[i].setAttribute("cy", nodes[i].y);
+    }
+    for (let i = 0; i < linkEls.length; i++) {
+      const l = links[i];
+      linkEls[i].setAttribute("x1", l.source.x ?? 0);
+      linkEls[i].setAttribute("y1", l.source.y ?? 0);
+      linkEls[i].setAttribute("x2", l.target.x ?? 0);
+      linkEls[i].setAttribute("y2", l.target.y ?? 0);
+    }
+  });
 
   sims.set(container, sim);
 }

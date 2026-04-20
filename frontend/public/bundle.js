@@ -35142,6 +35142,68 @@
     return force2;
   }
 
+  // node_modules/d3-force/src/x.js
+  function x_default2(x3) {
+    var strength = constant_default(0.1), nodes, strengths, xz;
+    if (typeof x3 !== "function") x3 = constant_default(x3 == null ? 0 : +x3);
+    function force2(alpha) {
+      for (var i2 = 0, n = nodes.length, node; i2 < n; ++i2) {
+        node = nodes[i2], node.vx += (xz[i2] - node.x) * strengths[i2] * alpha;
+      }
+    }
+    function initialize() {
+      if (!nodes) return;
+      var i2, n = nodes.length;
+      strengths = new Array(n);
+      xz = new Array(n);
+      for (i2 = 0; i2 < n; ++i2) {
+        strengths[i2] = isNaN(xz[i2] = +x3(nodes[i2], i2, nodes)) ? 0 : +strength(nodes[i2], i2, nodes);
+      }
+    }
+    force2.initialize = function(_) {
+      nodes = _;
+      initialize();
+    };
+    force2.strength = function(_) {
+      return arguments.length ? (strength = typeof _ === "function" ? _ : constant_default(+_), initialize(), force2) : strength;
+    };
+    force2.x = function(_) {
+      return arguments.length ? (x3 = typeof _ === "function" ? _ : constant_default(+_), initialize(), force2) : x3;
+    };
+    return force2;
+  }
+
+  // node_modules/d3-force/src/y.js
+  function y_default2(y3) {
+    var strength = constant_default(0.1), nodes, strengths, yz;
+    if (typeof y3 !== "function") y3 = constant_default(y3 == null ? 0 : +y3);
+    function force2(alpha) {
+      for (var i2 = 0, n = nodes.length, node; i2 < n; ++i2) {
+        node = nodes[i2], node.vy += (yz[i2] - node.y) * strengths[i2] * alpha;
+      }
+    }
+    function initialize() {
+      if (!nodes) return;
+      var i2, n = nodes.length;
+      strengths = new Array(n);
+      yz = new Array(n);
+      for (i2 = 0; i2 < n; ++i2) {
+        strengths[i2] = isNaN(yz[i2] = +y3(nodes[i2], i2, nodes)) ? 0 : +strength(nodes[i2], i2, nodes);
+      }
+    }
+    force2.initialize = function(_) {
+      nodes = _;
+      initialize();
+    };
+    force2.strength = function(_) {
+      return arguments.length ? (strength = typeof _ === "function" ? _ : constant_default(+_), initialize(), force2) : strength;
+    };
+    force2.y = function(_) {
+      return arguments.length ? (y3 = typeof _ === "function" ? _ : constant_default(+_), initialize(), force2) : y3;
+    };
+    return force2;
+  }
+
   // output/Playground.Frontend.RenderView/foreign.js
   var SVG_NS = "http://www.w3.org/2000/svg";
   var sims = /* @__PURE__ */ new WeakMap();
@@ -35184,10 +35246,39 @@
     stopSim(el);
     el.innerHTML = "";
   };
+  var unwrapRecord = (r) => r && r.$record ? r.$record : r;
+  function applyForceSpec(sim, links, spec) {
+    if (!spec || !spec.$ctor || !Array.isArray(spec.args) || !spec.args[0]) return;
+    const cfg = unwrapRecord(spec.args[0]);
+    const name17 = cfg.name;
+    switch (spec.$ctor) {
+      case "ManyBody":
+        sim.force(name17, manyBody_default().strength(cfg.strength));
+        return;
+      case "Collide":
+        sim.force(name17, collide_default(cfg.radius).strength(cfg.strength));
+        return;
+      case "Link":
+        sim.force(
+          name17,
+          link_default(links).id((d) => d.id).distance(cfg.distance).strength(cfg.strength)
+        );
+        return;
+      case "Center":
+        sim.force(name17, center_default(cfg.x, cfg.y));
+        return;
+      case "PositionX":
+        sim.force(name17, x_default2(cfg.x).strength(cfg.strength));
+        return;
+      case "PositionY":
+        sim.force(name17, y_default2(cfg.y).strength(cfg.strength));
+        return;
+    }
+  }
   function renderForce(container, spec) {
-    const unwrap6 = (r) => r && r.$record ? r.$record : r;
-    const nodes = (spec.nodes || []).map((n) => ({ ...unwrap6(n) }));
-    const links = (spec.links || []).map((l) => ({ ...unwrap6(l) }));
+    const nodes = (spec.nodes || []).map((n) => ({ ...unwrapRecord(n) }));
+    const links = (spec.links || []).map((l) => ({ ...unwrapRecord(l) }));
+    const forces = spec.forces || [];
     const width8 = typeof spec.width === "number" ? spec.width : 400;
     const height8 = typeof spec.height === "number" ? spec.height : 400;
     const svg = document.createElementNS(SVG_NS, "svg");
@@ -35222,7 +35313,9 @@
     });
     container.innerHTML = "";
     container.appendChild(svg);
-    const sim = simulation_default(nodes).force("charge", manyBody_default().strength(-30)).force("link", link_default(links).id((d) => d.id).distance(40)).force("center", center_default(width8 / 2, height8 / 2)).force("collide", collide_default((d) => (d.radius ?? 3) + 1)).on("tick", () => {
+    const sim = simulation_default(nodes);
+    for (const f of forces) applyForceSpec(sim, links, f);
+    sim.on("tick", () => {
       for (let i2 = 0; i2 < nodeEls.length; i2++) {
         nodeEls[i2].setAttribute("cx", nodes[i2].x);
         nodeEls[i2].setAttribute("cy", nodes[i2].y);

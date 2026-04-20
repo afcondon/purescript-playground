@@ -7,6 +7,7 @@ module Playground.Runtime
   , ForceRender(..)
   , ForceNode
   , ForceLink
+  , AtelierForceSpec(..)
   , emit
   , done
   ) where
@@ -64,11 +65,26 @@ type ForceLink =
   , target :: String
   }
 
+-- | Declarative force configuration. The data-ADT mirror of
+-- | hylograph-simulation's ForceSpec vocabulary; v1 consumes these
+-- | main-thread-side via a direct d3-force mapping, v1b will route
+-- | the same ADT through hylograph-simulation's `runSimulation`.
+-- | Constructor names match the library so the swap preserves shape.
+-- | `name` disambiguates multiple instances of the same force family.
+data AtelierForceSpec
+  = ManyBody  { name :: String, strength :: Number }
+  | Collide   { name :: String, radius :: Number, strength :: Number }
+  | Link      { name :: String, distance :: Number, strength :: Number }
+  | Center    { name :: String, x :: Number, y :: Number }
+  | PositionX { name :: String, x :: Number, strength :: Number }
+  | PositionY { name :: String, y :: Number, strength :: Number }
+
 newtype ForceRender = ForceRender
   { nodes :: Array ForceNode
   , links :: Array ForceLink
   , width :: Number
   , height :: Number
+  , forces :: Array AtelierForceSpec
   }
 
 -- | Serialise to JSON for transport over the Worker emit channel.
@@ -160,14 +176,40 @@ else instance toPlaygroundValueForceRender :: ToPlaygroundValue ForceRender wher
   toPlaygroundValue (ForceRender r) = do
     nodesPv <- toPlaygroundValue r.nodes
     linksPv <- toPlaygroundValue r.links
+    forcesPv <- toPlaygroundValue r.forces
     let
       body =
         [ Tuple "nodes" nodesPv
         , Tuple "links" linksPv
         , Tuple "width" (PVNumber r.width)
         , Tuple "height" (PVNumber r.height)
+        , Tuple "forces" forcesPv
         ]
     pure (PVCtor "ForceRender" [ PVRecord body ])
+
+-- AtelierForceSpec: each constructor wraps a record of parameters.
+-- The renderer reads `$ctor` to pick the d3 force family; record
+-- fields become the force's configuration.
+else instance toPlaygroundValueAtelierForceSpec :: ToPlaygroundValue AtelierForceSpec where
+  toPlaygroundValue = case _ of
+    ManyBody r -> do
+      v <- toPlaygroundValue r
+      pure (PVCtor "ManyBody" [ v ])
+    Collide r -> do
+      v <- toPlaygroundValue r
+      pure (PVCtor "Collide" [ v ])
+    Link r -> do
+      v <- toPlaygroundValue r
+      pure (PVCtor "Link" [ v ])
+    Center r -> do
+      v <- toPlaygroundValue r
+      pure (PVCtor "Center" [ v ])
+    PositionX r -> do
+      v <- toPlaygroundValue r
+      pure (PVCtor "PositionX" [ v ])
+    PositionY r -> do
+      v <- toPlaygroundValue r
+      pure (PVCtor "PositionY" [ v ])
 
 -- Fallback: anything that has Show renders from show-output. A bare
 -- uppercase identifier (Africa, LT, Nothing) is treated as a nullary
