@@ -20,7 +20,10 @@
             "foreign",
             "halogen",
             "http-methods",
+            "hylograph-simulation",
             "maybe",
+            "nullable",
+            "numbers",
             "ordered-collections",
             "playground-shared",
             "prelude",
@@ -738,6 +741,15 @@
       "hylograph-layout": {
         "path": "../purescript-hylograph-libs/purescript-hylograph-layout"
       },
+      "hylograph-selection": {
+        "path": "../purescript-hylograph-libs/purescript-hylograph-selection"
+      },
+      "hylograph-simulation": {
+        "path": "../purescript-hylograph-libs/purescript-hylograph-simulation"
+      },
+      "hylograph-simulation-core": {
+        "path": "../purescript-hylograph-libs/purescript-hylograph-simulation-core"
+      },
       "hylograph-transitions": {
         "path": "../purescript-hylograph-libs/purescript-hylograph-transitions"
       }
@@ -969,6 +981,24 @@
         "type-equality",
         "unsafe-coerce",
         "variant"
+      ]
+    },
+    "colors": {
+      "type": "registry",
+      "version": "7.0.1",
+      "integrity": "sha256-3A93ysUoamlsH2yfIiPFH0SoG8DZQk2ytFKlKhd/aJg=",
+      "dependencies": [
+        "arrays",
+        "control",
+        "either",
+        "foldable-traversable",
+        "integers",
+        "lists",
+        "maybe",
+        "numbers",
+        "partial",
+        "prelude",
+        "strings"
       ]
     },
     "console": {
@@ -1488,6 +1518,68 @@
         "transformers",
         "tree-rose",
         "tuples"
+      ]
+    },
+    "hylograph-selection": {
+      "type": "local",
+      "path": "../purescript-hylograph-libs/purescript-hylograph-selection",
+      "dependencies": [
+        "arrays",
+        "colors",
+        "contravariant",
+        "datetime",
+        "effect",
+        "either",
+        "foldable-traversable",
+        "free",
+        "graphs",
+        "hylograph-graph",
+        "hylograph-transitions",
+        "integers",
+        "lists",
+        "maybe",
+        "newtype",
+        "nullable",
+        "numbers",
+        "ordered-collections",
+        "prelude",
+        "refs",
+        "strings",
+        "transformers",
+        "tree-rose",
+        "tuples",
+        "typelevel-prelude",
+        "unsafe-coerce",
+        "web-dom",
+        "web-events",
+        "web-html",
+        "web-pointerevents",
+        "web-uievents"
+      ]
+    },
+    "hylograph-simulation": {
+      "type": "local",
+      "path": "../purescript-hylograph-libs/purescript-hylograph-simulation",
+      "dependencies": [
+        "aff",
+        "arrays",
+        "console",
+        "effect",
+        "foldable-traversable",
+        "foreign-object",
+        "hylograph-selection",
+        "hylograph-transitions",
+        "integers",
+        "maybe",
+        "newtype",
+        "nullable",
+        "numbers",
+        "ordered-collections",
+        "prelude",
+        "refs",
+        "tuples",
+        "typelevel-prelude",
+        "web-dom"
       ]
     },
     "hylograph-transitions": {

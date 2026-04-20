@@ -1,15 +1,22 @@
-import * as d3Force from "d3-force";
+// Path resolves from the bundled output location (output/Playground.Frontend.RenderView/foreign.js),
+// not the source tree. spago copies this file there before esbuild runs.
+import { runAtelierForce } from "../Playground.Frontend.ForceSim/index.js";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
+
+// Monotonic container ids so hylograph-simulation's CSS selector
+// addressing scopes correctly when multiple ForceRender cells share
+// the page.
+let containerSeq = 0;
 
 // Active force simulations keyed by their container element, so we can
 // stop the previous one before mounting a new render into the same slot.
 const sims = new WeakMap();
 
 function stopSim(el) {
-  const s = sims.get(el);
-  if (s) {
-    s.stop();
+  const cleanup = sims.get(el);
+  if (cleanup) {
+    cleanup();
     sims.delete(el);
   }
 }
@@ -68,50 +75,39 @@ export const _cleanup = (el) => () => {
 // one level in either direction.
 const unwrapRecord = (r) => (r && r.$record) ? r.$record : r;
 
-// Translate one AtelierForceSpec constructor value into the d3-force
-// call that realises it. Returns null for unknown constructors so the
-// caller can skip without aborting the whole setup.
-function applyForceSpec(sim, links, spec) {
-  if (!spec || !spec.$ctor || !Array.isArray(spec.args) || !spec.args[0]) return;
+// Flatten one AtelierForceSpec-shaped envelope into the record the
+// PureScript `ForceSim.runAtelierForce` expects. Returns null when
+// the envelope is malformed; the caller filters those out. Absent
+// numeric params come through as `null`, which PS reads as
+// `Nullable Number` and falls back to the force's default.
+function flattenForce(spec) {
+  if (!spec || !spec.$ctor || !Array.isArray(spec.args) || !spec.args[0]) return null;
   const cfg = unwrapRecord(spec.args[0]);
-  const name = cfg.name;
-  switch (spec.$ctor) {
-    case "ManyBody":
-      sim.force(name, d3Force.forceManyBody().strength(cfg.strength));
-      return;
-    case "Collide":
-      sim.force(name, d3Force.forceCollide(cfg.radius).strength(cfg.strength));
-      return;
-    case "Link":
-      sim.force(
-        name,
-        d3Force
-          .forceLink(links)
-          .id((d) => d.id)
-          .distance(cfg.distance)
-          .strength(cfg.strength),
-      );
-      return;
-    case "Center":
-      sim.force(name, d3Force.forceCenter(cfg.x, cfg.y));
-      return;
-    case "PositionX":
-      sim.force(name, d3Force.forceX(cfg.x).strength(cfg.strength));
-      return;
-    case "PositionY":
-      sim.force(name, d3Force.forceY(cfg.y).strength(cfg.strength));
-      return;
-    // Unknown constructor: silently skip. A newer Runtime.purs may
-    // emit specs this frontend doesn't yet understand.
-  }
+  const num = (k) => (typeof cfg[k] === "number" ? cfg[k] : null);
+  return {
+    kind: spec.$ctor,
+    name: cfg.name ?? spec.$ctor,
+    strength: num("strength"),
+    radius: num("radius"),
+    distance: num("distance"),
+    x: num("x"),
+    y: num("y"),
+  };
 }
 
 function renderForce(container, spec) {
-  const nodes = (spec.nodes || []).map((n) => ({ ...unwrapRecord(n) }));
-  const links = (spec.links || []).map((l) => ({ ...unwrapRecord(l) }));
-  const forces = spec.forces || [];
+  const nodes = (spec.nodes || []).map((n) => unwrapRecord(n));
+  const links = (spec.links || []).map((l) => unwrapRecord(l));
+  const forces = (spec.forces || []).map(flattenForce).filter((f) => f !== null);
   const width = typeof spec.width === "number" ? spec.width : 400;
   const height = typeof spec.height === "number" ? spec.height : 400;
+
+  // Unique selector per render row so hylograph-simulation's D3
+  // engine can scope its internal selections without cross-row
+  // collisions.
+  containerSeq += 1;
+  const rowId = `atelier-force-${containerSeq}`;
+  container.id = rowId;
 
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
@@ -121,18 +117,25 @@ function renderForce(container, spec) {
   const linkG = document.createElementNS(SVG_NS, "g");
   linkG.setAttribute("class", "render-force-links");
   svg.appendChild(linkG);
-  const linkEls = links.map(() => {
+  // Keyed by stringified "source|target" so the tick callback can
+  // index back without relying on array ordering (the PS layer is
+  // authoritative over link identity).
+  const linkKey = (l) => `${l.source}|${l.target}`;
+  const linkEls = new Map();
+  for (const l of links) {
     const line = document.createElementNS(SVG_NS, "line");
     line.setAttribute("stroke", "#bbb");
     line.setAttribute("stroke-width", "1");
     linkG.appendChild(line);
-    return line;
-  });
+    linkEls.set(linkKey(l), line);
+  }
 
   const nodeG = document.createElementNS(SVG_NS, "g");
   nodeG.setAttribute("class", "render-force-nodes");
   svg.appendChild(nodeG);
-  const nodeEls = nodes.map((n) => {
+  // Keyed by string id — the PS tick callback emits { id, x, y }.
+  const nodeEls = new Map();
+  for (const n of nodes) {
     const circle = document.createElementNS(SVG_NS, "circle");
     circle.setAttribute("r", n.radius ?? 3);
     circle.setAttribute("fill", n.fill || "#69b3a2");
@@ -143,27 +146,40 @@ function renderForce(container, spec) {
     title.textContent = n.label || n.id;
     circle.appendChild(title);
     nodeG.appendChild(circle);
-    return circle;
-  });
+    nodeEls.set(n.id, circle);
+  }
 
   container.innerHTML = "";
   container.appendChild(svg);
 
-  const sim = d3Force.forceSimulation(nodes);
-  for (const f of forces) applyForceSpec(sim, links, f);
-  sim.on("tick", () => {
-    for (let i = 0; i < nodeEls.length; i++) {
-      nodeEls[i].setAttribute("cx", nodes[i].x);
-      nodeEls[i].setAttribute("cy", nodes[i].y);
+  // Latest position table, used by the tick callback to also
+  // resolve link endpoints (links carry node ids, not coordinates).
+  const positions = new Map();
+  const onTick = (tickPositions) => {
+    for (const p of tickPositions) {
+      positions.set(p.id, p);
+      const el = nodeEls.get(p.id);
+      if (el) {
+        el.setAttribute("cx", p.x);
+        el.setAttribute("cy", p.y);
+      }
     }
-    for (let i = 0; i < linkEls.length; i++) {
-      const l = links[i];
-      linkEls[i].setAttribute("x1", l.source.x ?? 0);
-      linkEls[i].setAttribute("y1", l.source.y ?? 0);
-      linkEls[i].setAttribute("x2", l.target.x ?? 0);
-      linkEls[i].setAttribute("y2", l.target.y ?? 0);
+    for (const l of links) {
+      const line = linkEls.get(linkKey(l));
+      const s = positions.get(l.source);
+      const t = positions.get(l.target);
+      if (line && s && t) {
+        line.setAttribute("x1", s.x);
+        line.setAttribute("y1", s.y);
+        line.setAttribute("x2", t.x);
+        line.setAttribute("y2", t.y);
+      }
     }
-  });
+  };
 
-  sims.set(container, sim);
+  // runAtelierForce is compiled from Playground.Frontend.ForceSim via
+  // EffectFn5, so JS calls it as a plain 5-arg function and receives
+  // the cleanup Effect as `() => undefined`.
+  const cleanup = runAtelierForce(nodes, links, forces, `#${rowId}`, onTick);
+  sims.set(container, cleanup);
 }

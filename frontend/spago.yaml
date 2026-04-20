@@ -21,6 +21,9 @@ package:
     - foreign
     - halogen
     - http-methods
+    - hylograph-simulation
+    - nullable
+    - numbers
     - ordered-collections
     - transformers
     - maybe
