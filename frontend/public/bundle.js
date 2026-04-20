@@ -34259,8 +34259,8 @@
   var browserScope = {
     runtimeLabel: "Browser (Web Worker)",
     autoImports: ["Prelude", "Data.Array as Array", "Data.Either (Either(..))", "Data.Maybe (Maybe(..))", "Data.Tuple (Tuple(..))", "Effect (Effect)", "Effect.Aff (runAff_)", "Effect.Class (liftEffect)", "Playground.Runtime (toPlaygroundValue, emit, done)"],
-    highlightedPackages: ["aff", "affjax", "affjax-web", "arrays", "argonaut", "either", "foldable-traversable", "integers", "maybe", "numbers", "ordered-collections", "parsing", "random", "strings", "transformers", "tuples"],
-    notes: ["Cells run in a Web Worker; no DOM access, but setTimeout + Aff.delay work.", "fetch is available for HTTP; affjax wraps it."]
+    highlightedPackages: ["aff", "affjax", "affjax-web", "arrays", "argonaut", "either", "foldable-traversable", "integers", "maybe", "numbers", "ordered-collections", "parsing", "random", "strings", "transformers", "tuples", "hylograph-graph", "hylograph-layout", "hylograph-transitions"],
+    notes: ["Cells run in a Web Worker; no DOM access, but setTimeout + Aff.delay work.", "fetch is available for HTTP; affjax wraps it.", "Hylograph layout algorithms are available (DataViz.Layout.Hierarchy.Pack, .Treemap, .Tree, Sankey, Chord, ...) \u2014 pure PureScript, Worker-safe.", "Return `Playground.Runtime.ForceRender {...}` or a string starting with `<svg` to have the value drawn in the Render column."]
   };
   var nodeScope = /* @__PURE__ */ (function() {
     return {

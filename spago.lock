@@ -59,6 +59,9 @@
             "foreign",
             "foreign-object",
             "functions",
+            "hylograph-graph",
+            "hylograph-layout",
+            "hylograph-transitions",
             "identity",
             "integers",
             "lazy",
@@ -728,7 +731,17 @@
         "zipperarray": "2.0.0"
       }
     },
-    "extra_packages": {}
+    "extra_packages": {
+      "hylograph-graph": {
+        "path": "../purescript-hylograph-libs/purescript-hylograph-graph"
+      },
+      "hylograph-layout": {
+        "path": "../purescript-hylograph-libs/purescript-hylograph-layout"
+      },
+      "hylograph-transitions": {
+        "path": "../purescript-hylograph-libs/purescript-hylograph-transitions"
+      }
+    }
   },
   "packages": {
     "aff": {
@@ -1266,6 +1279,21 @@
         "unfoldable"
       ]
     },
+    "graphs": {
+      "type": "registry",
+      "version": "8.1.0",
+      "integrity": "sha256-qllMIjmOGqwELOlXyHuiTT3YpeL/+gjaq7omAZ4npJQ=",
+      "dependencies": [
+        "bifunctors",
+        "catenable-lists",
+        "foldable-traversable",
+        "lists",
+        "maybe",
+        "ordered-collections",
+        "prelude",
+        "tuples"
+      ]
+    },
     "halogen": {
       "type": "registry",
       "version": "7.0.0",
@@ -1419,6 +1447,65 @@
         "typelevel-prelude",
         "unsafe-coerce",
         "untagged-union"
+      ]
+    },
+    "hylograph-graph": {
+      "type": "local",
+      "path": "../purescript-hylograph-libs/purescript-hylograph-graph",
+      "dependencies": [
+        "arrays",
+        "either",
+        "foldable-traversable",
+        "free",
+        "graphs",
+        "integers",
+        "lists",
+        "maybe",
+        "numbers",
+        "ordered-collections",
+        "prelude",
+        "tree-rose",
+        "tuples"
+      ]
+    },
+    "hylograph-layout": {
+      "type": "local",
+      "path": "../purescript-hylograph-libs/purescript-hylograph-layout",
+      "dependencies": [
+        "arrays",
+        "either",
+        "foldable-traversable",
+        "foreign",
+        "free",
+        "hylograph-graph",
+        "integers",
+        "lists",
+        "maybe",
+        "numbers",
+        "ordered-collections",
+        "prelude",
+        "strings",
+        "transformers",
+        "tree-rose",
+        "tuples"
+      ]
+    },
+    "hylograph-transitions": {
+      "type": "local",
+      "path": "../purescript-hylograph-libs/purescript-hylograph-transitions",
+      "dependencies": [
+        "arrays",
+        "control",
+        "effect",
+        "either",
+        "foldable-traversable",
+        "integers",
+        "maybe",
+        "numbers",
+        "ordered-collections",
+        "prelude",
+        "refs",
+        "strings"
       ]
     },
     "identity": {
@@ -2101,6 +2188,20 @@
         "tailrec",
         "tuples",
         "unfoldable"
+      ]
+    },
+    "tree-rose": {
+      "type": "registry",
+      "version": "4.0.2",
+      "integrity": "sha256-7Zu/FJb5jmSDxy9N5t5cKUgTWUnXkOvyIoDT/07l8as=",
+      "dependencies": [
+        "control",
+        "foldable-traversable",
+        "free",
+        "lists",
+        "maybe",
+        "prelude",
+        "tailrec"
       ]
     },
     "tuples": {

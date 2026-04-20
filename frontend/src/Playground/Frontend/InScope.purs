@@ -41,10 +41,13 @@ browserScope =
       , "foldable-traversable", "integers", "maybe", "numbers"
       , "ordered-collections", "parsing", "random", "strings"
       , "transformers", "tuples"
+      , "hylograph-graph", "hylograph-layout", "hylograph-transitions"
       ]
   , notes:
       [ "Cells run in a Web Worker; no DOM access, but setTimeout + Aff.delay work."
       , "fetch is available for HTTP; affjax wraps it."
+      , "Hylograph layout algorithms are available (DataViz.Layout.Hierarchy.Pack, .Treemap, .Tree, Sankey, Chord, ...) — pure PureScript, Worker-safe."
+      , "Return `Playground.Runtime.ForceRender {...}` or a string starting with `<svg` to have the value drawn in the Render column."
       ]
   }
 

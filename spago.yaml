@@ -1,4 +1,10 @@
 workspace:
   packageSet:
     registry: 73.3.0
-  extraPackages: {}
+  extraPackages:
+    hylograph-graph:
+      path: ../purescript-hylograph-libs/purescript-hylograph-graph
+    hylograph-layout:
+      path: ../purescript-hylograph-libs/purescript-hylograph-layout
+    hylograph-transitions:
+      path: ../purescript-hylograph-libs/purescript-hylograph-transitions

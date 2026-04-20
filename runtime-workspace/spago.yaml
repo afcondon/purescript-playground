@@ -23,6 +23,9 @@ package:
     - foreign
     - foreign-object
     - functions
+    - hylograph-graph
+    - hylograph-layout
+    - hylograph-transitions
     - identity
     - integers
     - lazy
