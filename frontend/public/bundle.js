@@ -29471,6 +29471,7 @@
   var _setContent = (view) => (content4) => () => {
     view.dispatch({
       changes: { from: 0, to: view.state.doc.length, insert: content4 },
+      effects: [setErrorsEffect.of(Decoration.none)],
       annotations: [programmaticAnnotation.of(true)]
     });
   };

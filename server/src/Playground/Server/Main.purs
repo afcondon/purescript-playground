@@ -294,7 +294,8 @@ mkRouter store { route: r, method, body } =
           case parseBody moduleBodyCodec bodyStr of
             Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
             Right { source } -> do
-              resp <- liftAff (Session.updateModule store (UserModule { source }))
+              let apply = if preview then Session.previewUpdateModule else Session.updateModule
+              resp <- liftAff (apply store (UserModule { source }))
               ok' jsonCors (snapshotJson resp)
         Patch -> do
           bodyStr <- toString body

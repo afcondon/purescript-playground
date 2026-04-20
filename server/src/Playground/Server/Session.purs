@@ -7,6 +7,7 @@ module Playground.Server.Session
   , compileAndStore
   , replaceAll
   , updateModule
+  , previewUpdateModule
   , patchModule
   , previewModulePatch
   , appendCell
@@ -210,6 +211,16 @@ replaceAll store (CompileRequest r) = withUpdate store \s -> s
 
 updateModule :: SessionStore -> UserModule -> Aff CompileResponse
 updateModule store m = withUpdate store _ { "module" = m }
+
+-- | Trial-apply a full module replacement — compile against the
+-- | resulting source but don't persist. Counterpart to `updateModule`
+-- | for POST /session/module?preview=true.
+previewUpdateModule :: SessionStore -> UserModule -> Aff CompileResponse
+previewUpdateModule (SessionStore { lock, state }) m = do
+  _ <- AVar.take lock
+  Aff.finally (AVar.put unit lock) do
+    s0 <- liftEffect (Ref.read state)
+    compileNow (s0 { "module" = m })
 
 -- | Apply a structured edit to the current module source. Returns
 -- | `Left` (with a diagnostic message) when the patch is invalid

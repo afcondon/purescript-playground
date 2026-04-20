@@ -229,8 +229,15 @@ export const _createEditor = (parent) => (initialDoc) => (onChange) => (renderTy
 export const _getContent = (view) => () => view.state.doc.toString();
 
 export const _setContent = (view) => (content) => () => {
+  // Clear error decorations in the SAME transaction as the content
+  // replacement — otherwise any surviving decoration at a position
+  // beyond the new doc's length blows up errorsField.update's
+  // `decos.map(tr.changes)` call with a RangeError. Any currently-
+  // valid errors will be re-pushed by the caller's decorateErrors
+  // pass immediately afterwards.
   view.dispatch({
     changes: { from: 0, to: view.state.doc.length, insert: content },
+    effects: [ setErrorsEffect.of(Decoration.none) ],
     annotations: [programmaticAnnotation.of(true)],
   });
 };

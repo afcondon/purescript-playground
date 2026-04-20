@@ -147,7 +147,11 @@ buildMain opts userImports cells =
             <> "import Data.Maybe (Maybe(..))\n"
             <> "import Data.Tuple (Tuple(..))\n"
             <> "import Effect (Effect)\n"
-            <> "import Playground.Runtime (class ToPlaygroundValue, done, emit, toPlaygroundValue)\n"
+            -- Open import so cells always see ForceRender / AtelierForceSpec /
+            -- etc. without requiring the user module to import them itself
+            -- (friction #10 — that re-import was being flagged as redundant
+            -- from the user module's POV because only cells referenced it).
+            <> "import Playground.Runtime\n"
             <> "import Playground.User\n"
         else
           "module Main where\n\n"
@@ -159,7 +163,10 @@ buildMain opts userImports cells =
             <> "import Effect (Effect)\n"
             <> "import Effect.Aff (runAff_)\n"
             <> "import Effect.Class (liftEffect)\n"
-            <> "import Playground.Runtime (class ToPlaygroundValue, done, emit, toPlaygroundValue)\n"
+            -- See note in the purerl branch above: open import lets cells
+            -- use the runtime's full vocabulary without the user module
+            -- needing to re-import it.
+            <> "import Playground.Runtime\n"
             <> "import Playground.User\n"
     body =
       if opts.purerl
