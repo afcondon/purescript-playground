@@ -463,6 +463,51 @@ body {
   border-bottom-color: #3e3e3a;
 }
 
+/* Render column: per-cell visual renderings (SVG strings, force layouts).
+   Row-per-expr-cell to align vertically with the cells column; empty rows
+   preserved when a cell's value isn't a renderable shape. */
+.pane-render {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.render-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.render-row {
+  border-left: 5px solid var(--cell-bar, var(--rule));
+  padding-left: 0.6rem;
+  min-height: 2rem;
+}
+
+.render-view {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-height: 1.25rem;
+}
+
+/* Size by intrinsic aspect, capped by column width OR 300px tall —
+   whichever binds first. `width: auto` + `height: auto` lets the svg's
+   viewBox aspect drive, preserveAspectRatio="xMidYMid meet" handles the
+   fit cleanly. Without this, width:100% forces a height from aspect that
+   can blow past max-height (browser behaviour varies). */
+.render-view svg {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 300px;
+}
+
+.playground-shell.is-compiling .pane-render {
+  opacity: 0.55;
+}
+
 /* Gutter column: per-cell results */
 .pane-gutter {
   display: flex;
@@ -636,7 +681,7 @@ body {
 
 .columns {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1.2fr 1.2fr 0.8fr 0.8fr;
   height: 100%;
   overflow: hidden;
 }

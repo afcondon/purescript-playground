@@ -125,6 +125,8 @@ What gets what:
 
 So an `emits` entry for a cell returning `Array { avgDensity :: Number, name :: String }` comes through as a parseable JSON tree you can walk field-by-field. Cell-composes-with-cell works because the runtime values do, and now the JSON surface agrees.
 
+`GET /session/types` — narrower read. Returns just `{ "types": [ { "id": "c1", "signature": "Int" }, ... ] }` with no `js`, no `emits`, no module/cell source. Use this when you're iterating on types and don't want the full snapshot on every round-trip.
+
 `POST /ide/type` — body `{ "query": "map" }` → `{ "hits": [ { "identifier", "moduleName", "typeSignature" }, ... ] }`. Useful for "what's the type of map?"
 
 `POST /ide/complete` — same shape; returns prefix-completion candidates.
@@ -176,6 +178,28 @@ Returns the new session including the added cell's id.
 
 `POST /session/compile` — force a recompile with the current state. Useful after a runtime switch or if you just want fresh types.
 
+### Snapshots — export / import
+
+`POST /session/export` — returns a minimal session descriptor suitable for re-importing:
+```json
+{
+  "runtime": "browser",
+  "module": { "source": "module Scratch where\n..." },
+  "cells":  [ { "source": "foo + 1", "kind": "expr" }, ... ]
+}
+```
+No `js`, no `types`, no `emits` — just the authoring shape. Use this to checkpoint a session before a risky edit, or to capture a state you want to replay later.
+
+`POST /session/import` — accepts the same descriptor and **replaces the entire session** with it. Body shape:
+```json
+{
+  "runtime": "browser",
+  "module": { "source": "..." },
+  "cells":  [ { "source": "...", "kind": "expr" }, ... ]
+}
+```
+One recompile, one response — the full new snapshot. Useful for seeding a starter state, rolling back, or priming a session with a prepared dataset as a PureScript literal.
+
 ### Write — dry-run / preview
 
 Every write endpoint accepts a `?preview=true` query parameter. With preview, the server evaluates the write against the current session and returns what the compile result would be, but **does not apply** the change. Use this when you want to validate a sketch before disturbing the human's editor.
@@ -188,6 +212,7 @@ This means: when you write via the API, the human sees your edit appear in the b
 
 ## Etiquette
 
+- **Drive/Observe is how the human grants or reclaims the conch.** The browser UI has a toggle: *Drive* (human is authoring; frontend auto-compile fires) or *Observe* (human is watching; frontend polling is suspended so your API writes win). The setting is client-side only — the server doesn't know about it, so it's an honour system. When the human says "I'm in Observe, go," you have the editor. If they flip back to Drive mid-session, stop pushing writes to the module and fall back to `?preview=true` or cells until they say otherwise.
 - **Don't thrash the module editor while the human is typing there.** If you're about to make a large edit, consider `?preview=true` first, or tell the human what you're about to do.
 - **Prefer adding cells over editing the module.** Cells are cheap experiments; the module is their codebase-in-miniature.
 - **If the human has set a runtime (especially Purerl), stay in its package set.** Don't add an `import Effect.Aff` to a Purerl module — it won't compile.
@@ -197,7 +222,8 @@ This means: when you write via the API, the human sees your edit appear in the b
 
 - The Playground hasn't been run against a large real project yet. Package-set binding is designed but not yet shipped. Full-project binding (cells importing user modules) is further out.
 - `purs ide` is a subprocess of the backend; the first type query after backend boot has a ~2s warm-up. Subsequent queries are ~50ms.
-- The `js` field in a session snapshot is large (kilobytes) for a non-trivial compile. If you're round-tripping state a lot, consider a narrower GET endpoint.
+- The `js` field in a session snapshot is large (kilobytes) for a non-trivial compile. If you're round-tripping state a lot, use `GET /session/types` for the narrower read.
+- There's currently one render area (the values/types gutter). Progressive work in-flight adds multiple render columns, SVG rendering, and Hylograph-libs-in-the-browser-runtime. Until that lands, "rendering a bubble pack" means emitting SVG-as-string or JSON the human pastes elsewhere to view.
 
 ## The evaluation the human and I are trying to run
 

@@ -4,6 +4,9 @@ module Playground.Runtime
   , class RecordToPlaygroundValue
   , recordToPlaygroundValue
   , PlaygroundValue(..)
+  , ForceRender(..)
+  , ForceNode
+  , ForceLink
   , emit
   , done
   ) where
@@ -43,6 +46,30 @@ data PlaygroundValue
   | PVCtor String (Array PlaygroundValue)
   | PVRecord (Array (Tuple String PlaygroundValue))
   | PVRaw String
+
+-- | Spec for a force-directed layout that the frontend's render column
+-- | will animate. Nodes and links describe the graph; width/height
+-- | govern the SVG viewport the simulation runs inside. The simulation
+-- | itself lives in the browser main thread (d3-force); the cell just
+-- | returns a value of this shape.
+type ForceNode =
+  { id :: String
+  , radius :: Number
+  , fill :: String
+  , label :: String
+  }
+
+type ForceLink =
+  { source :: String
+  , target :: String
+  }
+
+newtype ForceRender = ForceRender
+  { nodes :: Array ForceNode
+  , links :: Array ForceLink
+  , width :: Number
+  , height :: Number
+  }
 
 -- | Serialise to JSON for transport over the Worker emit channel.
 encode :: PlaygroundValue -> Json
@@ -124,6 +151,23 @@ else instance toPlaygroundValueRecord ::
   toPlaygroundValue rec = do
     fields <- recordToPlaygroundValue (Proxy :: Proxy list) rec
     pure (PVRecord fields)
+
+-- ForceRender: picked up by the frontend's render column (RenderView.js
+-- pattern-matches on the $ctor name) and fed through d3-force. Must
+-- live in the chain — putting it in a separate module collides with the
+-- `Show`-based fallback below during instance resolution.
+else instance toPlaygroundValueForceRender :: ToPlaygroundValue ForceRender where
+  toPlaygroundValue (ForceRender r) = do
+    nodesPv <- toPlaygroundValue r.nodes
+    linksPv <- toPlaygroundValue r.links
+    let
+      body =
+        [ Tuple "nodes" nodesPv
+        , Tuple "links" linksPv
+        , Tuple "width" (PVNumber r.width)
+        , Tuple "height" (PVNumber r.height)
+        ]
+    pure (PVCtor "ForceRender" [ PVRecord body ])
 
 -- Fallback: anything that has Show renders from show-output. A bare
 -- uppercase identifier (Africa, LT, Nothing) is treated as a nullary

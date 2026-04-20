@@ -38,6 +38,7 @@ import Playground.Frontend.CodeMirror (ErrorSpan)
 import Playground.Frontend.Config (backendUrl, nowMs)
 import Playground.Frontend.Editor as Editor
 import Playground.Frontend.InScope as InScope
+import Playground.Frontend.RenderView as RenderView
 import Playground.Frontend.SigilView as SigilView
 import Playground.Frontend.Starter (Starter, compatFor, starters)
 import Playground.Frontend.Starter as Starter
@@ -104,6 +105,7 @@ type Slots =
   ( moduleEditor :: H.Slot Editor.Query Editor.Output Unit
   , cellEditor :: H.Slot Editor.Query Editor.Output String
   , sigil :: forall q. H.Slot q Void String
+  , render :: forall q. H.Slot q Void String
   )
 
 _moduleEditor :: Proxy "moduleEditor"
@@ -114,6 +116,9 @@ _cellEditor = Proxy
 
 _sigil :: Proxy "sigil"
 _sigil = Proxy
+
+_render :: Proxy "render"
+_render = Proxy
 
 data Action
   = Compile
@@ -834,6 +839,7 @@ render state =
         [ renderModuleColumn state
         , renderCellsColumn state
         , renderGutterColumn state
+        , renderRenderColumn state
         ]
     , renderErrorPanel state
     ]
@@ -1097,6 +1103,31 @@ renderRuntimeError = case _ of
     [ HH.pre [ HP.class_ (H.ClassName "runtime-error") ]
         [ HH.text ("runtime: " <> err) ]
     ]
+
+-- | Fourth column: imperatively-mounted visual renderings of cell values.
+-- | Dispatches per emit shape in the FFI (RenderView.js): SVG strings go
+-- | through innerHTML, `ForceRender` values drive a d3-force simulation,
+-- | anything else stays blank. Row-per-expr-cell to align with the cells
+-- | column; empty rows kept so vertical alignment is preserved.
+renderRenderColumn :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
+renderRenderColumn state =
+  HH.section [ HP.class_ (H.ClassName "pane pane-render") ]
+    [ HH.h2_ [ HH.text "Render" ]
+    , HH.div [ HP.class_ (H.ClassName "render-rows") ]
+        (Array.catMaybes (mapWithIndex maybeRow state.cells))
+    ]
+  where
+  maybeRow idx c =
+    if c.kind == "expr" then Just (renderCellVisual state idx c) else Nothing
+
+renderCellVisual :: forall m. MonadAff m => State -> Int -> CellRec -> H.ComponentHTML Action Slots m
+renderCellVisual state idx c =
+  HH.div [ HP.class_ (H.ClassName ("render-row " <> cellColorClass idx)) ]
+    [ HH.slot_ _render c.id RenderView.component { json: cellJson } ]
+  where
+  cellJson = case Map.lookup c.id state.cellResults of
+    Just v -> Value.encode v
+    Nothing -> ""
 
 -- | Bottom panel: absent when clean. Each structured compile error is
 -- | attributed to an originating surface (cell <id>, module, or just

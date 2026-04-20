@@ -1,12 +1,13 @@
 module Playground.Frontend.Value
   ( PlaygroundValue(..)
   , parse
+  , encode
   ) where
 
 import Prelude
 
 import Control.Alt ((<|>))
-import Data.Argonaut.Core (Json)
+import Data.Argonaut.Core (Json, stringify)
 import Data.Argonaut.Core as AJ
 import Data.Argonaut.Parser (jsonParser)
 import Data.Either (Either(..))
@@ -39,6 +40,27 @@ parse s = case jsonParser s of
   Right json -> case fromJson json of
     Just v -> v
     Nothing -> PVRaw s
+
+-- | Re-serialise a parsed value back to JSON. Mirror of the runtime's
+-- | encode; used by the render column to hand a single JSON blob to its
+-- | JS dispatch layer instead of walking a PureScript ADT in FFI.
+encode :: PlaygroundValue -> String
+encode = stringify <<< toJson
+
+toJson :: PlaygroundValue -> Json
+toJson = case _ of
+  PVNull -> AJ.jsonNull
+  PVBool b -> AJ.fromBoolean b
+  PVNumber n -> AJ.fromNumber n
+  PVString s -> AJ.fromString s
+  PVArray xs -> AJ.fromArray (map toJson xs)
+  PVCtor name args -> AJ.fromObject $ Object.fromFoldable
+    [ Tuple "$ctor" (AJ.fromString name)
+    , Tuple "args" (AJ.fromArray (map toJson args))
+    ]
+  PVRecord fields -> AJ.fromObject $ Object.singleton "$record"
+    (AJ.fromObject (Object.fromFoldable (map (\(Tuple k v) -> Tuple k (toJson v)) fields)))
+  PVRaw s -> AJ.fromObject (Object.singleton "$raw" (AJ.fromString s))
 
 fromJson :: Json -> Maybe PlaygroundValue
 fromJson j =
