@@ -1,5 +1,6 @@
 module Playground.Frontend.Config
   ( backendUrl
+  , wsBackendUrl
   , nowMs
   ) where
 
@@ -11,6 +12,9 @@ import Effect (Effect)
 -- | still 3050.
 foreign import backendUrl :: String
 
--- | ms since epoch. Used as a timestamp on the user's last edit so
--- | the polling loop doesn't clobber live typing.
+-- | The WS origin, mirroring `backendUrl` but with `ws://` / `wss://`
+-- | per page protocol. Subscribers open `<wsBackendUrl>/session/ws`.
+foreign import wsBackendUrl :: String
+
+-- | ms since epoch.
 foreign import nowMs :: Effect Number

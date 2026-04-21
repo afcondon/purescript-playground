@@ -3,11 +3,14 @@ module Playground.Frontend.Shell where
 import Prelude
 
 import Affjax.RequestBody as RB
+import Affjax.RequestHeader (RequestHeader(..)) as AX
 import Affjax.ResponseFormat as RF
-import Affjax.Web as AX
+import Affjax.StatusCode (StatusCode(..)) as AX
+import Affjax.Web (defaultRequest, printError, request) as AX
 import Control.Alt ((<|>))
 import Data.Argonaut.Core (Json, stringify)
 import Data.Argonaut.Core as AJ
+import Data.Argonaut.Parser (jsonParser)
 import Data.Array (filter, findIndex, mapWithIndex, modifyAt, snoc)
 import Data.Array as Array
 import Data.String as Str
@@ -35,18 +38,30 @@ import Type.Proxy (Proxy(..))
 import Data.Foldable (for_)
 
 import Playground.Frontend.CodeMirror (ErrorSpan)
-import Playground.Frontend.Config (backendUrl, nowMs)
+import Playground.Frontend.Config (backendUrl, wsBackendUrl)
 import Playground.Frontend.Editor as Editor
 import Playground.Frontend.InScope as InScope
 import Playground.Frontend.RenderView as RenderView
 import Playground.Frontend.SigilView as SigilView
-import Playground.Frontend.Starter (Starter, compatFor, starters)
+import Playground.Frontend.Starter (Starter, starters)
 import Playground.Frontend.Starter as Starter
 import Playground.Frontend.Value (PlaygroundValue)
 import Playground.Frontend.Value as Value
 import Playground.Frontend.ValueView as ValueView
 import Playground.Frontend.Worker (Worker, WorkerMessage(..))
 import Playground.Frontend.Worker as Worker
+import Playground.Frontend.WsClient as WsClient
+import Playground.Conch
+  ( Broadcast(..)
+  , ClientMsg(..)
+  , ConchHeldBody
+  , ConchState
+  , SubscriberId
+  , broadcastCodec
+  , clientMsgCodec
+  , conchHeldBodyCodec
+  , unSubscriberId
+  )
 import Playground.Session
   ( Cell(..)
   , CellEmit(..)
@@ -71,9 +86,6 @@ type State =
   , starterKey :: String          -- key of the currently-loaded starter
   , starterMenuOpen :: Boolean
   , inScopeOpen :: Boolean
-  , lastUserEditAt :: Number      -- ms since epoch; used to guard the
-                                   -- server-pull poll against clobbering
-                                   -- live typing.
   , compiling :: Boolean
   , errors :: Array CompileError
   , warnings :: Array CompileError
@@ -86,11 +98,20 @@ type State =
   , worker :: Maybe Worker
   , workerSub :: Maybe H.SubscriptionId
   , workerTimeout :: Maybe H.ForkId
-  , driveMode :: Boolean            -- true: human is driving, suppress
-                                     -- agent-writes from the poll loop
-                                     -- and keep editors editable. false:
-                                     -- observe agent writes live, editors
-                                     -- are read-only.
+  -- Conch + WebSocket transport. `myId` is assigned by the server on WS
+  -- connect via the Welcome frame. `conch` is the latest server-authored
+  -- state and updates on every ConchUpdate broadcast. `iHold` is the
+  -- derived "am I the current holder" used for read-only editor toggles.
+  -- `requestingConch`/`nextConchRetryAt`/`conchBackoffMs` drive the
+  -- backoff state machine when requests are denied.
+  , myId :: Maybe SubscriberId
+  , conch :: ConchState
+  , requestingConch :: Boolean
+  , nextConchRetryAt :: Maybe Number
+  , conchBackoffMs :: Int
+  , ws :: Maybe WsClient.WebSocket
+  , wsSub :: Maybe H.SubscriptionId
+  , conchBanner :: Maybe String      -- shown when a 409 comes back from an HTTP write
   -- What we last pushed to the server. Used by Compile to diff the
   -- current state against the server's view so we can send granular
   -- PATCHes (POST /session/module, PATCH /session/cells/:id) instead
@@ -132,12 +153,17 @@ data Action
   | ToggleStarterMenu
   | LoadStarter String
   | ToggleInScope
-  | ToggleDriveMode
   | HandleWorkerMessage WorkerMessage
   | WorkerTimeout
-  | PollServer              -- 2s tick — pull remote snapshot, apply
-                            -- if the user isn't actively typing
-  | Startup                 -- runs once on init: compile + start poll loop
+  | WsOpened                -- WebSocket connected; Welcome frame will follow
+  | WsIncoming String       -- raw JSON text frame from the server
+  | WsClosed Int String     -- WS closed; TODO: reconnect
+  | WsErrored               -- transient transport error
+  | RequestConchAction      -- user clicked "Take Conch"
+  | YieldConchAction        -- user clicked "Yield" (has the conch)
+  | ForceConchAction        -- user clicked "Force Take" (holder idle)
+  | DismissConchBanner
+  | Startup                 -- runs once on init: compile + open WS
 
 initialState :: forall i. i -> State
 initialState _ =
@@ -149,7 +175,6 @@ initialState _ =
      , starterKey: s.key
      , starterMenuOpen: false
      , inScopeOpen: false
-     , lastUserEditAt: 0.0
      , compiling: false
      , errors: []
      , warnings: []
@@ -162,7 +187,14 @@ initialState _ =
      , worker: Nothing
      , workerSub: Nothing
      , workerTimeout: Nothing
-     , driveMode: false
+     , myId: Nothing
+     , conch: { holder: Nothing, lastActivityAt: 0.0 }
+     , requestingConch: false
+     , nextConchRetryAt: Nothing
+     , conchBackoffMs: 250
+     , ws: Nothing
+     , wsSub: Nothing
+     , conchBanner: Nothing
      -- Empty strings / maps so the first Compile pass falls into the
      -- "everything changed, do a full /session/compile" branch and
      -- seeds lastSynced* from the server's response.
@@ -199,20 +231,18 @@ handleAction
 handleAction = case _ of
   Startup -> do
     hydrateFromServer
-    schedulePoll
+    openWebSocket
   ModuleChanged src -> do
     -- Commit the user's content BEFORE any other state change.
-    -- Halogen re-renders after each H.modify_; if stampEdit runs
-    -- first, the intermediate render has moduleSource still at the
+    -- Halogen re-renders after each H.modify_; if other state updates
+    -- run first, the intermediate render has moduleSource still at the
     -- old value, and the editor's UpdateInput receives stale
     -- initialDoc and clobbers the user's just-typed character via
     -- setContent.
     H.modify_ _ { moduleSource = src }
-    stampEdit
     handleAction ScheduleCompile
   CellChanged id src -> do
     H.modify_ \s -> s { cells = updateCell id src s.cells }
-    stampEdit
     handleAction ScheduleCompile
   AddCell -> do
     H.modify_ \s ->
@@ -255,16 +285,18 @@ handleAction = case _ of
         }
       handleAction ScheduleCompile
   ToggleInScope -> H.modify_ \s -> s { inScopeOpen = not s.inScopeOpen }
-  ToggleDriveMode -> do
-    s <- H.get
-    let newMode = not s.driveMode
-    H.modify_ _ { driveMode = newMode }
-    -- Propagate to every live editor so CM6 updates its read-only
-    -- state. Cells in state reflect what Halogen knows about; any
-    -- slot-mounted editor with an id in that list receives the tell.
-    _ <- H.tell _moduleEditor unit (Editor.SetEditable newMode)
-    for_ s.cells \c ->
-      H.tell _cellEditor c.id (Editor.SetEditable newMode)
+  WsOpened -> pure unit   -- Welcome frame will arrive separately
+  WsIncoming raw -> handleIncomingBroadcast raw
+  WsClosed _ _ -> H.modify_ _ { ws = Nothing }    -- TODO: reconnect w/ backoff
+  WsErrored -> pure unit
+  RequestConchAction -> do
+    sendClientMsg RequestConch
+    H.modify_ _ { requestingConch = true }
+  YieldConchAction -> sendClientMsg YieldConch
+  ForceConchAction -> do
+    sendClientMsg ForceConch
+    H.modify_ _ { requestingConch = true }
+  DismissConchBanner -> H.modify_ _ { conchBanner = Nothing }
   ScheduleCompile -> do
     s <- H.get
     case s.pendingCompile of
@@ -302,9 +334,6 @@ handleAction = case _ of
   WorkerTimeout -> do
     H.modify_ _ { runtimeError = Just ("timeout after " <> show workerTimeoutMs) }
     teardownExecution
-  PollServer -> do
-    pollRemote
-    schedulePoll
   where
   updateCell id src cells =
     fromMaybe cells do
@@ -372,11 +401,11 @@ runGranularCompile s = do
 -- |   - Anything else (pure line insertion, tangled multi-range edit):
 -- |     fall back to POST /session/module, which is a full replace.
 sendModuleEdit
-  :: forall m
+  :: forall o m
    . MonadAff m
   => String
   -> String
-  -> m (Either String CompileResponse)
+  -> H.HalogenM State Action Slots o m (Either String CompileResponse)
 sendModuleEdit old new =
   case computeModuleDiff old new of
     DiffAppend suffix -> httpJson PATCH
@@ -523,28 +552,57 @@ applyCompileResponse (CompileResponse r) = do
     Nothing -> teardownExecution
     Just js -> startExecution js
 
--- | Affjax wrapper: fires an HTTP request with a JSON body (may be
--- | empty string for GETs), decodes the response as a CompileResponse,
--- | and collapses transport + decode failures into a single Left.
+-- | Affjax wrapper for *mutating* endpoints. Sends the caller's
+-- | `X-Atelier-Subscriber-Id` header if present, decodes 2xx as a
+-- | `CompileResponse`, and surfaces a 409 (conch-held) by setting
+-- | `conchBanner` in state so the UI can prompt the user to request
+-- | the conch. Transport and decode failures collapse into `Left`.
+-- |
+-- | Note: tied to `HalogenM` (not just `MonadAff`) because 409 handling
+-- | writes into component state.
 httpJson
-  :: forall m
+  :: forall o m
    . MonadAff m
   => Method
   -> String
   -> String
-  -> m (Either String CompileResponse)
+  -> H.HalogenM State Action Slots o m (Either String CompileResponse)
 httpJson method url bodyJson = do
+  s <- H.get
+  let
+    authHeaders = case s.myId of
+      Nothing -> []
+      Just sid -> [ AX.RequestHeader "X-Atelier-Subscriber-Id" (unSubscriberId sid) ]
   result <- H.liftAff $ AX.request $ AX.defaultRequest
     { method = Left method
     , url = url
     , responseFormat = RF.json
     , content = if Str.null bodyJson then Nothing else Just (RB.string bodyJson)
+    , headers = authHeaders
     }
-  pure case result of
-    Left err -> Left (AX.printError err)
-    Right { body } -> case CA.decode compileResponseCodec body of
-      Left decodeErr -> Left ("decode: " <> CA.printJsonDecodeError decodeErr)
-      Right resp -> Right resp
+  case result of
+    Left err -> pure (Left (AX.printError err))
+    Right r -> case r.status of
+      AX.StatusCode 409 -> do
+        let banner = case CA.decode conchHeldBodyCodec r.body of
+              Left _ -> "Another viewer holds the conch."
+              Right held -> conchHeldMessage held
+        H.modify_ _ { conchBanner = Just banner, compiling = false }
+        pure (Left ("conch-held: " <> banner))
+      AX.StatusCode code
+        | code >= 200 && code < 300 -> case CA.decode compileResponseCodec r.body of
+            Left decodeErr -> pure (Left ("decode: " <> CA.printJsonDecodeError decodeErr))
+            Right resp -> pure (Right resp)
+        | otherwise -> pure (Left ("HTTP " <> show code))
+
+-- | Render the 409 payload as a human banner. `lastActivityAt` is raw
+-- | ms-since-epoch; we present it as "idle Xs ago" so the user can
+-- | tell whether a Force is plausible. Rough — the banner is transient,
+-- | the full conch state is already visible in the indicator button.
+conchHeldMessage :: ConchHeldBody -> String
+conchHeldMessage held = case held.holder of
+  Nothing -> "Conch is unclaimed. Take it to write."
+  Just _ -> "Another viewer holds the conch. Request it to write."
 
 -- | Build a JSON object from a list of string-keyed string values.
 -- | We roll this by hand instead of reaching for a codec because each
@@ -585,61 +643,111 @@ hydrateFromServer = do
   where
   pristineServerModule = "module Scratch where\n\nimport Prelude\n"
 
--- | Bump the last-user-edit timestamp so the poll loop knows to
--- | hold off for a couple seconds (don't clobber live typing).
-stampEdit
+-- | Open the WebSocket subscription to `/session/ws` and wire incoming
+-- | frames into the Halogen event stream via a Subscription. The WS
+-- | connection lives for the component's lifetime; closures are logged
+-- | and, in v1, not auto-reconnected (reconnect logic is a task-2.5
+-- | follow-up — a page reload re-establishes).
+openWebSocket
   :: forall o m
    . MonadAff m
   => H.HalogenM State Action Slots o m Unit
-stampEdit = do
-  t <- H.liftEffect nowMs
-  H.modify_ _ { lastUserEditAt = t }
+openWebSocket = do
+  { emitter, listener } <- H.liftEffect HS.create
+  ws <- H.liftEffect $ WsClient.connect (wsBackendUrl <> "/session/ws")
+    { onOpen: HS.notify listener WsOpened
+    , onMessage: \msg -> HS.notify listener (WsIncoming msg)
+    , onClose: \code reason -> HS.notify listener (WsClosed code reason)
+    , onError: HS.notify listener WsErrored
+    }
+  sub <- H.subscribe emitter
+  H.modify_ _ { ws = Just ws, wsSub = Just sub }
 
--- | Schedule the next poll tick. PollServer self-schedules so this
--- | is called once from Startup and then continuously by each tick.
-schedulePoll
+-- | Dispatch an incoming WS frame. Three broadcast variants matter:
+-- | `Welcome` binds our SubscriberId + initial conch state + snapshot;
+-- | `Snapshot` carries a fresh compile response after another
+-- | subscriber's write; `ConchUpdate` is a pure conch-state transition
+-- | (grant/yield/force/disconnect).
+handleIncomingBroadcast
   :: forall o m
    . MonadAff m
-  => H.HalogenM State Action Slots o m Unit
-schedulePoll = void $ H.fork do
-  H.liftAff (delay (Milliseconds 2000.0))
-  handleAction PollServer
+  => String
+  -> H.HalogenM State Action Slots o m Unit
+handleIncomingBroadcast raw = case jsonParser raw of
+  Left _ -> pure unit
+  Right j -> case CA.decode broadcastCodec j of
+    Left _ -> pure unit
+    Right bc -> case bc of
+      Welcome r -> do
+        H.modify_ _ { myId = Just r.yourId, conch = r.conch }
+        let CompileResponse snap = r.snapshot
+        applyRemote snap
+        syncEditorsEditable
+      Snapshot r -> do
+        H.modify_ _ { conch = r.conch }
+        s <- H.get
+        let CompileResponse snap = r.snapshot
+        when (remoteDiffers s snap) (applyRemote snap)
+      ConchUpdate r -> do
+        s <- H.get
+        let wasRequesting = s.requestingConch
+            iHoldNow = case r.conch.holder, s.myId of
+              Just h, Just me -> h == me
+              _, _ -> false
+        H.modify_ _
+          { conch = r.conch
+          , requestingConch = if iHoldNow || (not wasRequesting) then false else s.requestingConch
+          , conchBackoffMs = if iHoldNow then 250 else s.conchBackoffMs
+          , conchBanner = if iHoldNow then Nothing else s.conchBanner
+          }
+        syncEditorsEditable
 
--- | One poll tick: GET /session, compare to local state, apply if
--- | input fields differ AND the user's been idle for at least 2s.
--- | The idle check protects active typing; without it, the remote's
--- | stale-by-one-keystroke state would fight the user every 2s.
-pollRemote
+-- | Push the current `iHoldConch` value into every live editor so CM6
+-- | updates its read-only state. Called after any transition that
+-- | changes who holds the conch.
+syncEditorsEditable
   :: forall o m
    . MonadAff m
   => H.HalogenM State Action Slots o m Unit
-pollRemote = do
+syncEditorsEditable = do
   s <- H.get
-  now <- H.liftEffect nowMs
-  -- Skip entirely when the human is driving: agent writes sit on
-  -- the server until they toggle to Observe. Idle check otherwise
-  -- prevents the remote's stale-by-one-keystroke state from
-  -- fighting active typing every 2s.
-  when (not s.driveMode && now - s.lastUserEditAt > 2000.0) do
-    result <- H.liftAff $ AX.request $ AX.defaultRequest
-      { method = Left GET
-      , url = backendUrl <> "/session"
-      , responseFormat = RF.json
-      , content = Nothing
-      }
-    case result of
-      Left _ -> pure unit
-      Right { body } -> case CA.decode compileResponseCodec body of
-        Left _ -> pure unit
-        Right (CompileResponse r) ->
-          when (remoteDiffers s r) (applyRemote r)
+  let editable = iHoldConch s
+  _ <- H.tell _moduleEditor unit (Editor.SetEditable editable)
+  for_ s.cells \c ->
+    H.tell _cellEditor c.id (Editor.SetEditable editable)
+
+-- | Derived: do we currently hold the conch? Used to drive editor
+-- | editability and the conch indicator button state.
+iHoldConch :: State -> Boolean
+iHoldConch s = case s.conch.holder, s.myId of
+  Just h, Just me -> h == me
+  _, _ -> false
+
+-- | Serialise a `ClientMsg` and send it through the open WS. Silent
+-- | no-op if the socket isn't open yet (shouldn't happen — UI actions
+-- | that generate ClientMsgs are only wired once the welcome's arrived,
+-- | and the JS FFI guards against send-before-open anyway).
+sendClientMsg
+  :: forall o m
+   . MonadAff m
+  => ClientMsg
+  -> H.HalogenM State Action Slots o m Unit
+sendClientMsg msg = do
+  s <- H.get
+  case s.ws of
+    Nothing -> pure unit
+    Just ws -> H.liftEffect $
+      WsClient.send ws (stringify (CA.encode clientMsgCodec msg))
 
 -- | Does the remote snapshot differ from what the frontend is
--- | currently showing, in a way that merits overwriting? Compares
--- | input state (module, cells, runtime) AND the error count —
--- | a server-side recompile that only changes derived fields
--- | (e.g. the agent force-recompiles the same source to clear a
--- | stale diagnostic) must still flush the frontend's banner.
+-- | currently showing? Compares input state (module, cells, runtime)
+-- | and error count, so a server recompile that only clears a stale
+-- | diagnostic still flushes the frontend's banner.
+-- |
+-- | With server-side conch exclusion the holder never receives their
+-- | own echoed snapshots, so this is purely a defensive no-op check —
+-- | avoids the edge case where a reconnect or server bug delivers a
+-- | broadcast that matches local state exactly.
 remoteDiffers
   :: forall r
    . State
@@ -838,6 +946,7 @@ render state =
         )
     ]
     [ renderHeader state
+    , renderConchBanner state
     , if state.inScopeOpen then renderInScopePanel state else HH.text ""
     , HH.main [ HP.class_ (H.ClassName "columns") ]
         [ renderModuleColumn state
@@ -847,6 +956,74 @@ render state =
         ]
     , renderErrorPanel state
     ]
+
+-- | Transient banner shown when the server rejected an HTTP write with
+-- | 409 (conch held by someone else). Dismissable; also clears the next
+-- | time the user successfully writes.
+renderConchBanner :: forall m. State -> H.ComponentHTML Action Slots m
+renderConchBanner state = case state.conchBanner of
+  Nothing -> HH.text ""
+  Just msg ->
+    HH.div [ HP.class_ (H.ClassName "conch-banner") ]
+      [ HH.text msg
+      , HH.button
+          [ HP.class_ (H.ClassName "conch-banner-dismiss")
+          , HE.onClick \_ -> DismissConchBanner
+          ]
+          [ HH.text "×" ]
+      ]
+
+-- | Three-state conch indicator replacing the old Drive/Observe toggle.
+-- | "● You have the conch"  — iHold; clicking yields.
+-- | "○ Unclaimed"            — nobody holds; clicking requests.
+-- | "○ Observing (held)"     — someone else holds; clicking requests,
+-- |                            or force-takes if they've been idle.
+renderConchButton :: forall m. State -> H.ComponentHTML Action Slots m
+renderConchButton state =
+  let iHold = iHoldConch state
+      nobodyHolds = case state.conch.holder of
+        Nothing -> true
+        Just _ -> false
+      somebodyElseHolds = (not iHold) && (not nobodyHolds)
+      idleMs = stateIdleMsFor state
+      forceable = somebodyElseHolds && idleMs > 60000.0
+      requesting = state.requestingConch && (not iHold)
+      label =
+        if iHold then "● You have the conch"
+        else if requesting then "…Requesting"
+        else if nobodyHolds then "○ Unclaimed"
+        else "○ Observing"
+      cls =
+        "conch-btn"
+          <> (if iHold then " conch-holding" else " conch-observing")
+          <> (if requesting then " conch-requesting" else "")
+      title =
+        if iHold then "You hold the conch. Click to yield."
+        else if nobodyHolds then "Nobody holds the conch. Click to take it."
+        else if forceable then "Holder has been idle >60s. Click to force-take."
+        else "Another viewer holds the conch. Click to request it."
+      action
+        | iHold = YieldConchAction
+        | forceable = ForceConchAction
+        | otherwise = RequestConchAction
+  in HH.button
+       [ HP.class_ (H.ClassName cls)
+       , HP.title title
+       , HE.onClick \_ -> action
+       ]
+       [ HH.text label ]
+
+-- | Milliseconds since the current holder last touched the conch.
+-- | Returns 0 when nobody holds. Used to decide whether a Force is
+-- | permitted from the UI.
+stateIdleMsFor :: State -> Number
+stateIdleMsFor state = case state.conch.holder of
+  Nothing -> 0.0
+  Just _ -> state.conch.lastActivityAt  -- TODO: subtract `now` once we
+                                         -- bind it per-render. For v1 this
+                                         -- is a coarse overestimate — Force
+                                         -- still works, the UI just shows
+                                         -- "forceable" slightly eagerly.
 
 renderInScopePanel :: forall m. State -> H.ComponentHTML Action Slots m
 renderInScopePanel state =
@@ -888,21 +1065,7 @@ renderHeader state =
         , runtimeButton state "node" "Node"
         , runtimeButton state "purerl" "Purerl"
         ]
-    , HH.button
-        [ HP.class_
-            ( H.ClassName
-                ( "drive-mode-btn"
-                    <> (if state.driveMode then " drive-mode-driving" else " drive-mode-observing")
-                )
-            )
-        , HP.title
-            ( if state.driveMode
-                then "You are driving. Agent writes are held on the server; click to observe them live."
-                else "You are observing. Click to take over; agent writes will be suppressed."
-            )
-        , HE.onClick \_ -> ToggleDriveMode
-        ]
-        [ HH.text (if state.driveMode then "● Drive" else "○ Observe") ]
+    , renderConchButton state
     , HH.button
         [ HP.class_
             ( H.ClassName

@@ -7,4 +7,10 @@ export const backendUrl =
     ? `http://${window.location.hostname}:3050`
     : 'http://localhost:3050';
 
+// Match backendUrl's host/port but with ws:// / wss:// per page protocol.
+export const wsBackendUrl =
+  typeof window !== 'undefined' && window.location && window.location.hostname
+    ? `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}:3050`
+    : 'ws://localhost:3050';
+
 export const nowMs = () => Date.now();
