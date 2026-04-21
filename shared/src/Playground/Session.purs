@@ -7,7 +7,7 @@ import Data.Codec.Argonaut (JsonCodec)
 import Data.Codec.Argonaut as CA
 import Data.Codec.Argonaut.Record as CAR
 import Data.Either (Either(..))
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 
 -- | A user module — a PureScript source fragment edited in the LHS panel.
 -- | The backend rewrites the module header to `module Playground.User where`
@@ -27,20 +27,36 @@ userModuleCodec = CA.prismaticCodec "UserModule" (Just <<< UserModule) un $
 -- |
 -- | `kind` is `"expr"` for a cell whose value is shown, or `"let"` for a cell
 -- | that binds a name visible to later cells but is not itself displayed.
+-- |
+-- | `form` is a UI-only display hint: when true, the frontend renders the cell
+-- | as a typed form instead of a code editor. The cell `source` remains the
+-- | source of truth (a record literal); form edits regenerate it.
 newtype Cell = Cell
   { id :: String
   , kind :: String
   , source :: String
+  , form :: Boolean
   }
 
 cellCodec :: JsonCodec Cell
-cellCodec = CA.prismaticCodec "Cell" (Just <<< Cell) un $
+cellCodec = CA.prismaticCodec "Cell" toCell fromCell $
   CAR.object "Cell"
     { id: CA.string
     , kind: CA.string
     , source: CA.string
+    , form: CAR.optional CA.boolean
     }
-  where un (Cell r) = r
+  where
+  -- Missing `form` decodes as false so old snapshots keep working.
+  toCell r = Just $ Cell { id: r.id, kind: r.kind, source: r.source, form: fromMaybe false r.form }
+  -- Encode `form: true` only when set; omit the field otherwise to keep
+  -- exports minimal and snapshots that round-trip cleanly.
+  fromCell (Cell r) =
+    { id: r.id
+    , kind: r.kind
+    , source: r.source
+    , form: if r.form then Just true else Nothing
+    }
 
 -- | What the frontend submits on each compile.
 -- |

@@ -40,6 +40,7 @@ import Data.Foldable (for_)
 import Playground.Frontend.CodeMirror (ErrorSpan)
 import Playground.Frontend.Config (backendUrl, readHideParam, writeHideParam, wsBackendUrl)
 import Playground.Frontend.Editor as Editor
+import Playground.Frontend.FormCell (FieldKind(..), FieldSpec, analyseType, parseRecordLiteral, regenerateRecordSource)
 import Playground.Frontend.InScope as InScope
 import Playground.Frontend.RenderView as RenderView
 import Playground.Frontend.SigilView as SigilView
@@ -76,7 +77,11 @@ import Playground.Session
   , compileResponseCodec
   )
 
-type CellRec = { id :: String, kind :: String, source :: String }
+type CellRec = { id :: String, kind :: String, source :: String, form :: Boolean }
+
+-- | Lift a starter's cell shape (no form metadata) into a `CellRec`.
+withFormDefault :: { id :: String, kind :: String, source :: String } -> CellRec
+withFormDefault c = { id: c.id, kind: c.kind, source: c.source, form: false }
 
 -- | Which of the four main columns are visible in this tab. Each flag
 -- | maps 1:1 to a rendered `pane-*` column. Persisted in the URL as
@@ -246,6 +251,8 @@ data Action
   | AddCell
   | RemoveCell String
   | ToggleCellKind String
+  | ToggleCellForm String              -- flip form/code display for a cell
+  | CellFormFieldChanged String String String  -- cellId, fieldName, newValue (string-typed; coerced on regen)
   | SetRuntime String
   | ToggleStarterMenu
   | LoadStarter String
@@ -267,7 +274,7 @@ initialState :: forall i. i -> State
 initialState _ =
   let s = Starter.defaultStarter
   in { moduleSource: s.moduleSource
-     , cells: s.cells
+     , cells: map withFormDefault s.cells
      , nextCellId: nextIdAfter s.cells
      , runtime: "browser"
      , starterKey: s.key
@@ -348,7 +355,7 @@ handleAction = case _ of
   AddCell -> do
     H.modify_ \s ->
       let newId = "c" <> show s.nextCellId
-          newCell = { id: newId, kind: "expr", source: "" }
+          newCell = { id: newId, kind: "expr", source: "", form: false }
       in s { cells = snoc s.cells newCell, nextCellId = s.nextCellId + 1 }
     handleAction ScheduleCompile
   RemoveCell id -> do
@@ -366,6 +373,49 @@ handleAction = case _ of
       , cellTypes = Map.delete id s.cellTypes
       }
     handleAction ScheduleCompile
+  ToggleCellForm id -> do
+    s <- H.get
+    case Array.find ((_ == id) <<< _.id) s.cells of
+      Nothing -> pure unit
+      Just c -> do
+        let newForm = not c.form
+        -- Flip locally first so the view swaps immediately; the PATCH
+        -- response only updates compile-derived state (errors, types),
+        -- not the cells array, so we can't wait for it.
+        H.modify_ \st -> st
+          { cells = map (\cc -> if cc.id == id then cc { form = newForm } else cc) st.cells
+          }
+        let body = stringify
+              ( AJ.fromObject
+                  ( Object.singleton "form" (AJ.fromBoolean newForm) )
+              )
+        result <- httpJson PATCH (backendUrl <> "/session/cells/" <> id) body
+        case result of
+          Right resp -> applyCompileResponse resp
+          Left _ -> pure unit  -- conch banner shown by httpJson if 409
+  CellFormFieldChanged id field newValue -> do
+    s <- H.get
+    case Array.find ((_ == id) <<< _.id) s.cells of
+      Nothing -> pure unit
+      Just c -> case Map.lookup id s.cellTypes of
+        Nothing -> pure unit  -- haven't compiled yet; ignore
+        Just typeStr -> case regenerateRecordSource typeStr c.source field newValue of
+          Nothing -> pure unit  -- type or source unparseable; safe no-op
+          Just newSrc -> do
+            -- Optimistically update local state so the input doesn't
+            -- snap back while the PATCH is in flight; the snapshot
+            -- response will override harmlessly if it differs.
+            H.modify_ \st -> st
+              { cells = map (\cc -> if cc.id == id then cc { source = newSrc } else cc) st.cells
+              }
+            let body = stringify
+                  ( AJ.fromObject
+                      ( Object.singleton "source" (AJ.fromString newSrc) )
+                  )
+            result <- httpJson PATCH (backendUrl <> "/session/cells/" <> id) body
+            case result of
+              Right resp -> applyCompileResponse resp
+              Left _ -> pure unit
   SetRuntime r -> do
     s0 <- H.get
     when (s0.runtime /= r) do
@@ -377,7 +427,7 @@ handleAction = case _ of
     Just starter -> do
       H.modify_ \s -> s
         { moduleSource = starter.moduleSource
-        , cells = starter.cells
+        , cells = map withFormDefault starter.cells
         , nextCellId = Array.length starter.cells + 1
         , starterKey = starter.key
         , starterMenuOpen = false
@@ -610,7 +660,7 @@ runFullCompile s = do
   let
     req = CompileRequest
       { "module": UserModule { source: s.moduleSource }
-      , cells: map (\c -> Cell { id: c.id, kind: c.kind, source: c.source }) s.cells
+      , cells: map (\c -> Cell { id: c.id, kind: c.kind, source: c.source, form: c.form }) s.cells
       , runtime: s.runtime
       }
     bodyJson = stringify (CA.encode compileRequestCodec req)
@@ -904,7 +954,7 @@ applyRemote r = do
   let UserModule rm = r."module"
       typesMap = Map.fromFoldable
         ( map (\(CellType ct) -> Tuple ct.id ct.signature) r.types )
-      cellRecs = map (\(Cell c) -> { id: c.id, kind: c.kind, source: c.source }) r.cells
+      cellRecs = map (\(Cell c) -> { id: c.id, kind: c.kind, source: c.source, form: c.form }) r.cells
       resultsMap = Map.fromFoldable
         ( map (\(CellEmit e) -> Tuple e.id (Value.parse e.value)) r.emits )
       syncedCells = Map.fromFoldable
@@ -1299,7 +1349,7 @@ renderCellsColumn :: forall m. MonadAff m => State -> H.ComponentHTML Action Slo
 renderCellsColumn state =
   HH.section [ HP.class_ (H.ClassName "pane pane-cells") ]
     ( [ HH.h2_ [ HH.text "Cells" ] ]
-        <> mapWithIndex renderCellRow state.cells
+        <> mapWithIndex (renderCellRow state) state.cells
         <>
           [ HH.button
               [ HP.class_ (H.ClassName "add-cell-btn")
@@ -1315,40 +1365,146 @@ renderCellsColumn state =
 cellColorClass :: Int -> String
 cellColorClass idx = "cell-color-" <> show (idx `mod` 8)
 
-renderCellRow :: forall m. MonadAff m => Int -> CellRec -> H.ComponentHTML Action Slots m
-renderCellRow idx c =
-  HH.div
-    [ HP.class_
-        ( H.ClassName
-            ( "cell-row "
-                <> cellColorClass idx
-                <> (if c.kind == "let" then " cell-row-let" else " cell-row-expr")
-            )
-        )
-    ]
-    [ HH.div [ HP.class_ (H.ClassName "cell-meta") ]
-        [ HH.span [ HP.class_ (H.ClassName "cell-id") ] [ HH.text c.id ]
-        , HH.button
-            [ HP.class_ (H.ClassName ("cell-kind-btn cell-kind-" <> c.kind))
-            , HE.onClick \_ -> ToggleCellKind c.id
-            , HP.title
-                ( if c.kind == "let"
-                    then "let-cell (splices verbatim; no gutter output). Click to switch to expr."
-                    else "expr-cell (evaluated; shown in gutter). Click to switch to let."
-                )
-            ]
-            [ HH.text c.kind ]
-        , HH.button
-            [ HP.class_ (H.ClassName "remove-cell-btn")
-            , HE.onClick \_ -> RemoveCell c.id
-            , HP.title "Remove cell"
-            ]
-            [ HH.text "×" ]
-        ]
-    , HH.slot _cellEditor c.id Editor.component
-        { initialDoc: c.source, tag: "cell" }
-        (\(Editor.Changed src) -> CellChanged c.id src)
-    ]
+renderCellRow :: forall m. MonadAff m => State -> Int -> CellRec -> H.ComponentHTML Action Slots m
+renderCellRow state idx c =
+  let formSpecs = do
+        sig <- Map.lookup c.id state.cellTypes
+        analyseType sig
+      formEligible = case formSpecs of
+        Just _ -> true
+        Nothing -> false
+      showAsForm = c.form && formEligible
+      bodyHtml = case Tuple showAsForm formSpecs of
+        Tuple true (Just specs) -> renderCellForm c specs
+        _ ->
+          HH.slot _cellEditor c.id Editor.component
+            { initialDoc: c.source, tag: "cell" }
+            (\(Editor.Changed src) -> CellChanged c.id src)
+  in HH.div
+       [ HP.class_
+           ( H.ClassName
+               ( "cell-row "
+                   <> cellColorClass idx
+                   <> (if c.kind == "let" then " cell-row-let" else " cell-row-expr")
+                   <> (if showAsForm then " cell-row-form" else "")
+               )
+           )
+       ]
+       [ HH.div [ HP.class_ (H.ClassName "cell-meta") ]
+           ( [ HH.span [ HP.class_ (H.ClassName "cell-id") ] [ HH.text c.id ]
+             , HH.button
+                 [ HP.class_ (H.ClassName ("cell-kind-btn cell-kind-" <> c.kind))
+                 , HE.onClick \_ -> ToggleCellKind c.id
+                 , HP.title
+                     ( if c.kind == "let"
+                         then "let-cell (splices verbatim; no gutter output). Click to switch to expr."
+                         else "expr-cell (evaluated; shown in gutter). Click to switch to let."
+                     )
+                 ]
+                 [ HH.text c.kind ]
+             ]
+               <>
+                 ( if formEligible
+                     then
+                       [ HH.button
+                           [ HP.class_
+                               ( H.ClassName
+                                   ( "cell-form-btn"
+                                       <> (if c.form then " cell-form-on" else "")
+                                   )
+                               )
+                           , HE.onClick \_ -> ToggleCellForm c.id
+                           , HP.title
+                               ( if c.form
+                                   then "Form view active. Click to switch back to code."
+                                   else "Type is form-compatible. Click to edit as a form."
+                               )
+                           ]
+                           [ HH.text "⊞" ]
+                       ]
+                     else []
+                 )
+               <>
+                 [ HH.button
+                     [ HP.class_ (H.ClassName "remove-cell-btn")
+                     , HE.onClick \_ -> RemoveCell c.id
+                     , HP.title "Remove cell"
+                     ]
+                     [ HH.text "×" ]
+                 ]
+           )
+       , bodyHtml
+       ]
+
+-- | Render a record-of-primitives cell as a form. Each field gets a
+-- | typed input; on input we regenerate the full source as a canonical
+-- | record literal and PATCH it through. Existing values are read out
+-- | of the cell's current source (a record literal) when present;
+-- | otherwise the form shows defaults.
+renderCellForm :: forall m. MonadAff m => CellRec -> Array FieldSpec -> H.ComponentHTML Action Slots m
+renderCellForm c specs =
+  HH.div [ HP.class_ (H.ClassName "cell-form") ]
+    ( map (renderFormField c existing) specs )
+  where
+  existing = case parseRecordLiteral c.source of
+    Just pairs -> Map.fromFoldable pairs
+    Nothing -> Map.empty
+
+renderFormField
+  :: forall m
+   . MonadAff m
+  => CellRec
+  -> Map String String
+  -> FieldSpec
+  -> H.ComponentHTML Action Slots m
+renderFormField c existing spec =
+  let raw = case Map.lookup spec.name existing of
+        Just v -> stripStringQuotes v
+        Nothing -> ""
+  in HH.label [ HP.class_ (H.ClassName "cell-form-field") ]
+       [ HH.span [ HP.class_ (H.ClassName "cell-form-label") ]
+           [ HH.text spec.name ]
+       , inputForKind c spec raw
+       ]
+
+inputForKind
+  :: forall m
+   . MonadAff m
+  => CellRec
+  -> FieldSpec
+  -> String
+  -> H.ComponentHTML Action Slots m
+inputForKind c spec raw = case spec.kind of
+  FBoolean ->
+    HH.input
+      [ HP.type_ HP.InputCheckbox
+      , HP.class_ (H.ClassName "cell-form-input cell-form-input-bool")
+      , HP.checked (raw == "true")
+      , HE.onChecked \b -> CellFormFieldChanged c.id spec.name (if b then "true" else "false")
+      ]
+  FString ->
+    HH.input
+      [ HP.type_ HP.InputText
+      , HP.class_ (H.ClassName "cell-form-input cell-form-input-string")
+      , HP.value raw
+      , HE.onValueInput (\v -> CellFormFieldChanged c.id spec.name v)
+      ]
+  _ ->
+    HH.input
+      [ HP.type_ HP.InputNumber
+      , HP.class_ (H.ClassName "cell-form-input cell-form-input-number")
+      , HP.value raw
+      , HE.onValueInput (\v -> CellFormFieldChanged c.id spec.name v)
+      ]
+
+-- | When seeding the form input from the source's parsed value, strip
+-- | enclosing quotes so a String field renders as `hello`, not `"hello"`.
+stripStringQuotes :: String -> String
+stripStringQuotes s = case Str.stripPrefix (Pattern "\"") s of
+  Nothing -> s
+  Just rest -> case Str.stripSuffix (Pattern "\"") rest of
+    Nothing -> s
+    Just inner -> inner
 
 -- | Gutter always shows the last-known values + types. On a failed
 -- | compile the previous values stay put; errors are surfaced in the

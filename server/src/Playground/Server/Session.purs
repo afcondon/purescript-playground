@@ -369,7 +369,7 @@ appendCell store { source, kind } = withUpdate store (appendCellState { source, 
 appendCellState :: { source :: String, kind :: String } -> SessionState -> SessionState
 appendCellState { source, kind } s =
   let newId = "c" <> show s.nextCellId
-      newCell = Cell { id: newId, kind, source }
+      newCell = Cell { id: newId, kind, source, form: false }
   in s { cells = snoc s.cells newCell, nextCellId = s.nextCellId + 1 }
 
 -- | Trial-apply a cell append — compile against the resulting cells
@@ -382,13 +382,13 @@ previewAppendCell store body = withPreview store (appendCellState body)
 updateCell
   :: SessionStore
   -> String
-  -> { source :: Maybe String, kind :: Maybe String }
+  -> { source :: Maybe String, kind :: Maybe String, form :: Maybe Boolean }
   -> Aff CompileResponse
 updateCell store cellId patch = withUpdate store (updateCellState cellId patch)
 
 updateCellState
   :: String
-  -> { source :: Maybe String, kind :: Maybe String }
+  -> { source :: Maybe String, kind :: Maybe String, form :: Maybe Boolean }
   -> SessionState
   -> SessionState
 updateCellState cellId patch s = s { cells = applyPatch s.cells }
@@ -400,6 +400,7 @@ updateCellState cellId patch s = s { cells = applyPatch s.cells }
     { id: c.id
     , source: fromMaybe c.source p.source
     , kind: fromMaybe c.kind p.kind
+    , form: fromMaybe c.form p.form
     }
 
 -- | Trial-apply a cell update — compile against the resulting cells
@@ -408,7 +409,7 @@ updateCellState cellId patch s = s { cells = applyPatch s.cells }
 previewUpdateCell
   :: SessionStore
   -> String
-  -> { source :: Maybe String, kind :: Maybe String }
+  -> { source :: Maybe String, kind :: Maybe String, form :: Maybe Boolean }
   -> Aff CompileResponse
 previewUpdateCell store cellId patch = withPreview store (updateCellState cellId patch)
 

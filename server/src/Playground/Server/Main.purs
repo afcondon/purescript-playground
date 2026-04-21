@@ -129,7 +129,7 @@ cellAppendBodyCodec = CAR.object "CellAppendBody"
 -- | codec-argonaut's `maybe` combinator expects a tagged-object wire
 -- | form for `Maybe`, not the missing-vs-present convention HTTP
 -- | clients will naturally use.
-parseCellPatch :: String -> Either String { source :: Maybe String, kind :: Maybe String }
+parseCellPatch :: String -> Either String { source :: Maybe String, kind :: Maybe String, form :: Maybe Boolean }
 parseCellPatch raw = case jsonParser raw of
   Left e -> Left ("bad JSON: " <> e)
   Right j -> case toObject j of
@@ -137,13 +137,19 @@ parseCellPatch raw = case jsonParser raw of
     Just o -> do
       source <- pickStr "source" o
       kind <- pickStr "kind" o
-      pure { source, kind }
+      form <- pickBool "form" o
+      pure { source, kind, form }
   where
   pickStr key o = case Object.lookup key o of
     Nothing -> Right Nothing
     Just v -> case AJ.toString v of
       Just s -> Right (Just s)
       Nothing -> Left ("bad request: " <> key <> " must be a string")
+  pickBool key o = case Object.lookup key o of
+    Nothing -> Right Nothing
+    Just v -> case AJ.toBoolean v of
+      Just b -> Right (Just b)
+      Nothing -> Left ("bad request: " <> key <> " must be a boolean")
 
 runtimeBodyCodec :: JsonCodec { runtime :: String }
 runtimeBodyCodec = CAR.object "RuntimeBody" { runtime: CA.string }
