@@ -5,31 +5,41 @@ import Prelude
 import Data.Argonaut.Core (stringify, toObject)
 import Data.Argonaut.Core as AJ
 import Data.Argonaut.Parser (jsonParser)
+import Data.Array (filter, fromFoldable, sort) as Array
+import Data.Tuple (Tuple(..))
 import Data.Codec.Argonaut (JsonCodec)
 import Data.Codec.Argonaut as CA
 import Data.Codec.Argonaut.Record as CAR
 import Data.Either (Either(..))
 import Foreign.Object as Object
 import Data.Generic.Rep (class Generic)
+import Data.Map (Map)
+import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Traversable (traverse)
 import Effect.Aff (Aff)
 import Effect.Aff.Class (liftAff)
 import Effect.Class (liftEffect)
 import Effect.Class.Console as Console
+import Effect.Ref (Ref)
+import Effect.Ref as Ref
 import HTTPurple
   ( Method(..)
   , Request
   , ResponseM
   , ResponseOrUpgrade(..)
   , ServerM
+  , badRequest'
   , conflict'
   , ok'
+  , response'
   , serveWithHandle
   , toString
   )
+import HTTPurple.Status as Status
 import HTTPurple.Headers (ResponseHeaders, headers)
 import HTTPurple.Lookup ((!!))
+import HTTPurple.Query (Query)
 import HTTPurple.WebSocket
   ( Message(..)
   , ServerSocket
@@ -49,6 +59,16 @@ import Playground.Server.Session (ModulePatch(..), SessionStore)
 import Playground.Server.Session as Session
 import Playground.Server.Subscribers (Subscribers)
 import Playground.Server.Subscribers as Subscribers
+import Playground.Server.WorkspaceMgr
+  ( WorkspaceId(..)
+  , createWorkspace
+  , deleteWorkspace
+  , listWorkspacesSync
+  , requestWorkspaceId
+  , validateWorkspaceId
+  , workspaceIdString
+  , workspacePath
+  )
 import Data.String as String
 import Playground.Conch
   ( Broadcast(..)
@@ -90,6 +110,11 @@ data Route
   | IdeType
   | IdeComplete
   | IdeSearch
+  -- Workspace management endpoints (Phase 1b).
+  -- WorkspacesRoot handles GET (list) + POST (create);
+  -- WorkspaceOne handles DELETE at /workspaces/:id.
+  | WorkspacesRoot
+  | WorkspaceOne String
 
 derive instance Generic Route _
 
@@ -109,6 +134,8 @@ route = root $ sum
   , "IdeType": "ide" / "type" / noArgs
   , "IdeComplete": "ide" / "complete" / noArgs
   , "IdeSearch": "ide" / "search" / noArgs
+  , "WorkspacesRoot": "workspaces" / noArgs
+  , "WorkspaceOne": "workspaces" / segment
   }
 
 -- ============================================================
@@ -277,15 +304,105 @@ parseBody codec s = case jsonParser s of
     Left e -> Left ("bad request: " <> CA.printJsonDecodeError e)
     Right a -> Right a
 
+-- | Body decoder for `POST /workspaces`. Accepts `{"id": "foo"}`
+-- | and returns a validated WorkspaceId.
+parseWorkspaceCreateBody :: String -> Either String WorkspaceId
+parseWorkspaceCreateBody raw = case jsonParser raw of
+  Left e -> Left ("bad JSON: " <> e)
+  Right j -> case toObject j of
+    Nothing -> Left "expected a JSON object"
+    Just o -> case Object.lookup "id" o of
+      Nothing -> Left "missing field: id"
+      Just v -> case AJ.toString v of
+        Nothing -> Left "id must be a string"
+        Just s -> validateWorkspaceId s
+
+workspaceListJson :: Array String -> String
+workspaceListJson ids =
+  stringify $ CA.encode
+    (CAR.object "WorkspaceList" { workspaces: CA.array CA.string })
+    { workspaces: ids }
+
+workspaceCreatedJson :: String -> String
+workspaceCreatedJson id =
+  stringify $ CA.encode
+    (CAR.object "WorkspaceCreated" { created: CA.string })
+    { created: id }
+
+workspaceDeletedJson :: String -> String
+workspaceDeletedJson id =
+  stringify $ CA.encode
+    (CAR.object "WorkspaceDeleted" { deleted: CA.string })
+    { deleted: id }
+
 -- ============================================================
 -- App context + authorisation
 -- ============================================================
 
+-- | Per-process server state.
+-- |
+-- | `workspaces` is authoritative for which session stores exist —
+-- | every lookup goes through it so a DELETE takes effect immediately
+-- | for subsequent requests. `mainStore` is a convenience pointer to
+-- | the store registered under `WorkspaceId "main"`; the WS handler
+-- | reads from it directly, since Phase 1b keeps the browser tabs
+-- | pinned to main (per-subscriber workspace routing is Phase 2).
+-- |
+-- | `rootDir` is the filesystem parent under which each workspace
+-- | lives as a subdirectory. `templateDir` is the source of truth for
+-- | the small set of stable files (spago.yaml, package.json, the
+-- | Playground.Runtime module) that new workspaces inherit.
 type AppCtx =
-  { store :: SessionStore
+  { workspaces :: Ref (Map WorkspaceId SessionStore)
+  , mainStore :: SessionStore
   , subs :: Subscribers
   , conchStore :: ConchStore
+  , rootDir :: String
+  , templateDir :: String
   }
+
+-- | Resolve the target `SessionStore` for a request. Returns an
+-- | already-built error response on the Left side: 400 for an invalid
+-- | workspace id, 404 when the requested workspace doesn't exist.
+-- | Missing `?workspace=` defaults to `main`, preserving the single-
+-- | workspace frontend behaviour.
+resolveStore :: AppCtx -> Query -> Aff (Either ResponseOrUpgrade SessionStore)
+resolveStore ctx q = case requestWorkspaceId q of
+  Left msg -> do
+    r <- badRequest' jsonCors (errorJson "BadWorkspaceId" msg)
+    pure (Left r)
+  Right wid -> do
+    m <- liftEffect (Ref.read ctx.workspaces)
+    case Map.lookup wid m of
+      Just store -> pure (Right store)
+      Nothing -> do
+        r <- response' Status.notFound jsonCors
+          (errorJson "NoSuchWorkspace" ("workspace not found: " <> workspaceIdString wid))
+        pure (Left r)
+
+-- | Flattener: `withStore ctx req \store -> …` runs the continuation
+-- | once a live `SessionStore` has been resolved, otherwise short-
+-- | circuits to the already-built 400/404 response. Keeps the nesting
+-- | of each handler small now that stores live behind a Ref lookup.
+withStore
+  :: AppCtx
+  -> Request Route
+  -> (SessionStore -> ResponseM)
+  -> ResponseM
+withStore ctx req action = do
+  storeResult <- resolveStore ctx req.query
+  case storeResult of
+    Left r -> pure r
+    Right store -> action store
+
+-- | Small `{error, message}` envelope for workspace-level error
+-- | responses. These are structurally different from the session-
+-- | level errors that ride inside a `CompileResponse`.
+errorJson :: String -> String -> String
+errorJson code message =
+  stringify $ CA.encode
+    (CAR.object "Error" { error: CA.string, message: CA.string })
+    { error: code, message }
 
 -- | Before any mutating HTTP endpoint runs its work, the caller must
 -- | prove they hold the conch via the `X-Atelier-Subscriber-Id`
@@ -347,7 +464,9 @@ makeWsHandler ctx = wsHandler
   { onOpen: \sock -> do
       sid <- liftEffect $ Subscribers.register ctx.subs sock
       conch <- liftEffect $ Conch.getState ctx.conchStore
-      snap <- liftEffect $ Session.get ctx.store
+      -- Phase 1b: browser tabs always observe the "main" workspace.
+      -- Per-subscriber workspace routing is a Phase 2 concern.
+      snap <- liftEffect $ Session.get ctx.mainStore
       let welcome = Welcome { yourId: sid, conch, snapshot: snap }
       sendText sock (stringify (CA.encode broadcastCodec welcome))
   , onMessage: \sock msg -> case msg of
@@ -400,6 +519,34 @@ handleConchResult ctx = case _ of
 -- main
 -- ============================================================
 
+-- | On-disk location of every workspace under the default runtime
+-- | tree. Server/run.js launches this from the repo root, so a
+-- | cwd-relative path resolves correctly without knowing where this
+-- | module lives on disk.
+defaultRootDir :: String
+defaultRootDir = "runtime-workspace/workspaces"
+
+-- | Main workspace id. Reserved: new workspaces cannot overwrite it,
+-- | DELETE rejects it, and it's the implicit target when no
+-- | `?workspace=` is supplied.
+mainWorkspaceId :: WorkspaceId
+mainWorkspaceId = WorkspaceId "main"
+
+-- | Map a workspace id to the spago package name used by its
+-- | `spago.yaml`. Must match what `WorkspaceMgr.createWorkspace`
+-- | writes, and the legacy `playground-runtime` name for `main`
+-- | (which predates multi-workspace and we haven't renamed).
+packageNameFor :: WorkspaceId -> String
+packageNameFor wid
+  | wid == mainWorkspaceId = "playground-runtime"
+  | otherwise = "playground-ws-" <> workspaceIdString wid
+
+-- | Noop broadcast used for non-main workspaces. Phase 1b keeps
+-- | subscribers pinned to main, so a compile against any other
+-- | workspace should not push Snapshot frames to connected tabs.
+noopBroadcast :: CompileResponse -> Aff Unit
+noopBroadcast _ = pure unit
+
 main :: ServerM
 main = serveWithHandle { port: 3050, hostname: "0.0.0.0" } \handle -> do
   subs <- Subscribers.newSubscribers
@@ -410,11 +557,37 @@ main = serveWithHandle { port: 3050, hostname: "0.0.0.0" } \handle -> do
         let msg = Snapshot { conch, snapshot: resp }
             encoded = stringify (CA.encode broadcastCodec msg)
         Subscribers.broadcast subs conch.holder (TextMessage encoded)
-  -- Default "main" workspace. Lives at <repo>/runtime-workspace/workspaces/main.
-  -- `server/run.js` is launched from the repo root, so a cwd-relative path
-  -- resolves correctly without needing to know this module's location.
-  store <- Session.newStore "runtime-workspace/workspaces/main" broadcastSnapshot
-  let ctx = { store, subs, conchStore }
+      rootDir = defaultRootDir
+      templateDir = rootDir <> "/main"
+  -- Main is eagerly initialised and always present; its SessionStore
+  -- gets the real broadcast. Any other workspaces discovered on disk
+  -- get a noop broadcast. This preserves behaviour against a fresh
+  -- install where only `main` exists.
+  mainStore <- Session.newStore
+    (workspacePath rootDir mainWorkspaceId)
+    (packageNameFor mainWorkspaceId)
+    broadcastSnapshot
+  existing <- listWorkspacesSync rootDir
+  let nonMain = Array.filter (_ /= mainWorkspaceId) existing
+  nonMainStores <- traverse
+    (\wid -> do
+        s <- Session.newStore
+          (workspacePath rootDir wid)
+          (packageNameFor wid)
+          noopBroadcast
+        pure (Tuple wid s))
+    nonMain
+  let initialMap = Map.fromFoldable
+        ([ Tuple mainWorkspaceId mainStore ] <> nonMainStores)
+  workspaces <- Ref.new initialMap
+  let ctx =
+        { workspaces
+        , mainStore
+        , subs
+        , conchStore
+        , rootDir
+        , templateDir
+        }
   pure
     { route
     , router: mkRouter ctx
@@ -430,13 +603,13 @@ mkRouter ctx req@{ route: r, method, body } =
     _ -> case r of
       Health -> ok' plainCors "ok"
 
-      SessionGet -> do
-        resp <- liftEffect (Session.get ctx.store)
+      SessionGet -> withStore ctx req \store -> do
+        resp <- liftEffect (Session.get store)
         ok' jsonCors (snapshotJson resp)
 
       SessionWs -> pure (WsUpgrade (makeWsHandler ctx))
 
-      SessionCompile -> do
+      SessionCompile -> withStore ctx req \store -> do
         -- With body: set state from the CompileRequest, then compile.
         -- This is the shape the frontend POSTs today.
         -- Without body (empty string): recompile current state.
@@ -447,14 +620,14 @@ mkRouter ctx req@{ route: r, method, body } =
           Right sid -> do
             bodyStr <- toString body
             resp <- if String.null bodyStr || bodyStr == "{}"
-              then liftAff (Session.compileAndStore ctx.store)
+              then liftAff (Session.compileAndStore store)
               else case parseBody compileRequestCodec bodyStr of
-                Left _ -> liftAff (Session.compileAndStore ctx.store)
-                Right rq -> liftAff (Session.replaceAll ctx.store rq)
+                Left _ -> liftAff (Session.compileAndStore store)
+                Right rq -> liftAff (Session.replaceAll store rq)
             liftEffect $ Conch.heartbeat ctx.conchStore sid
             ok' jsonCors (snapshotJson resp)
 
-      SessionModule { preview } -> case method of
+      SessionModule { preview } -> withStore ctx req \store -> case method of
         Post -> do
           bodyStr <- toString body
           case parseBody moduleBodyCodec bodyStr of
@@ -462,14 +635,14 @@ mkRouter ctx req@{ route: r, method, body } =
             Right { source } ->
               if preview
                 then do
-                  resp <- liftAff (Session.previewUpdateModule ctx.store (UserModule { source }))
+                  resp <- liftAff (Session.previewUpdateModule store (UserModule { source }))
                   ok' jsonCors (snapshotJson resp)
                 else do
                   authResult <- requireConch ctx req
                   case authResult of
                     Left r' -> pure r'
                     Right sid -> do
-                      resp <- liftAff (Session.updateModule ctx.store (UserModule { source }))
+                      resp <- liftAff (Session.updateModule store (UserModule { source }))
                       liftEffect $ Conch.heartbeat ctx.conchStore sid
                       ok' jsonCors (snapshotJson resp)
         Patch -> do
@@ -479,7 +652,7 @@ mkRouter ctx req@{ route: r, method, body } =
             Right patch ->
               if preview
                 then do
-                  result <- liftAff (Session.previewModulePatch ctx.store patch)
+                  result <- liftAff (Session.previewModulePatch store patch)
                   case result of
                     Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
                     Right resp -> ok' jsonCors (snapshotJson resp)
@@ -488,7 +661,7 @@ mkRouter ctx req@{ route: r, method, body } =
                   case authResult of
                     Left r' -> pure r'
                     Right sid -> do
-                      result <- liftAff (Session.patchModule ctx.store patch)
+                      result <- liftAff (Session.patchModule store patch)
                       case result of
                         Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
                         Right resp -> do
@@ -496,36 +669,36 @@ mkRouter ctx req@{ route: r, method, body } =
                           ok' jsonCors (snapshotJson resp)
         _ -> ok' jsonCors (errorSnapshotJson "MethodNotAllowed" "module endpoint accepts POST or PATCH")
 
-      SessionCellAppend { preview } -> do
+      SessionCellAppend { preview } -> withStore ctx req \store -> do
         bodyStr <- toString body
         case parseBody cellAppendBodyCodec bodyStr of
           Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
           Right rq ->
             if preview
               then do
-                resp <- liftAff (Session.previewAppendCell ctx.store rq)
+                resp <- liftAff (Session.previewAppendCell store rq)
                 ok' jsonCors (snapshotJson resp)
               else do
                 authResult <- requireConch ctx req
                 case authResult of
                   Left r' -> pure r'
                   Right sid -> do
-                    resp <- liftAff (Session.appendCell ctx.store rq)
+                    resp <- liftAff (Session.appendCell store rq)
                     liftEffect $ Conch.heartbeat ctx.conchStore sid
                     ok' jsonCors (snapshotJson resp)
 
-      SessionCellAt cellId { preview } -> case method of
+      SessionCellAt cellId { preview } -> withStore ctx req \store -> case method of
         Delete ->
           if preview
             then do
-              resp <- liftAff (Session.previewRemoveCell ctx.store cellId)
+              resp <- liftAff (Session.previewRemoveCell store cellId)
               ok' jsonCors (snapshotJson resp)
             else do
               authResult <- requireConch ctx req
               case authResult of
                 Left r' -> pure r'
                 Right sid -> do
-                  resp <- liftAff (Session.removeCell ctx.store cellId)
+                  resp <- liftAff (Session.removeCell store cellId)
                   liftEffect $ Conch.heartbeat ctx.conchStore sid
                   ok' jsonCors (snapshotJson resp)
         Patch -> do
@@ -535,19 +708,19 @@ mkRouter ctx req@{ route: r, method, body } =
             Right patch ->
               if preview
                 then do
-                  resp <- liftAff (Session.previewUpdateCell ctx.store cellId patch)
+                  resp <- liftAff (Session.previewUpdateCell store cellId patch)
                   ok' jsonCors (snapshotJson resp)
                 else do
                   authResult <- requireConch ctx req
                   case authResult of
                     Left r' -> pure r'
                     Right sid -> do
-                      resp <- liftAff (Session.updateCell ctx.store cellId patch)
+                      resp <- liftAff (Session.updateCell store cellId patch)
                       liftEffect $ Conch.heartbeat ctx.conchStore sid
                       ok' jsonCors (snapshotJson resp)
         _ -> ok' jsonCors (errorSnapshotJson "MethodNotAllowed" "cell endpoint accepts PATCH or DELETE")
 
-      SessionRuntime -> do
+      SessionRuntime -> withStore ctx req \store -> do
         authResult <- requireConch ctx req
         case authResult of
           Left r' -> pure r'
@@ -556,19 +729,19 @@ mkRouter ctx req@{ route: r, method, body } =
             case parseBody runtimeBodyCodec bodyStr of
               Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
               Right { runtime } -> do
-                resp <- liftAff (Session.setRuntime ctx.store runtime)
+                resp <- liftAff (Session.setRuntime store runtime)
                 liftEffect $ Conch.heartbeat ctx.conchStore sid
                 ok' jsonCors (snapshotJson resp)
 
-      SessionTypes -> do
-        CompileResponse rr <- liftEffect (Session.get ctx.store)
+      SessionTypes -> withStore ctx req \store -> do
+        CompileResponse rr <- liftEffect (Session.get store)
         ok' jsonCors (typesResponseJson rr.types)
 
-      SessionExport -> do
-        CompileResponse rr <- liftEffect (Session.get ctx.store)
+      SessionExport -> withStore ctx req \store -> do
+        CompileResponse rr <- liftEffect (Session.get store)
         ok' jsonCors (compileRequestJson rr."module" rr.cells rr.runtime)
 
-      SessionImport -> do
+      SessionImport -> withStore ctx req \store -> do
         authResult <- requireConch ctx req
         case authResult of
           Left r' -> pure r'
@@ -577,7 +750,7 @@ mkRouter ctx req@{ route: r, method, body } =
             case parseBody compileRequestCodec bodyStr of
               Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
               Right rq -> do
-                resp <- liftAff (Session.replaceAll ctx.store rq)
+                resp <- liftAff (Session.replaceAll store rq)
                 liftEffect $ Conch.heartbeat ctx.conchStore sid
                 ok' jsonCors (snapshotJson resp)
 
@@ -604,3 +777,55 @@ mkRouter ctx req@{ route: r, method, body } =
           Right (IdeQuery { query }) -> do
             hits <- liftAff (Ide.querySearch query)
             ok' jsonCors (ideResponseJson hits)
+
+      WorkspacesRoot -> case method of
+        Get -> do
+          m <- liftEffect (Ref.read ctx.workspaces)
+          let ids = Array.sort
+                (map workspaceIdString (Array.fromFoldable (Map.keys m)))
+          ok' jsonCors (workspaceListJson ids)
+        Post -> do
+          bodyStr <- toString body
+          case parseWorkspaceCreateBody bodyStr of
+            Left msg -> badRequest' jsonCors (errorJson "BadRequest" msg)
+            Right wid -> do
+              m <- liftEffect (Ref.read ctx.workspaces)
+              case Map.lookup wid m of
+                Just _ -> conflict' jsonCors
+                  (errorJson "WorkspaceExists"
+                    ("workspace already exists: " <> workspaceIdString wid))
+                Nothing -> do
+                  liftAff $ createWorkspace
+                    { rootDir: ctx.rootDir
+                    , templateDir: ctx.templateDir
+                    , packageName: packageNameFor wid
+                    } wid
+                  store <- liftEffect $ Session.newStore
+                    (workspacePath ctx.rootDir wid)
+                    (packageNameFor wid)
+                    noopBroadcast
+                  liftEffect $ Ref.modify_ (Map.insert wid store) ctx.workspaces
+                  ok' jsonCors (workspaceCreatedJson (workspaceIdString wid))
+        _ -> response' Status.methodNotAllowed jsonCors
+          (errorJson "MethodNotAllowed" "/workspaces accepts GET or POST")
+
+      WorkspaceOne idStr -> case method of
+        Delete -> case validateWorkspaceId idStr of
+          Left msg -> badRequest' jsonCors (errorJson "BadWorkspaceId" msg)
+          Right wid
+            | wid == mainWorkspaceId ->
+                response' Status.forbidden jsonCors
+                  (errorJson "MainWorkspaceLocked"
+                    "the 'main' workspace cannot be deleted")
+            | otherwise -> do
+                m <- liftEffect (Ref.read ctx.workspaces)
+                case Map.lookup wid m of
+                  Nothing -> response' Status.notFound jsonCors
+                    (errorJson "NoSuchWorkspace"
+                      ("workspace not found: " <> workspaceIdString wid))
+                  Just _ -> do
+                    liftAff $ deleteWorkspace ctx.rootDir wid
+                    liftEffect $ Ref.modify_ (Map.delete wid) ctx.workspaces
+                    ok' jsonCors (workspaceDeletedJson (workspaceIdString wid))
+        _ -> response' Status.methodNotAllowed jsonCors
+          (errorJson "MethodNotAllowed" "/workspaces/:id accepts DELETE")

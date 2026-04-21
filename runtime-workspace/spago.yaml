@@ -1,0 +1,29 @@
+workspace:
+  # Self-contained workspace for every Playground runtime scratch space.
+  # Each subdirectory under `workspaces/` is a package in this workspace.
+  # This is isolated from the outer repo workspace so:
+  #   * multiple workspaces can share module names like `Main` / `Playground.User`
+  #     without colliding with each other or with frontend/server packages,
+  #   * outer-workspace lockfile churn (extraPackage path resolution) doesn't
+  #     block per-compile spago invocations here.
+  #
+  # Dependencies mirror the outer workspace. Paths are written relative to
+  # this file (`runtime-workspace/spago.yaml`), so one extra `../` compared
+  # to the outer repo's `spago.yaml`.
+  packageSet:
+    registry: 73.3.0
+  extraPackages:
+    httpurple:
+      path: ../../purescript-httpurple-ws
+    hylograph-graph:
+      path: ../../purescript-hylograph-libs/purescript-hylograph-graph
+    hylograph-layout:
+      path: ../../purescript-hylograph-libs/purescript-hylograph-layout
+    hylograph-selection:
+      path: ../../purescript-hylograph-libs/purescript-hylograph-selection
+    hylograph-simulation:
+      path: ../../purescript-hylograph-libs/purescript-hylograph-simulation
+    hylograph-simulation-core:
+      path: ../../purescript-hylograph-libs/purescript-hylograph-simulation-core
+    hylograph-transitions:
+      path: ../../purescript-hylograph-libs/purescript-hylograph-transitions

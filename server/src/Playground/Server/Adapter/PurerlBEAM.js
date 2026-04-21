@@ -175,9 +175,9 @@ function extractCellIds(mainSource) {
 
 // Phase 1 note: PurerlBEAM still uses its own fixed top-level workspace
 // (`runtime-workspace-purerl`) and isn't multi-workspace-aware yet. The
-// `_workspaceDir` argument is accepted for signature parity with the
-// JS-target adapters and ignored here.
-export const _bundle = (_workspaceDir) => (userSource) => (mainSource) => () =>
+// `_workspaceDir` and `_packageName` arguments are accepted for signature
+// parity with the JS-target adapters and ignored here.
+export const _bundle = (_workspaceDir) => (_packageName) => (userSource) => (mainSource) => () =>
   new Promise(async (resolve) => {
     const empty = { js: null, warnings: [], errors: [], cellIds: [], emits: [] };
 

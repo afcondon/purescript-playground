@@ -96,6 +96,12 @@ newtype SessionStore = SessionStore
   -- | `output/*.js`. Each workspace has its own subdirectory so concurrent
   -- | compiles don't stomp each other.
   , workspaceDir :: String
+  -- | Name of the spago package living at `workspaceDir`. The outer
+  -- | `spago.yaml` sees every workspace's package, so compiles must
+  -- | disambiguate via `spago build -p <packageName>` — a shared name
+  -- | across workspaces would cause spago to build the first match it
+  -- | finds rather than the current workspace's.
+  , packageName :: String
   }
 
 type SessionState =
@@ -115,13 +121,17 @@ initialState =
   , lastResponse: Nothing
   }
 
-newStore :: String -> (CompileResponse -> Aff Unit) -> Effect SessionStore
-newStore workspaceDir broadcast = do
+newStore
+  :: String
+  -> String
+  -> (CompileResponse -> Aff Unit)
+  -> Effect SessionStore
+newStore workspaceDir packageName broadcast = do
   ref <- Ref.new initialState
   -- AVar used as a mutex: initially "full" (contains unit); take
   -- claims the lock, put releases it.
   lock <- EffAVar.new unit
-  pure (SessionStore { lock, state: ref, broadcast, workspaceDir })
+  pure (SessionStore { lock, state: ref, broadcast, workspaceDir, packageName })
 
 -- | Read the current session snapshot as a CompileResponse (for
 -- | `GET /session`). Falls back to an empty-ish response when no
@@ -166,19 +176,19 @@ withUpdate
   :: SessionStore
   -> (SessionState -> SessionState)
   -> Aff CompileResponse
-withUpdate (SessionStore { lock, state, broadcast, workspaceDir }) f = do
+withUpdate (SessionStore { lock, state, broadcast, workspaceDir, packageName }) f = do
   _ <- AVar.take lock
   Aff.finally (AVar.put unit lock) do
     s0 <- liftEffect (Ref.read state)
     let s1 = f s0
     liftEffect (Ref.write s1 state)
-    resp <- compileNow workspaceDir s1
+    resp <- compileNow workspaceDir packageName s1
     liftEffect $ Ref.modify_ (_ { lastResponse = Just resp }) state
     broadcast resp
     pure resp
 
-compileNow :: String -> SessionState -> Aff CompileResponse
-compileNow workspaceDir s =
+compileNow :: String -> String -> SessionState -> Aff CompileResponse
+compileNow workspaceDir packageName s =
   let
     req = CompileRequest
       { "module": s."module"
@@ -188,7 +198,7 @@ compileNow workspaceDir s =
     synth = synthesize { purerl: s.runtime == "purerl" } req
     adapter = pickAdapter s.runtime
   in
-    Compile.compile adapter workspaceDir
+    Compile.compile adapter workspaceDir packageName
       { userSource: synth.userSource
       , mainSource: synth.mainSource
       , cellLines: synth.cellLines
@@ -231,11 +241,11 @@ updateModule store m = withUpdate store _ { "module" = m }
 -- | resulting source but don't persist. Counterpart to `updateModule`
 -- | for POST /session/module?preview=true.
 previewUpdateModule :: SessionStore -> UserModule -> Aff CompileResponse
-previewUpdateModule (SessionStore { lock, state, workspaceDir }) m = do
+previewUpdateModule (SessionStore { lock, state, workspaceDir, packageName }) m = do
   _ <- AVar.take lock
   Aff.finally (AVar.put unit lock) do
     s0 <- liftEffect (Ref.read state)
-    compileNow workspaceDir (s0 { "module" = m })
+    compileNow workspaceDir packageName (s0 { "module" = m })
 
 -- | Apply a structured edit to the current module source. Returns
 -- | `Left` (with a diagnostic message) when the patch is invalid
@@ -246,7 +256,7 @@ patchModule
   :: SessionStore
   -> ModulePatch
   -> Aff (Either String CompileResponse)
-patchModule (SessionStore { lock, state, broadcast, workspaceDir }) patch = do
+patchModule (SessionStore { lock, state, broadcast, workspaceDir, packageName }) patch = do
   _ <- AVar.take lock
   Aff.finally (AVar.put unit lock) do
     s0 <- liftEffect (Ref.read state)
@@ -256,7 +266,7 @@ patchModule (SessionStore { lock, state, broadcast, workspaceDir }) patch = do
       Right newSrc -> do
         let s1 = s0 { "module" = UserModule { source: newSrc } }
         liftEffect (Ref.write s1 state)
-        resp <- compileNow workspaceDir s1
+        resp <- compileNow workspaceDir packageName s1
         liftEffect $ Ref.modify_ (_ { lastResponse = Just resp }) state
         broadcast resp
         pure (Right resp)
@@ -270,7 +280,7 @@ previewModulePatch
   :: SessionStore
   -> ModulePatch
   -> Aff (Either String CompileResponse)
-previewModulePatch (SessionStore { lock, state, workspaceDir }) patch = do
+previewModulePatch (SessionStore { lock, state, workspaceDir, packageName }) patch = do
   _ <- AVar.take lock
   Aff.finally (AVar.put unit lock) do
     s0 <- liftEffect (Ref.read state)
@@ -279,7 +289,7 @@ previewModulePatch (SessionStore { lock, state, workspaceDir }) patch = do
       Left err -> pure (Left err)
       Right newSrc -> do
         let s1 = s0 { "module" = UserModule { source: newSrc } }
-        resp <- compileNow workspaceDir s1
+        resp <- compileNow workspaceDir packageName s1
         pure (Right resp)
 
 -- | Pure: apply a `ModulePatch` to a source string. Exposed for
@@ -434,11 +444,11 @@ previewRemoveCell store cellId = withPreview store (removeCellState cellId)
 -- | state transformation in memory only, compile, release — no write,
 -- | no broadcast.
 withPreview :: SessionStore -> (SessionState -> SessionState) -> Aff CompileResponse
-withPreview (SessionStore { lock, state, workspaceDir }) f = do
+withPreview (SessionStore { lock, state, workspaceDir, packageName }) f = do
   _ <- AVar.take lock
   Aff.finally (AVar.put unit lock) do
     s0 <- liftEffect (Ref.read state)
-    compileNow workspaceDir (f s0)
+    compileNow workspaceDir packageName (f s0)
 
 setRuntime :: SessionStore -> String -> Aff CompileResponse
 setRuntime store runtime = withUpdate store _ { runtime = runtime }

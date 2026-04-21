@@ -20,13 +20,16 @@ import Effect.Aff (Aff)
 -- | adapter), but the field exists so we don't have to rev the codec
 -- | when alternates land.
 -- |
--- | `bundle` now takes a workspace directory (absolute path) so multiple
+-- | `bundle` takes a workspace directory (absolute path) so multiple
 -- | concurrent compiles against different workspaces don't stomp each
--- | other's sources or `output/` cache. The adapter writes
--- | `<workspaceDir>/src/*` and reads back `<workspaceDir>/output/*`.
+-- | other's sources or `output/` cache, plus the package name spago
+-- | should target — every workspace has its own uniquely-named spago
+-- | package (the outer workspace sees them all, so `-p <name>` has to
+-- | disambiguate). The adapter writes `<workspaceDir>/src/*` and
+-- | reads back `<workspaceDir>/output/*`.
 type Adapter =
   { name :: String
-  , bundle :: String -> String -> String -> Aff Json
+  , bundle :: String -> String -> String -> String -> Aff Json
   }
 
 -- | Shape the adapter returns (as Json on the wire; decoded by

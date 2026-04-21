@@ -59,6 +59,7 @@ mkTransportError msg = CompileError
 compile
   :: Adapter
   -> String
+  -> String
   -> { userSource :: String
      , mainSource :: String
      , cellLines :: Array CellRange
@@ -66,8 +67,8 @@ compile
      , cells :: Array Cell
      }
   -> Aff CompileResponse
-compile adapter workspaceDir s = do
-  raw <- adapter.bundle workspaceDir s.userSource s.mainSource
+compile adapter workspaceDir packageName s = do
+  raw <- adapter.bundle workspaceDir packageName s.userSource s.mainSource
   case CA.decode buildResultCodec raw of
     Left e ->
       pure $ CompileResponse
@@ -115,6 +116,7 @@ compile adapter workspaceDir s = do
 compileSources
   :: Adapter
   -> String
+  -> String
   -> { userSource :: String
      , mainSource :: String
      , cellLines :: Array CellRange
@@ -122,6 +124,6 @@ compileSources
      , cells :: Array Cell
      }
   -> Aff String
-compileSources adapter workspaceDir s = do
-  resp <- compile adapter workspaceDir s
+compileSources adapter workspaceDir packageName s = do
+  resp <- compile adapter workspaceDir packageName s
   pure (stringify (CA.encode compileResponseCodec resp))

@@ -14,10 +14,12 @@ import Playground.Server.Adapter (Adapter)
 -- | child-process, collects emissions from stdout (JSONL), returns
 -- | them in the BuildResult's `emits` field. The bundle JS is not
 -- | returned — execution has already happened server-side.
-foreign import _bundle :: String -> String -> String -> Effect (Promise Json)
+foreign import _bundle
+  :: String -> String -> String -> String -> Effect (Promise Json)
 
 nodeProcess :: Adapter
 nodeProcess =
   { name: "node"
-  , bundle: \workspaceDir userSrc mainSrc -> toAffE (_bundle workspaceDir userSrc mainSrc)
+  , bundle: \workspaceDir packageName userSrc mainSrc ->
+      toAffE (_bundle workspaceDir packageName userSrc mainSrc)
   }

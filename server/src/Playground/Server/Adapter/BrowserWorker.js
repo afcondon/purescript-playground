@@ -5,22 +5,35 @@ import { dirname, resolve as pathResolve } from 'path';
 // Per-call workspace paths are derived from the absolute workspace dir
 // passed in via FFI. The adapter is workspace-agnostic now; all state
 // lives under <workspaceDir>/src/ and <workspaceDir>/output/.
+//
+// Spago is invoked with cwd=`<workspaceDir>/../..` (the
+// `runtime-workspace/` root that owns the self-contained spago
+// workspace containing every Playground runtime package), and
+// `--output` / `--outfile` redirect per-package output under the
+// individual workspace. Running spago from the package dir was
+// previously viable but stopped working once the outer repo workspace
+// started seeing two `playground-runtime`-shaped packages (duplicate
+// module errors + lockfile regen path breakage) — an inner workspace
+// isolates us from both.
 function pathsFor(workspaceDir) {
   return {
     mainPath: pathResolve(workspaceDir, 'src', 'Main.purs'),
     userPath: pathResolve(workspaceDir, 'src', 'Playground', 'User.purs'),
+    outputDir: pathResolve(workspaceDir, 'output'),
     bundlePath: pathResolve(workspaceDir, 'output', 'bundle.js'),
+    spagoCwd: pathResolve(workspaceDir, '..', '..'),
   };
 }
 
 // ---- spago invocations ----
 
-function runBuildJsonErrors(workspaceDir) {
+function runBuildJsonErrors(workspaceDir, packageName) {
+  const { outputDir, spagoCwd } = pathsFor(workspaceDir);
   return new Promise((resolve) => {
     execFile(
       'spago',
-      ['build', '-p', 'playground-runtime', '--json-errors'],
-      { cwd: workspaceDir, maxBuffer: 16 * 1024 * 1024 },
+      ['build', '-p', packageName, '--json-errors', '--output', outputDir],
+      { cwd: spagoCwd, maxBuffer: 16 * 1024 * 1024 },
       (_err, stdout, stderr) => {
         const jsonLine = stdout
           .split('\n')
@@ -90,12 +103,18 @@ function transportError(msg) {
   return { code: 'Transport', filename: null, position: null, message: msg };
 }
 
-function runBundle(workspaceDir) {
+function runBundle(workspaceDir, packageName) {
+  const { outputDir, bundlePath, spagoCwd } = pathsFor(workspaceDir);
   return new Promise((resolve) => {
     execFile(
       'spago',
-      ['bundle', '-p', 'playground-runtime'],
-      { cwd: workspaceDir, maxBuffer: 16 * 1024 * 1024 },
+      [
+        'bundle',
+        '-p', packageName,
+        '--output', outputDir,
+        '--outfile', bundlePath,
+      ],
+      { cwd: spagoCwd, maxBuffer: 16 * 1024 * 1024 },
       (err, stdout, stderr) => {
         if (err) return resolve({ ok: false, message: formatBundleFailure(err, stdout, stderr) });
         resolve({ ok: true });
@@ -140,11 +159,11 @@ function enqueueForWorkspace(workspaceDir, task) {
   return next;
 }
 
-export const _bundle = (workspaceDir) => (userSource) => (mainSource) => () =>
+export const _bundle = (workspaceDir) => (packageName) => (userSource) => (mainSource) => () =>
   enqueueForWorkspace(workspaceDir, () =>
-    runBundlePipeline(workspaceDir, userSource, mainSource));
+    runBundlePipeline(workspaceDir, packageName, userSource, mainSource));
 
-function runBundlePipeline(workspaceDir, userSource, mainSource) {
+function runBundlePipeline(workspaceDir, packageName, userSource, mainSource) {
   const { mainPath, userPath, bundlePath } = pathsFor(workspaceDir);
   return new Promise(async (resolve) => {
     const empty = { js: null, warnings: [], errors: [], cellIds: [], emits: [] };
@@ -162,7 +181,7 @@ function runBundlePipeline(workspaceDir, userSource, mainSource) {
       });
     }
 
-    const diag = await runBuildJsonErrors(workspaceDir);
+    const diag = await runBuildJsonErrors(workspaceDir, packageName);
     if (!diag.clean) {
       return resolve({
         js: null,
@@ -173,7 +192,7 @@ function runBundlePipeline(workspaceDir, userSource, mainSource) {
       });
     }
 
-    const bundle = await runBundle(workspaceDir);
+    const bundle = await runBundle(workspaceDir, packageName);
     if (!bundle.ok) {
       return resolve({
         js: null,
