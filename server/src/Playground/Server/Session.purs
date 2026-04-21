@@ -79,9 +79,15 @@ type ImportSpec =
 -- | inputs plus the most recent compile's derived outputs. A single
 -- | AVar serialises writes — any update goes take → apply → recompile
 -- | → put.
+-- |
+-- | `broadcast` is called after every accepted mutation with the fresh
+-- | `CompileResponse`. Main.purs wires it to push a `Snapshot` frame to
+-- | every WS subscriber (minus the conch holder, whose client already
+-- | has the state it just wrote). Preview endpoints do not broadcast.
 newtype SessionStore = SessionStore
   { lock :: AVar Unit
   , state :: Ref SessionState
+  , broadcast :: CompileResponse -> Aff Unit
   }
 
 type SessionState =
@@ -101,13 +107,13 @@ initialState =
   , lastResponse: Nothing
   }
 
-newStore :: Effect SessionStore
-newStore = do
+newStore :: (CompileResponse -> Aff Unit) -> Effect SessionStore
+newStore broadcast = do
   ref <- Ref.new initialState
   -- AVar used as a mutex: initially "full" (contains unit); take
   -- claims the lock, put releases it.
   lock <- EffAVar.new unit
-  pure (SessionStore { lock, state: ref })
+  pure (SessionStore { lock, state: ref, broadcast })
 
 -- | Read the current session snapshot as a CompileResponse (for
 -- | `GET /session`). Falls back to an empty-ish response when no
@@ -152,7 +158,7 @@ withUpdate
   :: SessionStore
   -> (SessionState -> SessionState)
   -> Aff CompileResponse
-withUpdate (SessionStore { lock, state }) f = do
+withUpdate (SessionStore { lock, state, broadcast }) f = do
   _ <- AVar.take lock
   Aff.finally (AVar.put unit lock) do
     s0 <- liftEffect (Ref.read state)
@@ -160,6 +166,7 @@ withUpdate (SessionStore { lock, state }) f = do
     liftEffect (Ref.write s1 state)
     resp <- compileNow s1
     liftEffect $ Ref.modify_ (_ { lastResponse = Just resp }) state
+    broadcast resp
     pure resp
 
 compileNow :: SessionState -> Aff CompileResponse
@@ -231,7 +238,7 @@ patchModule
   :: SessionStore
   -> ModulePatch
   -> Aff (Either String CompileResponse)
-patchModule (SessionStore { lock, state }) patch = do
+patchModule (SessionStore { lock, state, broadcast }) patch = do
   _ <- AVar.take lock
   Aff.finally (AVar.put unit lock) do
     s0 <- liftEffect (Ref.read state)
@@ -243,6 +250,7 @@ patchModule (SessionStore { lock, state }) patch = do
         liftEffect (Ref.write s1 state)
         resp <- compileNow s1
         liftEffect $ Ref.modify_ (_ { lastResponse = Just resp }) state
+        broadcast resp
         pure (Right resp)
 
 -- | Trial-apply a `ModulePatch` — compile against the resulting

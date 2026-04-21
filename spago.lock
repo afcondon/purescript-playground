@@ -132,9 +132,11 @@
             "codec",
             "codec-argonaut",
             "either",
+            "foreign-object",
             "maybe",
             "prelude",
-            "strings"
+            "strings",
+            "tuples"
           ]
         },
         "test": {
@@ -1442,6 +1444,7 @@
       "path": "../purescript-httpurple-ws",
       "dependencies": [
         "aff",
+        "arraybuffer-types",
         "arrays",
         "bifunctors",
         "console",
@@ -1450,6 +1453,7 @@
         "either",
         "exceptions",
         "foldable-traversable",
+        "foreign",
         "foreign-object",
         "js-uri",
         "justifill",

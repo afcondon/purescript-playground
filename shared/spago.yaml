@@ -11,3 +11,5 @@ package:
     - strings
     - codec-argonaut
     - codec
+    - foreign-object
+    - tuples

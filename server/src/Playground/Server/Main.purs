@@ -2,7 +2,7 @@ module Playground.Server.Main where
 
 import Prelude
 
-import Data.Argonaut.Core (Json, stringify, toObject)
+import Data.Argonaut.Core (stringify, toObject)
 import Data.Argonaut.Core as AJ
 import Data.Argonaut.Parser (jsonParser)
 import Data.Codec.Argonaut (JsonCodec)
@@ -13,21 +13,51 @@ import Foreign.Object as Object
 import Data.Generic.Rep (class Generic)
 import Data.Maybe (Maybe(..))
 import Data.Traversable (traverse)
-import Effect (Effect)
 import Effect.Aff (Aff)
 import Effect.Aff.Class (liftAff)
 import Effect.Class (liftEffect)
-import HTTPurple (Method(..), Request, ResponseM, ServerM, ok', serve, toString)
-import HTTPurple.Headers (headers)
+import Effect.Class.Console as Console
+import HTTPurple
+  ( Method(..)
+  , Request
+  , ResponseM
+  , ResponseOrUpgrade(..)
+  , ServerM
+  , conflict'
+  , ok'
+  , serveWithHandle
+  , toString
+  )
+import HTTPurple.Headers (ResponseHeaders, headers)
+import HTTPurple.Lookup ((!!))
+import HTTPurple.WebSocket
+  ( Message(..)
+  , ServerSocket
+  , sendText
+  , wsHandler
+  )
+import HTTPurple.WebSocket.Types (WsHandler)
 import Routing.Duplex (RouteDuplex', flag, root, segment)
 import Routing.Duplex.Generic (noArgs, sum)
 import Routing.Duplex.Generic.Syntax ((/), (?))
 
 import Data.Int as Int
+import Playground.Server.Conch (ConchStore, RequestResult(..))
+import Playground.Server.Conch as Conch
 import Playground.Server.Ide as Ide
 import Playground.Server.Session (ModulePatch(..), SessionStore)
 import Playground.Server.Session as Session
+import Playground.Server.Subscribers (Subscribers)
+import Playground.Server.Subscribers as Subscribers
 import Data.String as String
+import Playground.Conch
+  ( Broadcast(..)
+  , SubscriberId(..)
+  , broadcastCodec
+  , clientMsgCodec
+  , conchHeldBodyCodec
+  )
+import Playground.Conch as PConch
 import Playground.Session
   ( Cell
   , CellType
@@ -48,6 +78,7 @@ import Playground.Session
 data Route
   = Health
   | SessionGet
+  | SessionWs
   | SessionCompile
   | SessionModule { preview :: Boolean }
   | SessionCellAppend
@@ -66,6 +97,7 @@ route :: RouteDuplex' Route
 route = root $ sum
   { "Health": "health" / noArgs
   , "SessionGet": "session" / noArgs
+  , "SessionWs": "session" / "ws" / noArgs
   , "SessionCompile": "session" / "compile" / noArgs
   , "SessionModule": "session" / "module" ? { preview: flag }
   , "SessionCellAppend": "session" / "cells" / noArgs
@@ -240,119 +272,290 @@ parseBody codec s = case jsonParser s of
     Right a -> Right a
 
 -- ============================================================
+-- App context + authorisation
+-- ============================================================
+
+type AppCtx =
+  { store :: SessionStore
+  , subs :: Subscribers
+  , conchStore :: ConchStore
+  }
+
+-- | Before any mutating HTTP endpoint runs its work, the caller must
+-- | prove they hold the conch via the `X-Atelier-Subscriber-Id`
+-- | header. Missing header / mismatched id / nobody-holds-it all yield
+-- | a 409 with the current conch state in the body so the client can
+-- | decide whether to `RequestConch` or `ForceConch`.
+-- |
+-- | Returns the caller's `SubscriberId` on success so the writer can
+-- | heartbeat the conch after the write lands.
+requireConch
+  :: AppCtx
+  -> Request Route
+  -> Aff (Either ResponseOrUpgrade SubscriberId)
+requireConch ctx req = do
+  conch <- liftEffect $ Conch.getState ctx.conchStore
+  let deny = do
+        let body =
+              { error: "conch-held"
+              , holder: conch.holder
+              , lastActivityAt: conch.lastActivityAt
+              }
+            json = stringify (CA.encode conchHeldBodyCodec body)
+        r <- conflict' jsonCors json
+        pure (Left r)
+  case req.headers !! "X-Atelier-Subscriber-Id" of
+    Nothing -> deny
+    Just raw ->
+      let sid = SubscriberId raw
+      in case conch.holder of
+          Just h | h == sid -> pure (Right sid)
+          _ -> deny
+
+-- | Per-response header profiles pulled up to the module level so the
+-- | auth helper + mkRouter share them.
+plainCors :: ResponseHeaders
+plainCors = headers
+  { "Access-Control-Allow-Origin": "*"
+  , "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS"
+  , "Access-Control-Allow-Headers": "Content-Type, X-Atelier-Subscriber-Id"
+  }
+
+jsonCors :: ResponseHeaders
+jsonCors = headers
+  { "Content-Type": "application/json"
+  , "Access-Control-Allow-Origin": "*"
+  , "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS"
+  , "Access-Control-Allow-Headers": "Content-Type, X-Atelier-Subscriber-Id"
+  }
+
+-- ============================================================
+-- WebSocket dispatch
+-- ============================================================
+
+-- | WS handler wired up inside `serveWithHandle`. Every connected
+-- | subscriber flows through this one set of callbacks; identity is
+-- | looked up via `Subscribers.idFor sock` on each message.
+makeWsHandler :: AppCtx -> WsHandler
+makeWsHandler ctx = wsHandler
+  { onOpen: \sock -> do
+      sid <- liftEffect $ Subscribers.register ctx.subs sock
+      conch <- liftEffect $ Conch.getState ctx.conchStore
+      snap <- liftEffect $ Session.get ctx.store
+      let welcome = Welcome { yourId: sid, conch, snapshot: snap }
+      sendText sock (stringify (CA.encode broadcastCodec welcome))
+  , onMessage: \sock msg -> case msg of
+      TextMessage raw -> handleClientMsg ctx sock raw
+      _ -> pure unit
+  , onClose: \sock _ -> do
+      maybeSid <- liftEffect $ Subscribers.idFor ctx.subs sock
+      liftEffect $ Subscribers.unregister ctx.subs sock
+      case maybeSid of
+        Nothing -> pure unit
+        Just sid -> do
+          r <- liftEffect $ Conch.onDisconnect ctx.conchStore sid
+          handleConchResult ctx r
+  , onError: \_ _ -> pure unit
+  }
+
+handleClientMsg :: AppCtx -> ServerSocket -> String -> Aff Unit
+handleClientMsg ctx sock raw = case jsonParser raw of
+  Left e -> liftEffect $ Console.error ("WS client msg JSON parse: " <> e)
+  Right j -> case CA.decode clientMsgCodec j of
+    Left e -> liftEffect $ Console.error ("WS client msg decode: " <> CA.printJsonDecodeError e)
+    Right cm -> do
+      maybeSid <- liftEffect $ Subscribers.idFor ctx.subs sock
+      case maybeSid of
+        Nothing -> pure unit
+        Just sid -> dispatchClientMsg ctx sid cm
+
+dispatchClientMsg :: AppCtx -> SubscriberId -> PConch.ClientMsg -> Aff Unit
+dispatchClientMsg ctx sid = case _ of
+  PConch.RequestConch -> do
+    r <- liftEffect $ Conch.request ctx.conchStore sid
+    handleConchResult ctx r
+  PConch.YieldConch -> do
+    r <- liftEffect $ Conch.yield ctx.conchStore sid
+    handleConchResult ctx r
+  PConch.ForceConch -> do
+    r <- liftEffect $ Conch.force ctx.conchStore sid
+    handleConchResult ctx r
+  PConch.Heartbeat -> liftEffect $ Conch.heartbeat ctx.conchStore sid
+
+handleConchResult :: AppCtx -> RequestResult -> Aff Unit
+handleConchResult ctx = case _ of
+  Granted cs -> do
+    let msg = ConchUpdate { conch: cs }
+        encoded = stringify (CA.encode broadcastCodec msg)
+    Subscribers.broadcast ctx.subs Nothing (TextMessage encoded)
+  Unchanged -> pure unit
+
+-- ============================================================
 -- main
 -- ============================================================
 
 main :: ServerM
-main = do
-  store <- Session.newStore
-  serve { port: 3050, hostname: "0.0.0.0" }
+main = serveWithHandle { port: 3050, hostname: "0.0.0.0" } \handle -> do
+  subs <- Subscribers.newSubscribers
+  conchStore <- Conch.newStore
+  handle.registerChannel (Subscribers.closeAll subs)
+  let broadcastSnapshot resp = do
+        conch <- liftEffect $ Conch.getState conchStore
+        let msg = Snapshot { conch, snapshot: resp }
+            encoded = stringify (CA.encode broadcastCodec msg)
+        Subscribers.broadcast subs conch.holder (TextMessage encoded)
+  store <- Session.newStore broadcastSnapshot
+  let ctx = { store, subs, conchStore }
+  pure
     { route
-    , router: mkRouter store
+    , router: mkRouter ctx
     }
 
 mkRouter
-  :: SessionStore
+  :: AppCtx
   -> Request Route
   -> ResponseM
-mkRouter store { route: r, method, body } =
-  let plainCors = headers
-        { "Access-Control-Allow-Origin": "*"
-        , "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS"
-        , "Access-Control-Allow-Headers": "Content-Type"
-        }
-      jsonCors = headers
-        { "Content-Type": "application/json"
-        , "Access-Control-Allow-Origin": "*"
-        , "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS"
-        , "Access-Control-Allow-Headers": "Content-Type"
-        }
-  in case method of
+mkRouter ctx req@{ route: r, method, body } =
+  case method of
     Options -> ok' plainCors ""
     _ -> case r of
       Health -> ok' plainCors "ok"
 
       SessionGet -> do
-        resp <- liftEffect (Session.get store)
+        resp <- liftEffect (Session.get ctx.store)
         ok' jsonCors (snapshotJson resp)
+
+      SessionWs -> pure (WsUpgrade (makeWsHandler ctx))
 
       SessionCompile -> do
         -- With body: set state from the CompileRequest, then compile.
         -- This is the shape the frontend POSTs today.
         -- Without body (empty string): recompile current state.
-        bodyStr <- toString body
-        resp <- if String.null bodyStr || bodyStr == "{}"
-          then liftAff (Session.compileAndStore store)
-          else case parseBody compileRequestCodec bodyStr of
-            Left _ -> liftAff (Session.compileAndStore store)
-            Right req -> liftAff (Session.replaceAll store req)
-        ok' jsonCors (snapshotJson resp)
+        -- Either way, mutates — requires the conch.
+        authResult <- requireConch ctx req
+        case authResult of
+          Left r' -> pure r'
+          Right sid -> do
+            bodyStr <- toString body
+            resp <- if String.null bodyStr || bodyStr == "{}"
+              then liftAff (Session.compileAndStore ctx.store)
+              else case parseBody compileRequestCodec bodyStr of
+                Left _ -> liftAff (Session.compileAndStore ctx.store)
+                Right rq -> liftAff (Session.replaceAll ctx.store rq)
+            liftEffect $ Conch.heartbeat ctx.conchStore sid
+            ok' jsonCors (snapshotJson resp)
 
       SessionModule { preview } -> case method of
         Post -> do
           bodyStr <- toString body
           case parseBody moduleBodyCodec bodyStr of
             Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
-            Right { source } -> do
-              let apply = if preview then Session.previewUpdateModule else Session.updateModule
-              resp <- liftAff (apply store (UserModule { source }))
-              ok' jsonCors (snapshotJson resp)
+            Right { source } ->
+              if preview
+                then do
+                  resp <- liftAff (Session.previewUpdateModule ctx.store (UserModule { source }))
+                  ok' jsonCors (snapshotJson resp)
+                else do
+                  authResult <- requireConch ctx req
+                  case authResult of
+                    Left r' -> pure r'
+                    Right sid -> do
+                      resp <- liftAff (Session.updateModule ctx.store (UserModule { source }))
+                      liftEffect $ Conch.heartbeat ctx.conchStore sid
+                      ok' jsonCors (snapshotJson resp)
         Patch -> do
           bodyStr <- toString body
           case parseModulePatch bodyStr of
             Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
-            Right patch -> do
-              let apply = if preview then Session.previewModulePatch else Session.patchModule
-              result <- liftAff (apply store patch)
-              case result of
-                Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
-                Right resp -> ok' jsonCors (snapshotJson resp)
+            Right patch ->
+              if preview
+                then do
+                  result <- liftAff (Session.previewModulePatch ctx.store patch)
+                  case result of
+                    Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
+                    Right resp -> ok' jsonCors (snapshotJson resp)
+                else do
+                  authResult <- requireConch ctx req
+                  case authResult of
+                    Left r' -> pure r'
+                    Right sid -> do
+                      result <- liftAff (Session.patchModule ctx.store patch)
+                      case result of
+                        Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
+                        Right resp -> do
+                          liftEffect $ Conch.heartbeat ctx.conchStore sid
+                          ok' jsonCors (snapshotJson resp)
         _ -> ok' jsonCors (errorSnapshotJson "MethodNotAllowed" "module endpoint accepts POST or PATCH")
 
       SessionCellAppend -> do
-        bodyStr <- toString body
-        case parseBody cellAppendBodyCodec bodyStr of
-          Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
-          Right req -> do
-            resp <- liftAff (Session.appendCell store req)
-            ok' jsonCors (snapshotJson resp)
+        authResult <- requireConch ctx req
+        case authResult of
+          Left r' -> pure r'
+          Right sid -> do
+            bodyStr <- toString body
+            case parseBody cellAppendBodyCodec bodyStr of
+              Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
+              Right rq -> do
+                resp <- liftAff (Session.appendCell ctx.store rq)
+                liftEffect $ Conch.heartbeat ctx.conchStore sid
+                ok' jsonCors (snapshotJson resp)
 
       SessionCellAt cellId -> case method of
         Delete -> do
-          resp <- liftAff (Session.removeCell store cellId)
-          ok' jsonCors (snapshotJson resp)
-        Patch -> do
-          bodyStr <- toString body
-          case parseCellPatch bodyStr of
-            Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
-            Right patch -> do
-              resp <- liftAff (Session.updateCell store cellId patch)
+          authResult <- requireConch ctx req
+          case authResult of
+            Left r' -> pure r'
+            Right sid -> do
+              resp <- liftAff (Session.removeCell ctx.store cellId)
+              liftEffect $ Conch.heartbeat ctx.conchStore sid
               ok' jsonCors (snapshotJson resp)
+        Patch -> do
+          authResult <- requireConch ctx req
+          case authResult of
+            Left r' -> pure r'
+            Right sid -> do
+              bodyStr <- toString body
+              case parseCellPatch bodyStr of
+                Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
+                Right patch -> do
+                  resp <- liftAff (Session.updateCell ctx.store cellId patch)
+                  liftEffect $ Conch.heartbeat ctx.conchStore sid
+                  ok' jsonCors (snapshotJson resp)
         _ -> ok' jsonCors (errorSnapshotJson "MethodNotAllowed" "cell endpoint accepts PATCH or DELETE")
 
       SessionRuntime -> do
-        bodyStr <- toString body
-        case parseBody runtimeBodyCodec bodyStr of
-          Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
-          Right { runtime } -> do
-            resp <- liftAff (Session.setRuntime store runtime)
-            ok' jsonCors (snapshotJson resp)
+        authResult <- requireConch ctx req
+        case authResult of
+          Left r' -> pure r'
+          Right sid -> do
+            bodyStr <- toString body
+            case parseBody runtimeBodyCodec bodyStr of
+              Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
+              Right { runtime } -> do
+                resp <- liftAff (Session.setRuntime ctx.store runtime)
+                liftEffect $ Conch.heartbeat ctx.conchStore sid
+                ok' jsonCors (snapshotJson resp)
 
       SessionTypes -> do
-        CompileResponse r <- liftEffect (Session.get store)
-        ok' jsonCors (typesResponseJson r.types)
+        CompileResponse rr <- liftEffect (Session.get ctx.store)
+        ok' jsonCors (typesResponseJson rr.types)
 
       SessionExport -> do
-        CompileResponse r <- liftEffect (Session.get store)
-        ok' jsonCors (compileRequestJson r."module" r.cells r.runtime)
+        CompileResponse rr <- liftEffect (Session.get ctx.store)
+        ok' jsonCors (compileRequestJson rr."module" rr.cells rr.runtime)
 
       SessionImport -> do
-        bodyStr <- toString body
-        case parseBody compileRequestCodec bodyStr of
-          Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
-          Right req -> do
-            resp <- liftAff (Session.replaceAll store req)
-            ok' jsonCors (snapshotJson resp)
+        authResult <- requireConch ctx req
+        case authResult of
+          Left r' -> pure r'
+          Right sid -> do
+            bodyStr <- toString body
+            case parseBody compileRequestCodec bodyStr of
+              Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
+              Right rq -> do
+                resp <- liftAff (Session.replaceAll ctx.store rq)
+                liftEffect $ Conch.heartbeat ctx.conchStore sid
+                ok' jsonCors (snapshotJson resp)
 
       IdeType -> do
         bodyStr <- toString body
