@@ -2,6 +2,8 @@ workspace:
   packageSet:
     registry: 73.3.0
   extraPackages:
+    httpurple:
+      path: ../purescript-httpurple-ws
     hylograph-graph:
       path: ../purescript-hylograph-libs/purescript-hylograph-graph
     hylograph-layout:
