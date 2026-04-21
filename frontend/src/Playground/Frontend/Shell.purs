@@ -38,7 +38,7 @@ import Type.Proxy (Proxy(..))
 import Data.Foldable (for_)
 
 import Playground.Frontend.CodeMirror (ErrorSpan)
-import Playground.Frontend.Config (backendUrl, wsBackendUrl)
+import Playground.Frontend.Config (backendUrl, readHideParam, writeHideParam, wsBackendUrl)
 import Playground.Frontend.Editor as Editor
 import Playground.Frontend.InScope as InScope
 import Playground.Frontend.RenderView as RenderView
@@ -77,6 +77,99 @@ import Playground.Session
   )
 
 type CellRec = { id :: String, kind :: String, source :: String }
+
+-- | Which of the four main columns are visible in this tab. Each flag
+-- | maps 1:1 to a rendered `pane-*` column. Persisted in the URL as
+-- | `?hide=module,cells,values,render` (omitted when everything shows).
+data ColumnKey = KeyModule | KeyCells | KeyGutter | KeyRender
+
+derive instance Eq ColumnKey
+
+type ColumnVisibility =
+  { showModule :: Boolean
+  , showCells :: Boolean
+  , showGutter :: Boolean
+  , showRender :: Boolean
+  }
+
+allVisible :: ColumnVisibility
+allVisible =
+  { showModule: true, showCells: true, showGutter: true, showRender: true }
+
+isVisible :: ColumnKey -> ColumnVisibility -> Boolean
+isVisible = case _ of
+  KeyModule -> _.showModule
+  KeyCells -> _.showCells
+  KeyGutter -> _.showGutter
+  KeyRender -> _.showRender
+
+toggleKey :: ColumnKey -> ColumnVisibility -> ColumnVisibility
+toggleKey k v = case k of
+  KeyModule -> v { showModule = not v.showModule }
+  KeyCells -> v { showCells = not v.showCells }
+  KeyGutter -> v { showGutter = not v.showGutter }
+  KeyRender -> v { showRender = not v.showRender }
+
+columnKeyLabel :: ColumnKey -> String
+columnKeyLabel = case _ of
+  KeyModule -> "Module"
+  KeyCells -> "Cells"
+  KeyGutter -> "Values"
+  KeyRender -> "Render"
+
+-- | URL token for a column. "values" is the user-facing name for the
+-- | gutter (which shows types + evaluated values); "gutter" is accepted
+-- | as an alias when parsing for back-compat with any internal notes.
+columnKeyToken :: ColumnKey -> String
+columnKeyToken = case _ of
+  KeyModule -> "module"
+  KeyCells -> "cells"
+  KeyGutter -> "values"
+  KeyRender -> "render"
+
+-- | Decode `?hide=` value into a visibility record. Unknown tokens are
+-- | ignored so typos don't silently hide everything.
+visibilityFromHide :: String -> ColumnVisibility
+visibilityFromHide hide =
+  let tokens = if hide == "" then [] else Str.split (Pattern ",") hide
+      has t = Array.any (_ == t) tokens
+  in
+    { showModule: not (has "module")
+    , showCells: not (has "cells")
+    , showGutter: not (has "values" || has "gutter")
+    , showRender: not (has "render")
+    }
+
+-- | Encode visibility as a `?hide=` value. Empty string when everything
+-- | shows (the default); caller omits the param in that case.
+hideFromVisibility :: ColumnVisibility -> String
+hideFromVisibility v =
+  let hidden = Array.catMaybes
+        [ if v.showModule then Nothing else Just (columnKeyToken KeyModule)
+        , if v.showCells then Nothing else Just (columnKeyToken KeyCells)
+        , if v.showGutter then Nothing else Just (columnKeyToken KeyGutter)
+        , if v.showRender then Nothing else Just (columnKeyToken KeyRender)
+        ]
+  in Str.joinWith "," hidden
+
+-- | Grid-template-columns string listing only the visible columns'
+-- | fractions. When a single column is visible, collapse to `1fr` so
+-- | the track is guaranteed to fill the container regardless of which
+-- | column it is (otherwise a lone `0.8fr` track leaves visible
+-- | whitespace on the right in some browsers). Multiple visible
+-- | columns preserve the 1.2 / 1.2 / 0.8 / 0.8 ratio.
+gridTemplateForVisibility :: ColumnVisibility -> String
+gridTemplateForVisibility v =
+  let parts = Array.catMaybes
+        [ if v.showModule then Just "1.2fr" else Nothing
+        , if v.showCells then Just "1.2fr" else Nothing
+        , if v.showGutter then Just "0.8fr" else Nothing
+        , if v.showRender then Just "0.8fr" else Nothing
+        ]
+  in case Array.length parts of
+       0 -> "1fr"
+       1 -> "1fr"
+       _ -> Str.joinWith " " parts
 
 type State =
   { moduleSource :: String
@@ -120,6 +213,10 @@ type State =
   , lastSyncedModule :: String
   , lastSyncedCells :: Map String { source :: String, kind :: String }
   , lastSyncedRuntime :: String
+  -- Per-tab column visibility. Seeded from the `?hide=` URL param on
+  -- Startup and written back on every toggle, so a layout like
+  -- `?hide=module,cells,values` (a render-only view) is shareable.
+  , visibility :: ColumnVisibility
   }
 
 type Slots =
@@ -163,7 +260,8 @@ data Action
   | YieldConchAction        -- user clicked "Yield" (has the conch)
   | ForceConchAction        -- user clicked "Force Take" (holder idle)
   | DismissConchBanner
-  | Startup                 -- runs once on init: compile + open WS
+  | ToggleColumn ColumnKey  -- user clicked a column-visibility toggle
+  | Startup                 -- runs once on init: read URL view state, compile, open WS
 
 initialState :: forall i. i -> State
 initialState _ =
@@ -201,6 +299,7 @@ initialState _ =
      , lastSyncedModule: ""
      , lastSyncedCells: Map.empty
      , lastSyncedRuntime: ""
+     , visibility: allVisible
      }
   where
   -- Cell ids are "c1", "c2", …; pick an int strictly above the
@@ -230,6 +329,8 @@ handleAction
   -> H.HalogenM State Action Slots o m Unit
 handleAction = case _ of
   Startup -> do
+    hide <- H.liftEffect readHideParam
+    H.modify_ _ { visibility = visibilityFromHide hide }
     hydrateFromServer
     openWebSocket
   ModuleChanged src -> do
@@ -285,6 +386,10 @@ handleAction = case _ of
         }
       handleAction ScheduleCompile
   ToggleInScope -> H.modify_ \s -> s { inScopeOpen = not s.inScopeOpen }
+  ToggleColumn key -> do
+    H.modify_ \s -> s { visibility = toggleKey key s.visibility }
+    s <- H.get
+    H.liftEffect $ writeHideParam (hideFromVisibility s.visibility)
   WsOpened -> pure unit   -- Welcome frame will arrive separately
   WsIncoming raw -> handleIncomingBroadcast raw
   WsClosed _ _ -> H.modify_ _ { ws = Nothing }    -- TODO: reconnect w/ backoff
@@ -948,12 +1053,15 @@ render state =
     [ renderHeader state
     , renderConchBanner state
     , if state.inScopeOpen then renderInScopePanel state else HH.text ""
-    , HH.main [ HP.class_ (H.ClassName "columns") ]
-        [ renderModuleColumn state
-        , renderCellsColumn state
-        , renderGutterColumn state
-        , renderRenderColumn state
+    , HH.main
+        [ HP.class_ (H.ClassName "columns")
+        , HP.style ("grid-template-columns: " <> gridTemplateForVisibility state.visibility)
         ]
+        ( (if state.visibility.showModule then [ renderModuleColumn state ] else [])
+            <> (if state.visibility.showCells then [ renderCellsColumn state ] else [])
+            <> (if state.visibility.showGutter then [ renderGutterColumn state ] else [])
+            <> (if state.visibility.showRender then [ renderRenderColumn state ] else [])
+        )
     , renderErrorPanel state
     ]
 
@@ -1065,6 +1173,7 @@ renderHeader state =
         , runtimeButton state "node" "Node"
         , runtimeButton state "purerl" "Purerl"
         ]
+    , renderViewToggle state
     , renderConchButton state
     , HH.button
         [ HP.class_
@@ -1084,6 +1193,29 @@ renderHeader state =
         ]
         [ HH.text (if state.compiling then "Compiling…" else "Compile") ]
     ]
+
+-- | Toggle strip for column visibility. Each button is pressed when
+-- | its column is visible; clicking flips that column and the URL's
+-- | `?hide=` param follows.
+renderViewToggle :: forall m. State -> H.ComponentHTML Action Slots m
+renderViewToggle state =
+  HH.div [ HP.class_ (H.ClassName "view-toggle") ]
+    ( map (viewToggleButton state) [ KeyModule, KeyCells, KeyGutter, KeyRender ] )
+
+viewToggleButton :: forall m. State -> ColumnKey -> H.ComponentHTML Action Slots m
+viewToggleButton state key =
+  let on = isVisible key state.visibility
+      cls = "view-toggle-btn" <> (if on then " active" else "")
+      tip =
+        if on
+          then "Hide the " <> columnKeyLabel key <> " column"
+          else "Show the " <> columnKeyLabel key <> " column"
+  in HH.button
+       [ HP.class_ (H.ClassName cls)
+       , HP.title tip
+       , HE.onClick \_ -> ToggleColumn key
+       ]
+       [ HH.text (columnKeyLabel key) ]
 
 renderStarterDropdown :: forall m. State -> H.ComponentHTML Action Slots m
 renderStarterDropdown state =

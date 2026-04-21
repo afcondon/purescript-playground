@@ -89,6 +89,38 @@ body {
   color: var(--fg);
 }
 
+.view-toggle {
+  display: inline-flex;
+  border: 1px solid var(--rule);
+  border-radius: 2px;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+}
+
+.view-toggle-btn {
+  font: inherit;
+  padding: 0.35rem 0.6rem;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--rule);
+  color: var(--muted);
+  cursor: pointer;
+  letter-spacing: 0.04em;
+}
+
+.view-toggle-btn:last-child { border-right: none; }
+
+.view-toggle-btn.active {
+  background: var(--accent);
+  color: #fdfdfc;
+}
+
+.view-toggle-btn:not(.active):hover {
+  background: #f4f4f1;
+  color: var(--fg);
+}
+
 .starter-dropdown {
   position: relative;
   font-size: 0.75rem;
