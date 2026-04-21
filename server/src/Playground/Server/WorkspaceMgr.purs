@@ -7,6 +7,7 @@ module Playground.Server.WorkspaceMgr
   , listWorkspaces
   , listWorkspacesSync
   , createWorkspace
+  , createWorkspaceSync
   , deleteWorkspace
   ) where
 
@@ -75,6 +76,8 @@ foreign import _listWorkspaceDirs :: String -> Effect (Promise (Array String))
 foreign import _listWorkspaceDirsSync :: String -> Effect (Array String)
 foreign import _createWorkspaceDir
   :: String -> String -> String -> String -> Effect (Promise Unit)
+foreign import _createWorkspaceDirSync
+  :: String -> String -> String -> String -> Effect Unit
 foreign import _deleteWorkspaceDir
   :: String -> String -> Effect (Promise Unit)
 
@@ -101,6 +104,15 @@ createWorkspace
   -> Aff Unit
 createWorkspace { rootDir, templateDir, packageName } (WorkspaceId id) =
   toAffE (_createWorkspaceDir rootDir templateDir packageName id)
+
+-- | Synchronous variant of `createWorkspace` used at boot to materialise
+-- | the `eval-scratch` workspace before the HTTP listener starts.
+createWorkspaceSync
+  :: { rootDir :: String, templateDir :: String, packageName :: String }
+  -> WorkspaceId
+  -> Effect Unit
+createWorkspaceSync { rootDir, templateDir, packageName } (WorkspaceId id) =
+  _createWorkspaceDirSync rootDir templateDir packageName id
 
 -- | Recursively remove a workspace from disk.
 deleteWorkspace :: String -> WorkspaceId -> Aff Unit

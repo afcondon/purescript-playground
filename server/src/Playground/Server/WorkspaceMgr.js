@@ -1,5 +1,11 @@
 import { mkdir, readdir, readFile, rm, copyFile, writeFile } from 'fs/promises';
-import { readdirSync } from 'fs';
+import {
+  copyFileSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'fs';
 import { resolve as pathResolve, join as pathJoin } from 'path';
 
 // Files copied verbatim from the template workspace into a new one.
@@ -77,6 +83,33 @@ async function createWorkspace(rootDir, templateDir, packageName, id) {
     ),
   ]);
 }
+
+// Synchronous variant used during boot (same purpose as
+// _listWorkspaceDirsSync): we need the `eval-scratch` workspace
+// available in the map before the HTTP listener accepts requests,
+// and the only callers are eager setup paths in `main`.
+export const _createWorkspaceDirSync =
+  (rootDir) => (templateDir) => (packageName) => (id) => () => {
+    const workspaceDir = pathJoin(rootDir, id);
+    mkdirSync(pathJoin(workspaceDir, 'src', 'Playground'), { recursive: true });
+    for (const rel of TEMPLATE_COPY_PATHS) {
+      copyFileSync(pathResolve(templateDir, rel), pathResolve(workspaceDir, rel));
+    }
+    for (const rel of REWRITE_PATHS) {
+      const raw = readFileSync(pathResolve(templateDir, rel), 'utf8');
+      writeFileSync(
+        pathResolve(workspaceDir, rel),
+        rewriteForPackage(rel, raw, packageName),
+        'utf8',
+      );
+    }
+    writeFileSync(pathJoin(workspaceDir, 'src', 'Main.purs'), SEED_MAIN_PURS, 'utf8');
+    writeFileSync(
+      pathJoin(workspaceDir, 'src', 'Playground', 'User.purs'),
+      SEED_USER_PURS,
+      'utf8',
+    );
+  };
 
 // Narrow rewrite that only touches the package-name field. We target:
 //   * spago.yaml: the single top-level `name:` line inside `package:`

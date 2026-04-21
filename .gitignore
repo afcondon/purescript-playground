@@ -8,6 +8,11 @@ dist/
 *.log
 .DS_Store
 
+# Ephemeral /eval sandbox. Materialised at boot by the server from the
+# main-workspace template, rewritten on every /eval call — not worth
+# tracking as source.
+runtime-workspace/workspaces/eval-scratch/
+
 # Local Claude Code settings (per-machine permission grants) and the
 # runtime file purs ide writes next to the project root.
 .claude/settings.local.json

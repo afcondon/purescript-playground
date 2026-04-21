@@ -2,6 +2,9 @@ module Playground.Server.Session
   ( SessionStore
   , ModulePatch(..)
   , ImportSpec
+  , EvalRequest
+  , EvalResponse
+  , evalResponseCodec
   , newStore
   , get
   , compileAndStore
@@ -17,14 +20,20 @@ module Playground.Server.Session
   , removeCell
   , previewRemoveCell
   , setRuntime
+  , evaluate
   , applyModulePatch
   ) where
 
 import Prelude
 
+import Data.Argonaut.Core (Json)
+import Data.Argonaut.Parser (jsonParser)
 import Data.Array (filter, findIndex, modifyAt, snoc)
 import Data.Array as Array
-import Data.Either (Either(..))
+import Data.Codec.Argonaut (JsonCodec)
+import Data.Codec.Argonaut as CA
+import Data.Codec.Argonaut.Record as CAR
+import Data.Either (Either(..), hush)
 import Data.Int (fromString) as Int
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String as Str
@@ -46,9 +55,12 @@ import Playground.Server.Compile as Compile
 import Playground.Server.Synthesize (synthesize)
 import Playground.Session
   ( Cell(..)
+  , CellEmit(..)
+  , CompileError
   , CompileRequest(..)
   , CompileResponse(..)
   , UserModule(..)
+  , compileErrorCodec
   )
 
 -- | A structured edit to the user module's source. PATCH /session/module
@@ -452,3 +464,72 @@ withPreview (SessionStore { lock, state, workspaceDir, packageName }) f = do
 
 setRuntime :: SessionStore -> String -> Aff CompileResponse
 setRuntime store runtime = withUpdate store _ { runtime = runtime }
+
+-- ============================================================
+-- /eval
+-- ============================================================
+
+-- | Input shape for a one-shot expression evaluation. `source` is a
+-- | PureScript expression (not a module). `imports` are spliced in
+-- | verbatim after `import Prelude` — pass either bare module names
+-- | ("Data.Array") or full import specs ("Data.Array as Array").
+type EvalRequest =
+  { source :: String
+  , imports :: Array String
+  }
+
+-- | Output shape for `/eval`. `value` is the emit produced by running
+-- | the expression under Node, pre-parsed from its JSON-string form
+-- | into structured Json (Nothing if the expression didn't emit — e.g.
+-- | it failed to compile, or its type isn't `ToPlaygroundValue`).
+-- | `type` is deliberately absent for now: purs-ide can't see per-
+-- | workspace output, so exposing it would be unreliable.
+type EvalResponse =
+  { value :: Maybe Json
+  , errors :: Array CompileError
+  , warnings :: Array CompileError
+  }
+
+evalResponseCodec :: JsonCodec EvalResponse
+evalResponseCodec = CAR.object "EvalResponse"
+  { value: CAR.optional CA.json
+  , errors: CA.array compileErrorCodec
+  , warnings: CA.array compileErrorCodec
+  }
+
+-- | Synthesise a one-cell throwaway session from `EvalRequest`, run it
+-- | through the preview pipeline (no state mutation, no broadcast,
+-- | lock-serialised), and strip down the result. The caller's store
+-- | is used purely as a compile sandbox — its in-memory state is
+-- | unchanged afterwards. Runtime is forced to `"node"` so emits
+-- | come back to the server instead of being shipped to the browser.
+evaluate :: SessionStore -> EvalRequest -> Aff EvalResponse
+evaluate store { source, imports } = do
+  resp <- withPreview store \s -> s
+    { runtime = "node"
+    , "module" = UserModule { source: renderEvalModule imports }
+    , cells = [ Cell { id: "eval", kind: "expr", source, form: false } ]
+    , nextCellId = 2
+    }
+  pure (extractEval resp)
+
+-- | Build the Playground.User module source an /eval call compiles
+-- | against. Always includes `import Prelude`; subsequent imports are
+-- | spliced verbatim — the caller chooses whether to write bare
+-- | names, aliases, or explicit lists.
+renderEvalModule :: Array String -> String
+renderEvalModule imports =
+  "module Playground.User where\n\nimport Prelude\n"
+    <> Str.joinWith "" (map (\i -> "import " <> i <> "\n") imports)
+
+extractEval :: CompileResponse -> EvalResponse
+extractEval (CompileResponse r) =
+  { value: do
+      CellEmit e <- Array.find (\(CellEmit em) -> em.id == "eval") r.emits
+      -- Node adapter forwards emit values as pre-stringified JSON.
+      -- Parse back to structured Json; if parsing fails for any
+      -- reason, drop the value (errors/warnings still carry signal).
+      hush (jsonParser e.value)
+  , errors: r.errors
+  , warnings: r.warnings
+  }

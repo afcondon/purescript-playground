@@ -52,6 +52,58 @@
         "test": {
           "dependencies": []
         }
+      },
+      "playground-ws-eval-scratch": {
+        "path": "workspaces/eval-scratch",
+        "core": {
+          "dependencies": [
+            "aff",
+            "affjax",
+            "affjax-web",
+            "argonaut-codecs",
+            "argonaut-core",
+            "arrays",
+            "codec",
+            "codec-argonaut",
+            "console",
+            "control",
+            "effect",
+            "either",
+            "exceptions",
+            "foldable-traversable",
+            "foreign",
+            "foreign-object",
+            "functions",
+            "hylograph-graph",
+            "hylograph-layout",
+            "hylograph-transitions",
+            "identity",
+            "integers",
+            "lazy",
+            "lists",
+            "maybe",
+            "newtype",
+            "nonempty",
+            "now",
+            "nullable",
+            "numbers",
+            "ordered-collections",
+            "parsing",
+            "partial",
+            "prelude",
+            "profunctor",
+            "random",
+            "refs",
+            "st",
+            "strings",
+            "transformers",
+            "tuples",
+            "unfoldable"
+          ]
+        },
+        "test": {
+          "dependencies": []
+        }
       }
     },
     "package_set": {

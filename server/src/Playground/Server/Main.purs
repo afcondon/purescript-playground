@@ -5,7 +5,7 @@ import Prelude
 import Data.Argonaut.Core (stringify, toObject)
 import Data.Argonaut.Core as AJ
 import Data.Argonaut.Parser (jsonParser)
-import Data.Array (filter, fromFoldable, sort) as Array
+import Data.Array (elem, filter, fromFoldable, snoc, sort) as Array
 import Data.Tuple (Tuple(..))
 import Data.Codec.Argonaut (JsonCodec)
 import Data.Codec.Argonaut as CA
@@ -55,13 +55,14 @@ import Data.Int as Int
 import Playground.Server.Conch (ConchStore, RequestResult(..))
 import Playground.Server.Conch as Conch
 import Playground.Server.Ide as Ide
-import Playground.Server.Session (ModulePatch(..), SessionStore)
+import Playground.Server.Session (EvalRequest, EvalResponse, ModulePatch(..), SessionStore, evalResponseCodec)
 import Playground.Server.Session as Session
 import Playground.Server.Subscribers (Subscribers)
 import Playground.Server.Subscribers as Subscribers
 import Playground.Server.WorkspaceMgr
   ( WorkspaceId(..)
   , createWorkspace
+  , createWorkspaceSync
   , deleteWorkspace
   , listWorkspacesSync
   , requestWorkspaceId
@@ -115,6 +116,10 @@ data Route
   -- WorkspaceOne handles DELETE at /workspaces/:id.
   | WorkspacesRoot
   | WorkspaceOne String
+  -- Ephemeral evaluation (Phase 2). POST only. Optional ?workspace=<id>
+  -- runs against an existing workspace; default is `eval-scratch`, a
+  -- dedicated ephemeral workspace materialised at boot.
+  | Eval
 
 derive instance Generic Route _
 
@@ -136,6 +141,7 @@ route = root $ sum
   , "IdeSearch": "ide" / "search" / noArgs
   , "WorkspacesRoot": "workspaces" / noArgs
   , "WorkspaceOne": "workspaces" / segment
+  , "Eval": "eval" / noArgs
   }
 
 -- ============================================================
@@ -304,6 +310,31 @@ parseBody codec s = case jsonParser s of
     Left e -> Left ("bad request: " <> CA.printJsonDecodeError e)
     Right a -> Right a
 
+-- | Body decoder for `POST /eval`. Accepts
+-- | `{"source": "...", "imports": ["Prelude", "Data.Array as Array"]}`.
+-- | `imports` is optional (defaults to `[]`); `source` is required.
+parseEvalBody :: String -> Either String EvalRequest
+parseEvalBody raw = case jsonParser raw of
+  Left e -> Left ("bad JSON: " <> e)
+  Right j -> case toObject j of
+    Nothing -> Left "expected a JSON object"
+    Just o -> do
+      source <- case Object.lookup "source" o of
+        Nothing -> Left "missing field: source"
+        Just v -> case AJ.toString v of
+          Just s -> Right s
+          Nothing -> Left "source must be a string"
+      imports <- case Object.lookup "imports" o of
+        Nothing -> Right []
+        Just v -> case AJ.toArray v of
+          Nothing -> Left "imports must be an array of strings when present"
+          Just arr -> traverse asImport arr
+      pure { source, imports }
+  where
+  asImport v = case AJ.toString v of
+    Just s -> Right s
+    Nothing -> Left "imports entries must be strings"
+
 -- | Body decoder for `POST /workspaces`. Accepts `{"id": "foo"}`
 -- | and returns a validated WorkspaceId.
 parseWorkspaceCreateBody :: String -> Either String WorkspaceId
@@ -316,6 +347,9 @@ parseWorkspaceCreateBody raw = case jsonParser raw of
       Just v -> case AJ.toString v of
         Nothing -> Left "id must be a string"
         Just s -> validateWorkspaceId s
+
+evalResponseJson :: EvalResponse -> String
+evalResponseJson = stringify <<< CA.encode evalResponseCodec
 
 workspaceListJson :: Array String -> String
 workspaceListJson ids =
@@ -394,6 +428,30 @@ withStore ctx req action = do
   case storeResult of
     Left r -> pure r
     Right store -> action store
+
+-- | /eval's workspace resolver. Differs from `resolveStore` only in
+-- | the default: missing `?workspace=` resolves to `eval-scratch`, not
+-- | `main`, so /eval doesn't clobber a human's session while
+-- | sharing the lock that serialises compiles.
+resolveEvalStore :: AppCtx -> Query -> Aff (Either ResponseOrUpgrade SessionStore)
+resolveEvalStore ctx q = case Object.lookup "workspace" q of
+  Nothing -> lookupKnown evalScratchId
+  Just "" -> lookupKnown evalScratchId
+  Just s -> case validateWorkspaceId s of
+    Left msg -> do
+      r <- badRequest' jsonCors (errorJson "BadWorkspaceId" msg)
+      pure (Left r)
+    Right wid -> lookupKnown wid
+  where
+  lookupKnown wid = do
+    m <- liftEffect (Ref.read ctx.workspaces)
+    case Map.lookup wid m of
+      Just store -> pure (Right store)
+      Nothing -> do
+        r <- response' Status.notFound jsonCors
+          (errorJson "NoSuchWorkspace"
+            ("workspace not found: " <> workspaceIdString wid))
+        pure (Left r)
 
 -- | Small `{error, message}` envelope for workspace-level error
 -- | responses. These are structurally different from the session-
@@ -532,6 +590,12 @@ defaultRootDir = "runtime-workspace/workspaces"
 mainWorkspaceId :: WorkspaceId
 mainWorkspaceId = WorkspaceId "main"
 
+-- | Ephemeral `/eval` sandbox id. Materialised at boot so the first
+-- | /eval call doesn't pay workspace-creation latency. Like `main`,
+-- | it's reserved — accidentally DELETEing it would break /eval.
+evalScratchId :: WorkspaceId
+evalScratchId = WorkspaceId "eval-scratch"
+
 -- | Map a workspace id to the spago package name used by its
 -- | `spago.yaml`. Must match what `WorkspaceMgr.createWorkspace`
 -- | writes, and the legacy `playground-runtime` name for `main`
@@ -568,7 +632,18 @@ main = serveWithHandle { port: 3050, hostname: "0.0.0.0" } \handle -> do
     (packageNameFor mainWorkspaceId)
     broadcastSnapshot
   existing <- listWorkspacesSync rootDir
-  let nonMain = Array.filter (_ /= mainWorkspaceId) existing
+  -- Ensure `eval-scratch` exists on disk so `/eval` can compile into
+  -- it immediately. Synchronous so the workspace is ready before the
+  -- HTTP listener accepts requests.
+  when (not (Array.elem evalScratchId existing)) do
+    createWorkspaceSync
+      { rootDir, templateDir, packageName: packageNameFor evalScratchId }
+      evalScratchId
+  let effectiveExisting =
+        if Array.elem evalScratchId existing
+          then existing
+          else Array.snoc existing evalScratchId
+      nonMain = Array.filter (_ /= mainWorkspaceId) effectiveExisting
   nonMainStores <- traverse
     (\wid -> do
         s <- Session.newStore
@@ -809,6 +884,21 @@ mkRouter ctx req@{ route: r, method, body } =
         _ -> response' Status.methodNotAllowed jsonCors
           (errorJson "MethodNotAllowed" "/workspaces accepts GET or POST")
 
+      Eval -> case method of
+        Post -> do
+          bodyStr <- toString body
+          case parseEvalBody bodyStr of
+            Left msg -> badRequest' jsonCors (errorJson "BadRequest" msg)
+            Right req' -> do
+              storeResult <- resolveEvalStore ctx req.query
+              case storeResult of
+                Left r' -> pure r'
+                Right store -> do
+                  resp <- liftAff (Session.evaluate store req')
+                  ok' jsonCors (evalResponseJson resp)
+        _ -> response' Status.methodNotAllowed jsonCors
+          (errorJson "MethodNotAllowed" "/eval accepts POST")
+
       WorkspaceOne idStr -> case method of
         Delete -> case validateWorkspaceId idStr of
           Left msg -> badRequest' jsonCors (errorJson "BadWorkspaceId" msg)
@@ -817,6 +907,10 @@ mkRouter ctx req@{ route: r, method, body } =
                 response' Status.forbidden jsonCors
                   (errorJson "MainWorkspaceLocked"
                     "the 'main' workspace cannot be deleted")
+            | wid == evalScratchId ->
+                response' Status.forbidden jsonCors
+                  (errorJson "EvalScratchLocked"
+                    "the 'eval-scratch' workspace is reserved for /eval and cannot be deleted")
             | otherwise -> do
                 m <- liftEffect (Ref.read ctx.workspaces)
                 case Map.lookup wid m of
