@@ -1,29 +1,26 @@
 import { execFile } from 'child_process';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import { dirname, resolve as pathResolve } from 'path';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Compiled foreign.js for this adapter lives at
-// <repo>/output/Playground.Server.Adapter.BrowserWorker/foreign.js —
-// repo root is exactly 2 levels up. (Modern spago flattens the nested
-// module namespace in its output dir to a dot-joined folder name.)
-const REPO_ROOT = pathResolve(__dirname, '..', '..');
-const WORKSPACE = pathResolve(REPO_ROOT, 'runtime-workspace');
-const MAIN_PATH = pathResolve(WORKSPACE, 'src', 'Main.purs');
-const USER_PATH = pathResolve(WORKSPACE, 'src', 'Playground', 'User.purs');
-const BUNDLE_PATH = pathResolve(WORKSPACE, 'output', 'bundle.js');
+// Per-call workspace paths are derived from the absolute workspace dir
+// passed in via FFI. The adapter is workspace-agnostic now; all state
+// lives under <workspaceDir>/src/ and <workspaceDir>/output/.
+function pathsFor(workspaceDir) {
+  return {
+    mainPath: pathResolve(workspaceDir, 'src', 'Main.purs'),
+    userPath: pathResolve(workspaceDir, 'src', 'Playground', 'User.purs'),
+    bundlePath: pathResolve(workspaceDir, 'output', 'bundle.js'),
+  };
+}
 
 // ---- spago invocations ----
 
-function runBuildJsonErrors() {
+function runBuildJsonErrors(workspaceDir) {
   return new Promise((resolve) => {
     execFile(
       'spago',
       ['build', '-p', 'playground-runtime', '--json-errors'],
-      { cwd: WORKSPACE, maxBuffer: 16 * 1024 * 1024 },
+      { cwd: workspaceDir, maxBuffer: 16 * 1024 * 1024 },
       (_err, stdout, stderr) => {
         const jsonLine = stdout
           .split('\n')
@@ -93,12 +90,12 @@ function transportError(msg) {
   return { code: 'Transport', filename: null, position: null, message: msg };
 }
 
-function runBundle() {
+function runBundle(workspaceDir) {
   return new Promise((resolve) => {
     execFile(
       'spago',
       ['bundle', '-p', 'playground-runtime'],
-      { cwd: WORKSPACE, maxBuffer: 16 * 1024 * 1024 },
+      { cwd: workspaceDir, maxBuffer: 16 * 1024 * 1024 },
       (err, stdout, stderr) => {
         if (err) return resolve({ ok: false, message: formatBundleFailure(err, stdout, stderr) });
         resolve({ ok: true });
@@ -129,30 +126,34 @@ function extractCellIds(mainSource) {
 
 // ---- public FFI ----
 
-// Module-level queue: serialises _bundle invocations so that two
-// concurrent callers (e.g. Session.purs under its lock + an /ide/*
-// query or a stray external spago) can't race on runtime-workspace's
-// src/ and output/ files. The Session already holds a write lock, so
-// this is belt-and-braces against anything the server doesn't control.
-let bundleQueue = Promise.resolve();
+// Per-workspace queue: serialises _bundle invocations against the same
+// workspace dir (two concurrent calls in one workspace stomp each
+// other's src/ and output/). Distinct workspaces run in parallel.
+const bundleQueues = new Map();
 
-export const _bundle = (userSource) => (mainSource) => () => {
-  const task = bundleQueue.then(() => runBundlePipeline(userSource, mainSource));
-  // Swallow errors in the queue's view so a rejection from one call
-  // doesn't poison the chain for the next; callers see their own task.
-  bundleQueue = task.catch(() => {});
-  return task;
-};
+function enqueueForWorkspace(workspaceDir, task) {
+  const prev = bundleQueues.get(workspaceDir) || Promise.resolve();
+  const next = prev.then(task);
+  // Swallow errors in the queue's view so one rejection doesn't poison
+  // subsequent calls for the same workspace; callers see their own task.
+  bundleQueues.set(workspaceDir, next.catch(() => {}));
+  return next;
+}
 
-function runBundlePipeline(userSource, mainSource) {
+export const _bundle = (workspaceDir) => (userSource) => (mainSource) => () =>
+  enqueueForWorkspace(workspaceDir, () =>
+    runBundlePipeline(workspaceDir, userSource, mainSource));
+
+function runBundlePipeline(workspaceDir, userSource, mainSource) {
+  const { mainPath, userPath, bundlePath } = pathsFor(workspaceDir);
   return new Promise(async (resolve) => {
     const empty = { js: null, warnings: [], errors: [], cellIds: [], emits: [] };
 
     try {
-      await mkdir(dirname(USER_PATH), { recursive: true });
+      await mkdir(dirname(userPath), { recursive: true });
       await Promise.all([
-        writeFile(USER_PATH, userSource, 'utf8'),
-        writeFile(MAIN_PATH, mainSource, 'utf8'),
+        writeFile(userPath, userSource, 'utf8'),
+        writeFile(mainPath, mainSource, 'utf8'),
       ]);
     } catch (e) {
       return resolve({
@@ -161,7 +162,7 @@ function runBundlePipeline(userSource, mainSource) {
       });
     }
 
-    const diag = await runBuildJsonErrors();
+    const diag = await runBuildJsonErrors(workspaceDir);
     if (!diag.clean) {
       return resolve({
         js: null,
@@ -172,7 +173,7 @@ function runBundlePipeline(userSource, mainSource) {
       });
     }
 
-    const bundle = await runBundle();
+    const bundle = await runBundle(workspaceDir);
     if (!bundle.ok) {
       return resolve({
         js: null,
@@ -185,7 +186,7 @@ function runBundlePipeline(userSource, mainSource) {
 
     let js;
     try {
-      js = await readFile(BUNDLE_PATH, 'utf8');
+      js = await readFile(bundlePath, 'utf8');
     } catch (e) {
       return resolve({
         js: null,

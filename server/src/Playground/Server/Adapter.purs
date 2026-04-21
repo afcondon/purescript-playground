@@ -19,9 +19,14 @@ import Effect.Aff (Aff)
 -- | for the returned artefact — currently unused (we only have one
 -- | adapter), but the field exists so we don't have to rev the codec
 -- | when alternates land.
+-- |
+-- | `bundle` now takes a workspace directory (absolute path) so multiple
+-- | concurrent compiles against different workspaces don't stomp each
+-- | other's sources or `output/` cache. The adapter writes
+-- | `<workspaceDir>/src/*` and reads back `<workspaceDir>/output/*`.
 type Adapter =
   { name :: String
-  , bundle :: String -> String -> Aff Json
+  , bundle :: String -> String -> String -> Aff Json
   }
 
 -- | Shape the adapter returns (as Json on the wire; decoded by

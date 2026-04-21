@@ -8,31 +8,31 @@ import Data.Tuple (Tuple(..))
 import Effect (Effect)
 import Effect.Aff (runAff_)
 import Effect.Class (liftEffect)
-import Playground.Runtime (class ToPlaygroundValue, done, emit, toPlaygroundValue)
+import Playground.Runtime
 import Playground.User
 
+import Data.Array as Array
+import Data.Foldable (foldl)
+import Data.Map (Map)
+import Data.Map as Map
 import Data.Maybe (Maybe(..))
+import Data.Number.Format (toString) as Num
+import Data.Tuple (Tuple(..))
+import DataViz.Layout.Hierarchy.Pack (HierarchyData(..), PackNode(..), defaultPackConfig, hierarchy, pack)
+import Data.Number (sqrt)
+import Data.Int (toNumber)
+import Data.FoldableWithIndex (foldlWithIndex)
 
 
 -- let-cells (spliced verbatim)
 
 -- expr-cells (top-level bindings)
-cell_c1 = divSafe 100 5
-cell_c2 = do
-  a <- divSafe 100 5
-  b <- divSafe 200 a
-  pure (a + b)
-cell_c3 = divSafe 100 5 >>= \a ->
-  divSafe 200 a >>= \b ->
-    pure (a + b)
-cell_c4 = do
-  x <- [1, 2, 3]
-  y <- [10, 20]
-  pure (x + y)
-cell_c5 = do
-  x <- (Right 10 :: Either String Int)
-  y <- Right 20
-  pure (x + y)
+cell_c1 = Array.length countries
+cell_c2 = continentTotals
+cell_c3 = bubbleSvg
+cell_c4 = bubbleSvg2
+cell_c5 = Array.take 5 (Array.sortBy (\a b -> compare (b.population / b.areaKm2) (a.population / a.areaKm2)) countries)
+cell_c6 = 5 + 4
 
 main :: Effect Unit
 main = runAff_ (\_ -> done) do
@@ -46,3 +46,5 @@ main = runAff_ (\_ -> done) do
   liftEffect (emit "c4" v_c4)
   v_c5 <- toPlaygroundValue cell_c5
   liftEffect (emit "c5" v_c5)
+  v_c6 <- toPlaygroundValue cell_c6
+  liftEffect (emit "c6" v_c6)

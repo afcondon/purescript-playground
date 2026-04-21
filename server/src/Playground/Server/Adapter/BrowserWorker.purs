@@ -13,10 +13,10 @@ import Playground.Server.Adapter (Adapter)
 -- | Bundles the synthesised sources via `spago bundle -p playground-runtime`
 -- | with the browser platform. Frontend executes the resulting JS in a
 -- | Web Worker via a Blob URL.
-foreign import _bundle :: String -> String -> Effect (Promise Json)
+foreign import _bundle :: String -> String -> String -> Effect (Promise Json)
 
 browserWorker :: Adapter
 browserWorker =
   { name: "browser-worker"
-  , bundle: \userSrc mainSrc -> toAffE (_bundle userSrc mainSrc)
+  , bundle: \workspaceDir userSrc mainSrc -> toAffE (_bundle workspaceDir userSrc mainSrc)
   }

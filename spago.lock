@@ -42,7 +42,7 @@
         }
       },
       "playground-runtime": {
-        "path": "runtime-workspace",
+        "path": "runtime-workspace/workspaces/main",
         "core": {
           "dependencies": [
             "aff",

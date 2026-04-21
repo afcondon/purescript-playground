@@ -410,7 +410,10 @@ main = serveWithHandle { port: 3050, hostname: "0.0.0.0" } \handle -> do
         let msg = Snapshot { conch, snapshot: resp }
             encoded = stringify (CA.encode broadcastCodec msg)
         Subscribers.broadcast subs conch.holder (TextMessage encoded)
-  store <- Session.newStore broadcastSnapshot
+  -- Default "main" workspace. Lives at <repo>/runtime-workspace/workspaces/main.
+  -- `server/run.js` is launched from the repo root, so a cwd-relative path
+  -- resolves correctly without needing to know this module's location.
+  store <- Session.newStore "runtime-workspace/workspaces/main" broadcastSnapshot
   let ctx = { store, subs, conchStore }
   pure
     { route
