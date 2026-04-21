@@ -4,6 +4,8 @@ description: Builds a data visualisation against Atelier's HTTP API, pairing wit
 model: opus
 tools:
   - Read
+  - Edit
+  - Write
   - Bash
   - Glob
   - Grep
