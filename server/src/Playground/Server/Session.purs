@@ -26,7 +26,7 @@ module Playground.Server.Session
 
 import Prelude
 
-import Data.Argonaut.Core (Json)
+import Data.Argonaut.Core (Json, stringify)
 import Data.Argonaut.Parser (jsonParser)
 import Data.Array (filter, findIndex, modifyAt, snoc)
 import Data.Array as Array
@@ -45,8 +45,13 @@ import Effect.Aff (Aff)
 import Effect.Aff as Aff
 import Effect.Aff.AVar as AVar
 import Effect.Class (liftEffect)
+import Effect.Class.Console as Console
+import Effect.Exception (try)
 import Effect.Ref (Ref)
 import Effect.Ref as Ref
+import Node.Encoding (Encoding(..))
+import Node.FS.Aff as FSA
+import Node.FS.Sync as FSS
 
 import Playground.Server.Adapter.BrowserWorker (browserWorker)
 import Playground.Server.Adapter.NodeProcess (nodeProcess)
@@ -60,7 +65,9 @@ import Playground.Session
   , CompileRequest(..)
   , CompileResponse(..)
   , UserModule(..)
+  , cellCodec
   , compileErrorCodec
+  , userModuleCodec
   )
 
 -- | A structured edit to the user module's source. PATCH /session/module
@@ -139,11 +146,90 @@ newStore
   -> (CompileResponse -> Aff Unit)
   -> Effect SessionStore
 newStore workspaceDir packageName broadcast = do
-  ref <- Ref.new initialState
+  -- If there's a persisted snapshot on disk, use it as the initial
+  -- state so a server restart doesn't wipe the human's work. Fall
+  -- back silently to `initialState` when the file is missing, empty,
+  -- or fails to decode — we don't want boot to crash on stale state.
+  loaded <- loadPersisted workspaceDir
+  ref <- Ref.new (fromMaybe initialState loaded)
   -- AVar used as a mutex: initially "full" (contains unit); take
   -- claims the lock, put releases it.
   lock <- EffAVar.new unit
   pure (SessionStore { lock, state: ref, broadcast, workspaceDir, packageName })
+
+-- ============================================================
+-- Session persistence
+-- ============================================================
+-- | Subset of `SessionState` we save across restarts: the user's
+-- | inputs (module, cells, runtime) plus the cell-id counter. The
+-- | derived `lastResponse` is regenerated on the next compile so
+-- | doesn't need to land on disk.
+type PersistedState =
+  { "module" :: UserModule
+  , cells :: Array Cell
+  , runtime :: String
+  , nextCellId :: Int
+  }
+
+persistedStateCodec :: JsonCodec PersistedState
+persistedStateCodec = CAR.object "PersistedState"
+  { "module": userModuleCodec
+  , cells: CA.array cellCodec
+  , runtime: CA.string
+  , nextCellId: CA.int
+  }
+
+-- | On-disk location for a workspace's persisted state. Kept under
+-- | the workspace dir (gitignored alongside `output/`) so each
+-- | workspace's state travels with its other artefacts.
+sessionFilePath :: String -> String
+sessionFilePath workspaceDir = workspaceDir <> "/atelier-session.json"
+
+-- | Synchronous: boot path, called from `newStore`. Returns `Nothing`
+-- | if the file is absent, empty, or fails to decode. Logs on
+-- | decode failure so a silent fallback is visible in the logs.
+loadPersisted :: String -> Effect (Maybe SessionState)
+loadPersisted workspaceDir = do
+  let path = sessionFilePath workspaceDir
+  result <- try (FSS.readTextFile UTF8 path)
+  case result of
+    Left _ -> pure Nothing
+    Right raw -> case jsonParser raw of
+      Left err -> do
+        Console.warn $ "atelier-session.json at " <> path <> " failed to parse: " <> err
+        pure Nothing
+      Right j -> case CA.decode persistedStateCodec j of
+        Left err -> do
+          Console.warn $ "atelier-session.json at " <> path <> " failed to decode: "
+            <> CA.printJsonDecodeError err
+          pure Nothing
+        Right p -> pure $ Just $
+          initialState
+            { "module" = p."module"
+            , cells = p.cells
+            , runtime = p.runtime
+            , nextCellId = p.nextCellId
+            }
+
+-- | Asynchronous: called from `withUpdate` / `patchModule` after a
+-- | successful commit. Disk failure is logged but never propagates
+-- | out as a compile error — persistence is nice-to-have, not
+-- | correctness-critical.
+persist :: String -> SessionState -> Aff Unit
+persist workspaceDir s = do
+  let path = sessionFilePath workspaceDir
+      body = stringify $ CA.encode persistedStateCodec
+        { "module": s."module"
+        , cells: s.cells
+        , runtime: s.runtime
+        , nextCellId: s.nextCellId
+        }
+  result <- Aff.attempt (FSA.writeTextFile UTF8 path body)
+  case result of
+    Left err ->
+      liftEffect $ Console.warn $
+        "atelier-session.json write failed at " <> path <> ": " <> show err
+    Right _ -> pure unit
 
 -- | Read the current session snapshot as a CompileResponse (for
 -- | `GET /session`). Falls back to an empty-ish response when no
@@ -196,6 +282,7 @@ withUpdate (SessionStore { lock, state, broadcast, workspaceDir, packageName }) 
     liftEffect (Ref.write s1 state)
     resp <- compileNow workspaceDir packageName s1
     liftEffect $ Ref.modify_ (_ { lastResponse = Just resp }) state
+    persist workspaceDir s1
     broadcast resp
     pure resp
 
@@ -280,6 +367,7 @@ patchModule (SessionStore { lock, state, broadcast, workspaceDir, packageName })
         liftEffect (Ref.write s1 state)
         resp <- compileNow workspaceDir packageName s1
         liftEffect $ Ref.modify_ (_ { lastResponse = Just resp }) state
+        persist workspaceDir s1
         broadcast resp
         pure (Right resp)
 
