@@ -205,7 +205,15 @@ One recompile, one response — the full new snapshot. Useful for seeding a star
 
 ### Write — dry-run / preview
 
-`PATCH /session/module?preview=true` evaluates the patch against the current session and returns what the compile result would be, but **does not apply** the change. Use this when you want to validate a sketch before disturbing the human's editor. (Other write endpoints don't currently honour `?preview=true` — that's a known gap.)
+`?preview=true` on a write endpoint evaluates the write against the current session and returns what the compile result would be, but **does not apply** the change (no persisted state mutation, no broadcast). Supported on:
+
+- `POST /session/module?preview=true` — preview a full module replacement
+- `PATCH /session/module?preview=true` — preview a structured patch
+- `POST /session/cells?preview=true` — preview appending a new cell
+- `PATCH /session/cells/:id?preview=true` — preview a cell edit
+- `DELETE /session/cells/:id?preview=true` — preview removing a cell
+
+Use previews to validate a sketch before disturbing the human's editor. They're also free of the conch (see below) so you can probe even while someone else is authoring.
 
 ### Push — live updates via WebSocket
 
@@ -244,7 +252,7 @@ Client → server:
 - `{ "type": "request-conch" }` — ask for write permission. Granted immediately if nobody holds it; silently denied otherwise (no explicit reply — read the next `ConchUpdate` and see whether you became the holder).
 - `{ "type": "yield-conch" }` — release a conch you're holding.
 - `{ "type": "force-conch" }` — take the conch from a holder who has been idle past the server's threshold (60s by default). No-op otherwise.
-- `{ "type": "heartbeat" }` — touch `lastActivityAt` so you're not eligible for `force-conch` during a long thinking pause. Every accepted HTTP write also heartbeats implicitly.
+- `{ "type": "heartbeat" }` — touch `lastActivityAt` so you're not eligible for `force-conch` during a long thinking pause. **Either a WS `heartbeat` or any accepted HTTP write resets the 60s idle window** — whichever reaches the server first restarts the timer. If you have active HTTP writes in flight you don't also need to send `heartbeat`; it's only needed during long pauses with no writes.
 
 ### Authorisation — the conch + `X-Atelier-Subscriber-Id`
 
@@ -264,7 +272,7 @@ If you're not the holder (or nobody is), the server replies 409 with:
 
 The fix is to send `request-conch` over your WS and wait for a `ConchUpdate` where `holder == yourId`, then retry the HTTP write.
 
-**Reads and previews don't need the conch.** `GET /session`, `GET /session/types`, `GET /session/export`, `?preview=true` variants of module write endpoints, and `/ide/*` queries all stay open to any subscriber — you can explore freely in Observe mode without taking the conch.
+**Reads and previews don't need the conch.** `GET /session`, `GET /session/types`, `GET /session/export`, `?preview=true` variants of any write endpoint (module + cell), and `/ide/*` queries all stay open to any subscriber — you can explore freely in Observe mode without taking the conch.
 
 ### Minimal agent loop
 

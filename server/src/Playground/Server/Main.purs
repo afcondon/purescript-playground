@@ -81,8 +81,8 @@ data Route
   | SessionWs
   | SessionCompile
   | SessionModule { preview :: Boolean }
-  | SessionCellAppend
-  | SessionCellAt String
+  | SessionCellAppend { preview :: Boolean }
+  | SessionCellAt String { preview :: Boolean }
   | SessionRuntime
   | SessionTypes
   | SessionExport
@@ -100,8 +100,8 @@ route = root $ sum
   , "SessionWs": "session" / "ws" / noArgs
   , "SessionCompile": "session" / "compile" / noArgs
   , "SessionModule": "session" / "module" ? { preview: flag }
-  , "SessionCellAppend": "session" / "cells" / noArgs
-  , "SessionCellAt": "session" / "cells" / segment
+  , "SessionCellAppend": "session" / "cells" ? { preview: flag }
+  , "SessionCellAt": "session" / "cells" / segment ? { preview: flag }
   , "SessionRuntime": "session" / "runtime" / noArgs
   , "SessionTypes": "session" / "types" / noArgs
   , "SessionExport": "session" / "export" / noArgs
@@ -487,40 +487,55 @@ mkRouter ctx req@{ route: r, method, body } =
                           ok' jsonCors (snapshotJson resp)
         _ -> ok' jsonCors (errorSnapshotJson "MethodNotAllowed" "module endpoint accepts POST or PATCH")
 
-      SessionCellAppend -> do
-        authResult <- requireConch ctx req
-        case authResult of
-          Left r' -> pure r'
-          Right sid -> do
-            bodyStr <- toString body
-            case parseBody cellAppendBodyCodec bodyStr of
-              Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
-              Right rq -> do
-                resp <- liftAff (Session.appendCell ctx.store rq)
-                liftEffect $ Conch.heartbeat ctx.conchStore sid
+      SessionCellAppend { preview } -> do
+        bodyStr <- toString body
+        case parseBody cellAppendBodyCodec bodyStr of
+          Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
+          Right rq ->
+            if preview
+              then do
+                resp <- liftAff (Session.previewAppendCell ctx.store rq)
                 ok' jsonCors (snapshotJson resp)
+              else do
+                authResult <- requireConch ctx req
+                case authResult of
+                  Left r' -> pure r'
+                  Right sid -> do
+                    resp <- liftAff (Session.appendCell ctx.store rq)
+                    liftEffect $ Conch.heartbeat ctx.conchStore sid
+                    ok' jsonCors (snapshotJson resp)
 
-      SessionCellAt cellId -> case method of
-        Delete -> do
-          authResult <- requireConch ctx req
-          case authResult of
-            Left r' -> pure r'
-            Right sid -> do
-              resp <- liftAff (Session.removeCell ctx.store cellId)
-              liftEffect $ Conch.heartbeat ctx.conchStore sid
+      SessionCellAt cellId { preview } -> case method of
+        Delete ->
+          if preview
+            then do
+              resp <- liftAff (Session.previewRemoveCell ctx.store cellId)
               ok' jsonCors (snapshotJson resp)
-        Patch -> do
-          authResult <- requireConch ctx req
-          case authResult of
-            Left r' -> pure r'
-            Right sid -> do
-              bodyStr <- toString body
-              case parseCellPatch bodyStr of
-                Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
-                Right patch -> do
-                  resp <- liftAff (Session.updateCell ctx.store cellId patch)
+            else do
+              authResult <- requireConch ctx req
+              case authResult of
+                Left r' -> pure r'
+                Right sid -> do
+                  resp <- liftAff (Session.removeCell ctx.store cellId)
                   liftEffect $ Conch.heartbeat ctx.conchStore sid
                   ok' jsonCors (snapshotJson resp)
+        Patch -> do
+          bodyStr <- toString body
+          case parseCellPatch bodyStr of
+            Left msg -> ok' jsonCors (errorSnapshotJson "BadRequest" msg)
+            Right patch ->
+              if preview
+                then do
+                  resp <- liftAff (Session.previewUpdateCell ctx.store cellId patch)
+                  ok' jsonCors (snapshotJson resp)
+                else do
+                  authResult <- requireConch ctx req
+                  case authResult of
+                    Left r' -> pure r'
+                    Right sid -> do
+                      resp <- liftAff (Session.updateCell ctx.store cellId patch)
+                      liftEffect $ Conch.heartbeat ctx.conchStore sid
+                      ok' jsonCors (snapshotJson resp)
         _ -> ok' jsonCors (errorSnapshotJson "MethodNotAllowed" "cell endpoint accepts PATCH or DELETE")
 
       SessionRuntime -> do

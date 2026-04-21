@@ -115,15 +115,24 @@ function runBundleForNode() {
         '-p', 'playground-runtime',
         '--platform', 'node',
         '--outfile', 'output/bundle-node.js',
-        '--quiet',
       ],
       { cwd: WORKSPACE, maxBuffer: 16 * 1024 * 1024 },
-      (err, _stdout, stderr) => {
-        if (err) return resolve({ ok: false, message: stderr || err.message });
+      (err, stdout, stderr) => {
+        if (err) return resolve({ ok: false, message: formatBundleFailure(err, stdout, stderr) });
         resolve({ ok: true });
       }
     );
   });
+}
+
+function formatBundleFailure(err, stdout, stderr) {
+  const parts = [];
+  const serr = (stderr || '').trim();
+  const sout = (stdout || '').trim();
+  if (serr) parts.push('stderr:\n' + serr);
+  if (sout) parts.push('stdout:\n' + sout);
+  if (!parts.length) parts.push(err.message);
+  return parts.join('\n\n');
 }
 
 function extractCellIds(mainSource) {
@@ -191,8 +200,21 @@ function runInNode(bundleText) {
 
 // ---- public FFI ----
 
-export const _bundle = (userSource) => (mainSource) => () =>
-  new Promise(async (resolve) => {
+// Module-level queue: serialises _bundle invocations so that two
+// concurrent callers (e.g. Session.purs under its lock + an /ide/*
+// query or a stray external spago) can't race on runtime-workspace's
+// src/ and output/ files. The Session already holds a write lock, so
+// this is belt-and-braces against anything the server doesn't control.
+let bundleQueue = Promise.resolve();
+
+export const _bundle = (userSource) => (mainSource) => () => {
+  const task = bundleQueue.then(() => runBundlePipeline(userSource, mainSource));
+  bundleQueue = task.catch(() => {});
+  return task;
+};
+
+function runBundlePipeline(userSource, mainSource) {
+  return new Promise(async (resolve) => {
     const empty = { js: null, warnings: [], errors: [], cellIds: [], emits: [] };
 
     try {
@@ -262,3 +284,4 @@ export const _bundle = (userSource) => (mainSource) => () =>
       emits,
     });
   });
+}

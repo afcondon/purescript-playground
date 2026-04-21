@@ -11,8 +11,11 @@ module Playground.Server.Session
   , patchModule
   , previewModulePatch
   , appendCell
+  , previewAppendCell
   , updateCell
+  , previewUpdateCell
   , removeCell
+  , previewRemoveCell
   , setRuntime
   , applyModulePatch
   ) where
@@ -361,18 +364,34 @@ replaceLineRange startLine endLine text src
              in Right $ Str.joinWith "\n" (before <> inserted <> after)
 
 appendCell :: SessionStore -> { source :: String, kind :: String } -> Aff CompileResponse
-appendCell store { source, kind } = withUpdate store \s ->
+appendCell store { source, kind } = withUpdate store (appendCellState { source, kind })
+
+appendCellState :: { source :: String, kind :: String } -> SessionState -> SessionState
+appendCellState { source, kind } s =
   let newId = "c" <> show s.nextCellId
       newCell = Cell { id: newId, kind, source }
   in s { cells = snoc s.cells newCell, nextCellId = s.nextCellId + 1 }
+
+-- | Trial-apply a cell append — compile against the resulting cells
+-- | but don't persist or broadcast. Counterpart to `appendCell` for
+-- | POST /session/cells?preview=true.
+previewAppendCell
+  :: SessionStore -> { source :: String, kind :: String } -> Aff CompileResponse
+previewAppendCell store body = withPreview store (appendCellState body)
 
 updateCell
   :: SessionStore
   -> String
   -> { source :: Maybe String, kind :: Maybe String }
   -> Aff CompileResponse
-updateCell store cellId patch = withUpdate store \s ->
-  s { cells = applyPatch s.cells }
+updateCell store cellId patch = withUpdate store (updateCellState cellId patch)
+
+updateCellState
+  :: String
+  -> { source :: Maybe String, kind :: Maybe String }
+  -> SessionState
+  -> SessionState
+updateCellState cellId patch s = s { cells = applyPatch s.cells }
   where
   applyPatch cells = fromMaybe cells do
     idx <- findIndex (\(Cell c) -> c.id == cellId) cells
@@ -383,9 +402,37 @@ updateCell store cellId patch = withUpdate store \s ->
     , kind: fromMaybe c.kind p.kind
     }
 
+-- | Trial-apply a cell update — compile against the resulting cells
+-- | but don't persist or broadcast. Counterpart to `updateCell` for
+-- | PATCH /session/cells/:id?preview=true.
+previewUpdateCell
+  :: SessionStore
+  -> String
+  -> { source :: Maybe String, kind :: Maybe String }
+  -> Aff CompileResponse
+previewUpdateCell store cellId patch = withPreview store (updateCellState cellId patch)
+
 removeCell :: SessionStore -> String -> Aff CompileResponse
-removeCell store cellId = withUpdate store \s ->
-  s { cells = filter (\(Cell c) -> c.id /= cellId) s.cells }
+removeCell store cellId = withUpdate store (removeCellState cellId)
+
+removeCellState :: String -> SessionState -> SessionState
+removeCellState cellId s = s { cells = filter (\(Cell c) -> c.id /= cellId) s.cells }
+
+-- | Trial-apply a cell removal — compile against the resulting cells
+-- | but don't persist or broadcast. Counterpart to `removeCell` for
+-- | DELETE /session/cells/:id?preview=true.
+previewRemoveCell :: SessionStore -> String -> Aff CompileResponse
+previewRemoveCell store cellId = withPreview store (removeCellState cellId)
+
+-- | Shared tail of every preview endpoint: take the lock, apply the
+-- | state transformation in memory only, compile, release — no write,
+-- | no broadcast.
+withPreview :: SessionStore -> (SessionState -> SessionState) -> Aff CompileResponse
+withPreview (SessionStore { lock, state }) f = do
+  _ <- AVar.take lock
+  Aff.finally (AVar.put unit lock) do
+    s0 <- liftEffect (Ref.read state)
+    compileNow (f s0)
 
 setRuntime :: SessionStore -> String -> Aff CompileResponse
 setRuntime store runtime = withUpdate store _ { runtime = runtime }
