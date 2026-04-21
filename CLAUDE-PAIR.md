@@ -207,16 +207,85 @@ One recompile, one response — the full new snapshot. Useful for seeding a star
 
 `PATCH /session/module?preview=true` evaluates the patch against the current session and returns what the compile result would be, but **does not apply** the change. Use this when you want to validate a sketch before disturbing the human's editor. (Other write endpoints don't currently honour `?preview=true` — that's a known gap.)
 
-### Push — live updates to the UI
+### Push — live updates via WebSocket
 
-The frontend **polls** `GET /session` every 2s while in Observe mode (polling is suspended in Drive to avoid fighting live typing). Writes you make via the API appear in the browser within ~2s.
+The frontend subscribes to a WebSocket at `ws://<host>:3050/session/ws`. Every accepted mutation (your write or the human's) fans out a snapshot to all subscribers *except* the current conch holder — they already have the state they just wrote, and excluding them prevents their in-flight typing from getting clobbered by its own echo. Updates arrive in the browser within tens of milliseconds, not a poll tick.
 
-There is no server-sent-events stream yet — the UI's awareness of your writes is strictly pull-based. That means an `errors: []` response from a `POST /session/compile` will clear the human's stale error banner on the next poll tick (≤2s), not instantly.
+#### Frame types
+
+Server → client:
+
+- `Welcome` — fires once per connection, immediately after handshake. Carries your assigned `SubscriberId` (needed for HTTP writes), the current conch state, and the current session snapshot. Treat this as initial hydration.
+
+  ```json
+  { "type": "welcome",
+    "yourId": "sub-abc…",
+    "conch":  { "holder": "sub-xyz…" | null, "lastActivityAt": 1776... },
+    "snapshot": { /* full CompileResponse */ } }
+  ```
+
+- `Snapshot` — fires after every mutating write the server accepts. Same shape as `GET /session`'s body.
+
+  ```json
+  { "type": "snapshot",
+    "conch":  { "holder": "...", "lastActivityAt": ... },
+    "snapshot": { /* CompileResponse */ } }
+  ```
+
+- `ConchUpdate` — pure conch-state transition (someone took it, yielded it, was kicked by `force-conch`, or disconnected). No snapshot.
+
+  ```json
+  { "type": "conch",
+    "conch": { "holder": "..." | null, "lastActivityAt": ... } }
+  ```
+
+Client → server:
+
+- `{ "type": "request-conch" }` — ask for write permission. Granted immediately if nobody holds it; silently denied otherwise (no explicit reply — read the next `ConchUpdate` and see whether you became the holder).
+- `{ "type": "yield-conch" }` — release a conch you're holding.
+- `{ "type": "force-conch" }` — take the conch from a holder who has been idle past the server's threshold (60s by default). No-op otherwise.
+- `{ "type": "heartbeat" }` — touch `lastActivityAt` so you're not eligible for `force-conch` during a long thinking pause. Every accepted HTTP write also heartbeats implicitly.
+
+### Authorisation — the conch + `X-Atelier-Subscriber-Id`
+
+Mutating HTTP endpoints (`POST /session/compile`, `POST /session/module`, `PATCH /session/module`, `POST /session/cells`, `PATCH /session/cells/:id`, `DELETE /session/cells/:id`, `POST /session/runtime`, `POST /session/import`) now require the conch.
+
+On every write include the header:
+
+```
+X-Atelier-Subscriber-Id: <your SubscriberId from the Welcome frame>
+```
+
+If you're not the holder (or nobody is), the server replies 409 with:
+
+```json
+{ "error": "conch-held", "holder": "sub-xyz…" | null, "lastActivityAt": ... }
+```
+
+The fix is to send `request-conch` over your WS and wait for a `ConchUpdate` where `holder == yourId`, then retry the HTTP write.
+
+**Reads and previews don't need the conch.** `GET /session`, `GET /session/types`, `GET /session/export`, `?preview=true` variants of module write endpoints, and `/ide/*` queries all stay open to any subscriber — you can explore freely in Observe mode without taking the conch.
+
+### Minimal agent loop
+
+```
+1. Open WS to ws://…:3050/session/ws.
+2. On Welcome: store yourId + conch.
+3. Send request-conch. Wait for a ConchUpdate with holder == yourId.
+4. Issue HTTP writes with X-Atelier-Subscriber-Id: <yourId>.
+5. Listen for Snapshot frames while you work — that's how the human
+   and any other viewers see your writes.
+6. When you're done with a burst, send yield-conch so the human
+   (or another agent) can take over without waiting for the 60s
+   idle timeout.
+```
 
 ## Etiquette
 
-- **Drive/Observe is how the human grants or reclaims the conch.** The browser UI has a toggle: *Drive* (human is authoring; frontend auto-compile fires) or *Observe* (human is watching; frontend polling is suspended so your API writes win). The setting is client-side only — the server doesn't know about it, so it's an honour system. When the human says "I'm in Observe, go," you have the editor. If they flip back to Drive mid-session, stop pushing writes to the module and fall back to `?preview=true` or cells until they say otherwise.
-- **Don't thrash the module editor while the human is typing there.** If you're about to make a large edit, consider `?preview=true` first, or tell the human what you're about to do.
+- **The conch is how you negotiate writes.** The browser UI has a three-state indicator: "● You have the conch" (human is authoring; their edits are flowing), "○ Unclaimed" (nobody holds it — take it if you want to write), "○ Observing" (someone else holds it — request it or, if they've been idle >60s, force-take). The same rules apply to you: request before writing, yield when you pause, prefer polite request over force except when the holder has clearly walked away.
+- **When the human is holding the conch, don't request it reflexively.** Wait for them to yield, or at least explain what you're about to write and ask them to hand off.
+- **`?preview=true` is free of the conch.** Any amount of preview probing is fair game even while someone else is authoring — it's the low-friction way to try an edit on the side.
+- **Don't thrash the module editor while the human is typing there.** Even when you hold the conch, a large rewrite mid-keystroke is rude. Prefer `?preview=true` first, or tell the human what you're about to do.
 - **Prefer adding cells over editing the module.** Cells are cheap experiments; the module is their codebase-in-miniature.
 - **If the human has set a runtime (especially Purerl), stay in its package set.** Don't add an `import Effect.Aff` to a Purerl module — it won't compile.
 - **Errors are signal, not failure.** Your write endpoint can produce a response with errors; the human sees them on the squiggle line. If your proposal fails to compile, read the error and iterate, don't just post again.
