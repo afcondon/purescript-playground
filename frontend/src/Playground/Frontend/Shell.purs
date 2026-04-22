@@ -183,7 +183,7 @@ type State =
   , runtime :: String             -- "browser" | "node" | "purerl"
   , starterKey :: String          -- key of the currently-loaded starter
   , starterMenuOpen :: Boolean
-  , inScopeOpen :: Boolean
+  , settingsOpen :: Boolean       -- gear-revealed panel with runtime + in-scope + tagline
   , compiling :: Boolean
   , errors :: Array CompileError
   , warnings :: Array CompileError
@@ -256,7 +256,7 @@ data Action
   | SetRuntime String
   | ToggleStarterMenu
   | LoadStarter String
-  | ToggleInScope
+  | ToggleSettings
   | HandleWorkerMessage WorkerMessage
   | WorkerTimeout
   | WsOpened                -- WebSocket connected; Welcome frame will follow
@@ -279,7 +279,7 @@ initialState _ =
      , runtime: "browser"
      , starterKey: s.key
      , starterMenuOpen: false
-     , inScopeOpen: false
+     , settingsOpen: false
      , compiling: false
      , errors: []
      , warnings: []
@@ -435,7 +435,7 @@ handleAction = case _ of
         , cellTypes = Map.empty
         }
       handleAction ScheduleCompile
-  ToggleInScope -> H.modify_ \s -> s { inScopeOpen = not s.inScopeOpen }
+  ToggleSettings -> H.modify_ \s -> s { settingsOpen = not s.settingsOpen }
   ToggleColumn key -> do
     H.modify_ \s -> s { visibility = toggleKey key s.visibility }
     s <- H.get
@@ -1102,7 +1102,7 @@ render state =
     ]
     [ renderHeader state
     , renderConchBanner state
-    , if state.inScopeOpen then renderInScopePanel state else HH.text ""
+    , if state.settingsOpen then renderSettingsPanel state else HH.text ""
     , HH.main
         [ HP.class_ (H.ClassName "columns")
         , HP.style ("grid-template-columns: " <> gridTemplateForVisibility state.visibility)
@@ -1131,46 +1131,6 @@ renderConchBanner state = case state.conchBanner of
           [ HH.text "×" ]
       ]
 
--- | Three-state conch indicator replacing the old Drive/Observe toggle.
--- | "● You have the conch"  — iHold; clicking yields.
--- | "○ Unclaimed"            — nobody holds; clicking requests.
--- | "○ Observing (held)"     — someone else holds; clicking requests,
--- |                            or force-takes if they've been idle.
-renderConchButton :: forall m. State -> H.ComponentHTML Action Slots m
-renderConchButton state =
-  let iHold = iHoldConch state
-      nobodyHolds = case state.conch.holder of
-        Nothing -> true
-        Just _ -> false
-      somebodyElseHolds = (not iHold) && (not nobodyHolds)
-      idleMs = stateIdleMsFor state
-      forceable = somebodyElseHolds && idleMs > 60000.0
-      requesting = state.requestingConch && (not iHold)
-      label =
-        if iHold then "● You have the conch"
-        else if requesting then "…Requesting"
-        else if nobodyHolds then "○ Unclaimed"
-        else "○ Observing"
-      cls =
-        "conch-btn"
-          <> (if iHold then " conch-holding" else " conch-observing")
-          <> (if requesting then " conch-requesting" else "")
-      title =
-        if iHold then "You hold the conch. Click to yield."
-        else if nobodyHolds then "Nobody holds the conch. Click to take it."
-        else if forceable then "Holder has been idle >60s. Click to force-take."
-        else "Another viewer holds the conch. Click to request it."
-      action
-        | iHold = YieldConchAction
-        | forceable = ForceConchAction
-        | otherwise = RequestConchAction
-  in HH.button
-       [ HP.class_ (H.ClassName cls)
-       , HP.title title
-       , HE.onClick \_ -> action
-       ]
-       [ HH.text label ]
-
 -- | Milliseconds since the current holder last touched the conch.
 -- | Returns 0 when nobody holds. Used to decide whether a Force is
 -- | permitted from the UI.
@@ -1183,66 +1143,116 @@ stateIdleMsFor state = case state.conch.holder of
                                          -- still works, the UI just shows
                                          -- "forceable" slightly eagerly.
 
-renderInScopePanel :: forall m. State -> H.ComponentHTML Action Slots m
-renderInScopePanel state =
+-- | Revealed by the gear icon. Replaces the old standalone In Scope
+-- | panel and absorbs the former header-bar tagline + runtime picker.
+-- | The runtime sub-section also drives what the "in scope" lists show.
+renderSettingsPanel :: forall m. State -> H.ComponentHTML Action Slots m
+renderSettingsPanel state =
   let sc = InScope.forRuntime state.runtime
-  in HH.section [ HP.class_ (H.ClassName "in-scope-panel") ]
-    [ HH.h2_
-        [ HH.text "In scope — "
-        , HH.span [ HP.class_ (H.ClassName "runtime-label") ]
-            [ HH.text sc.runtimeLabel ]
+  in HH.section [ HP.class_ (H.ClassName "settings-panel") ]
+    [ HH.p [ HP.class_ (H.ClassName "settings-tagline") ]
+        [ HH.text
+            "A REPL for agents, with a window for humans. Auto-compiles 400ms after you stop typing."
         ]
-    , HH.div [ HP.class_ (H.ClassName "in-scope-grid") ]
-        [ renderList "Auto-imported (cells see these)" sc.autoImports
-        , renderList "Highlighted packages" sc.highlightedPackages
+    , HH.div [ HP.class_ (H.ClassName "settings-section") ]
+        [ HH.h3_ [ HH.text "Runtime" ]
+        , HH.div [ HP.class_ (H.ClassName "runtime-toggle") ]
+            [ runtimeButton state "browser" "Browser"
+            , runtimeButton state "node" "Node"
+            , runtimeButton state "purerl" "Purerl"
+            ]
         ]
-    , if Array.null sc.notes then HH.text ""
-      else HH.ul [ HP.class_ (H.ClassName "in-scope-notes") ]
-        (map (\n -> HH.li_ [ HH.text n ]) sc.notes)
+    , HH.div [ HP.class_ (H.ClassName "settings-section") ]
+        [ HH.h3_
+            [ HH.text "In scope — "
+            , HH.span [ HP.class_ (H.ClassName "runtime-label") ]
+                [ HH.text sc.runtimeLabel ]
+            ]
+        , HH.div [ HP.class_ (H.ClassName "in-scope-grid") ]
+            [ renderList "Auto-imported (cells see these)" sc.autoImports
+            , renderList "Highlighted packages" sc.highlightedPackages
+            ]
+        , if Array.null sc.notes then HH.text ""
+          else HH.ul [ HP.class_ (H.ClassName "in-scope-notes") ]
+            (map (\n -> HH.li_ [ HH.text n ]) sc.notes)
+        ]
     ]
   where
   renderList title items =
     HH.div [ HP.class_ (H.ClassName "in-scope-section") ]
-      [ HH.h3_ [ HH.text title ]
+      [ HH.h4_ [ HH.text title ]
       , HH.ul_ (map (\x -> HH.li_ [ HH.text x ]) items)
       ]
 
 renderHeader :: forall m. State -> H.ComponentHTML Action Slots m
 renderHeader state =
   HH.header [ HP.class_ (H.ClassName "playground-header") ]
-    [ HH.div [ HP.class_ (H.ClassName "title-group") ]
-        [ HH.h1_ [ HH.text "Atelier" ]
-        , HH.p [ HP.class_ (H.ClassName "subtitle") ]
-            [ HH.text
-                "A REPL for agents, with a window for humans. Auto-compiles 400ms after you stop typing."
-            ]
-        ]
-    , renderStarterDropdown state
-    , HH.div [ HP.class_ (H.ClassName "runtime-toggle") ]
-        [ runtimeButton state "browser" "Browser"
-        , runtimeButton state "node" "Node"
-        , runtimeButton state "purerl" "Purerl"
-        ]
-    , renderViewToggle state
-    , renderConchButton state
-    , HH.button
+    [ HH.button
         [ HP.class_
             ( H.ClassName
-                ( "in-scope-btn"
-                    <> (if state.inScopeOpen then " active" else "")
+                ( "settings-btn"
+                    <> (if state.settingsOpen then " active" else "")
                 )
             )
-        , HP.title "Show what's in scope for the current runtime"
-        , HE.onClick \_ -> ToggleInScope
+        , HP.title
+            ( if state.settingsOpen
+                then "Close settings"
+                else "Runtime, in-scope, about"
+            )
+        , HE.onClick \_ -> ToggleSettings
         ]
-        [ HH.text "ⓘ In scope" ]
-    , HH.button
-        [ HP.class_ (H.ClassName "compile-btn")
-        , HP.disabled state.compiling
-        , HE.onClick \_ -> Compile
-        ]
-        [ HH.text (if state.compiling then "Compiling…" else "Compile") ]
+        [ HH.text "⚙" ]
+    , renderTitleConch state
+    , renderViewToggle state
+    , HH.div [ HP.class_ (H.ClassName "header-spacer") ] []
+    , renderStarterDropdown state
+    , HH.div [ HP.class_ (H.ClassName "header-spacer") ] []
     ]
+
+-- | The title doubles as the conch button. Clicking "Atelier" takes /
+-- | yields / requests the conch; the word beneath reflects the current
+-- | state (replaces the old tagline, which now lives in the settings
+-- | panel).
+renderTitleConch :: forall m. State -> H.ComponentHTML Action Slots m
+renderTitleConch state =
+  let iHold = iHoldConch state
+      nobodyHolds = case state.conch.holder of
+        Nothing -> true
+        Just _ -> false
+      somebodyElseHolds = (not iHold) && (not nobodyHolds)
+      idleMs = stateIdleMsFor state
+      forceable = somebodyElseHolds && idleMs > 60000.0
+      requesting = state.requestingConch && (not iHold)
+      status
+        | iHold = "You hold the pen"
+        | requesting = "Requesting…"
+        | nobodyHolds = "Unclaimed"
+        | forceable = "Held (idle — force?)"
+        | otherwise = "Observing"
+      stateCls
+        | iHold = "conch-holding"
+        | requesting = "conch-requesting"
+        | nobodyHolds = "conch-unclaimed"
+        | otherwise = "conch-observing"
+      title
+        | iHold = "You hold the conch. Click to yield."
+        | nobodyHolds = "Nobody holds the conch. Click to take it."
+        | forceable = "Holder has been idle >60s. Click to force-take."
+        | otherwise = "Another viewer holds the conch. Click to request it."
+      action
+        | iHold = YieldConchAction
+        | forceable = ForceConchAction
+        | otherwise = RequestConchAction
+  in HH.button
+       [ HP.class_ (H.ClassName ("title-conch " <> stateCls))
+       , HP.title title
+       , HE.onClick \_ -> action
+       ]
+       [ HH.span [ HP.class_ (H.ClassName "title-conch-name") ]
+           [ HH.text "Atelier" ]
+       , HH.span [ HP.class_ (H.ClassName "title-conch-status") ]
+           [ HH.text status ]
+       ]
 
 -- | Toggle strip for column visibility. Each button is pressed when
 -- | its column is visible; clicking flips that column and the URL's
@@ -1339,8 +1349,7 @@ runtimeButton state value label =
 renderModuleColumn :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
 renderModuleColumn state =
   HH.section [ HP.class_ (H.ClassName "pane pane-module") ]
-    [ HH.h2_ [ HH.text "Module" ]
-    , HH.slot _moduleEditor unit Editor.component
+    [ HH.slot _moduleEditor unit Editor.component
         { initialDoc: state.moduleSource, tag: "module" }
         (\(Editor.Changed src) -> ModuleChanged src)
     ]
@@ -1348,8 +1357,7 @@ renderModuleColumn state =
 renderCellsColumn :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
 renderCellsColumn state =
   HH.section [ HP.class_ (H.ClassName "pane pane-cells") ]
-    ( [ HH.h2_ [ HH.text "Cells" ] ]
-        <> mapWithIndex (renderCellRow state) state.cells
+    ( mapWithIndex (renderCellRow state) state.cells
         <>
           [ HH.button
               [ HP.class_ (H.ClassName "add-cell-btn")
@@ -1512,9 +1520,7 @@ stripStringQuotes s = case Str.stripPrefix (Pattern "\"") s of
 renderGutterColumn :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
 renderGutterColumn state =
   HH.section [ HP.class_ (H.ClassName "pane pane-gutter") ]
-    [ HH.h2_ [ HH.text "Values" ]
-    , renderResults state
-    ]
+    [ renderResults state ]
 
 renderResults :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
 renderResults state =
@@ -1567,8 +1573,7 @@ renderRuntimeError = case _ of
 renderRenderColumn :: forall m. MonadAff m => State -> H.ComponentHTML Action Slots m
 renderRenderColumn state =
   HH.section [ HP.class_ (H.ClassName "pane pane-render") ]
-    [ HH.h2_ [ HH.text "Render" ]
-    , HH.div [ HP.class_ (H.ClassName "render-rows") ]
+    [ HH.div [ HP.class_ (H.ClassName "render-rows") ]
         (Array.catMaybes (mapWithIndex maybeRow state.cells))
     ]
   where
