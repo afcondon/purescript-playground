@@ -52,6 +52,8 @@ import Routing.Duplex.Generic (noArgs, sum)
 import Routing.Duplex.Generic.Syntax ((/), (?))
 
 import Data.Int as Int
+import Effect (Effect)
+import Node.Process as Process
 import Playground.Server.Conch (ConchStore, RequestResult(..))
 import Playground.Server.Conch as Conch
 import Playground.Server.Ide as Ide
@@ -611,8 +613,25 @@ packageNameFor wid
 noopBroadcast :: CompileResponse -> Aff Unit
 noopBroadcast _ = pure unit
 
+-- | Resolve the listen port from `$BACKEND_PORT`, falling back to
+-- | 3050.  Honours SDI's lazy-spawn protocol (SDI rewrites the
+-- | literal port in the registered startCommand to an internal port
+-- | and exports it as `$BACKEND_PORT` so the server binds where SDI
+-- | expects to proxy it).
+resolvePort :: Effect Int
+resolvePort = do
+  raw <- Process.lookupEnv "BACKEND_PORT"
+  pure case raw >>= Int.fromString of
+    Just p -> p
+    Nothing -> 3050
+
 main :: ServerM
-main = serveWithHandle { port: 3050, hostname: "0.0.0.0" } \handle -> do
+main = do
+  port <- liftEffect resolvePort
+  serveOn port
+
+serveOn :: Int -> ServerM
+serveOn port = serveWithHandle { port, hostname: "0.0.0.0" } \handle -> do
   subs <- Subscribers.newSubscribers
   conchStore <- Conch.newStore
   handle.registerChannel (Subscribers.closeAll subs)
