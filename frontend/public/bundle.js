@@ -39368,6 +39368,38 @@
   };
 
   // output/Playground.Frontend.Starter/index.js
+  var worldBubbles = {
+    key: "world-bubbles",
+    label: "World-map bubbles",
+    description: "245 countries packed by continent into bubbles, sized by max(area, pop/density). Hylograph-style SVG render in the values column.",
+    compat: {
+      browser: true,
+      node: true,
+      purerl: false
+    },
+    moduleSource: 'module Scratch where\n\n-- World-map bubbles \u2014 245 countries (restcountries.com snapshot\n-- 2026-04-20).  Each country is packed with value = max(land area,\n-- pop/globalDensity); the container therefore reserves room for\n-- whichever inner circle is larger, and nothing overflows.\n-- Inside each slot: an ochre "land" disc (sized by area) and a\n-- crimson "population" disc (sized by pop / globalDensity), drawn\n-- with the larger one first so the smaller sits on top.\n-- Continents get distinct hues on land fills; continent names and\n-- the top-5-by-area countries per continent are labelled.\n\nimport Prelude\n\nimport Data.Array as Array\nimport Data.Foldable (foldl)\nimport Data.Map (Map)\nimport Data.Map as Map\nimport Data.Maybe (Maybe(..))\nimport Data.Number (sqrt)\nimport Data.Number.Format (toString) as Num\nimport Data.Tuple (Tuple(..))\nimport DataViz.Layout.Hierarchy.Pack (HierarchyData(..), PackNode(..), defaultPackConfig, hierarchy, pack)\n\n\ntype Country =\n  { code :: String\n  , name :: String\n  , continent :: String\n  , areaKm2 :: Number\n  , population :: Number\n  }\n\ncountries :: Array Country\ncountries = [ { code: "ABW", name: "Aruba", continent: "North America", areaKm2: 180.0, population: 107566.0 }\n  , { code: "AFG", name: "Afghanistan", continent: "Asia", areaKm2: 652230.0, population: 43844000.0 }\n  , { code: "AGO", name: "Angola", continent: "Africa", areaKm2: 1246700.0, population: 36170961.0 }\n  , { code: "AIA", name: "Anguilla", continent: "North America", areaKm2: 91.0, population: 16010.0 }\n  , { code: "ALA", name: "\xC5land Islands", continent: "Europe", areaKm2: 1580.0, population: 30654.0 }\n  , { code: "ALB", name: "Albania", continent: "Europe", areaKm2: 28748.0, population: 2363314.0 }\n  , { code: "AND", name: "Andorra", continent: "Europe", areaKm2: 468.0, population: 88406.0 }\n  , { code: "ARE", name: "United Arab Emirates", continent: "Asia", areaKm2: 83600.0, population: 11294243.0 }\n  , { code: "ARG", name: "Argentina", continent: "South America", areaKm2: 2780400.0, population: 46735004.0 }\n  , { code: "ARM", name: "Armenia", continent: "Asia", areaKm2: 29743.0, population: 3076200.0 }\n  , { code: "ASM", name: "American Samoa", continent: "Oceania", areaKm2: 199.0, population: 49710.0 }\n  , { code: "ATG", name: "Antigua and Barbuda", continent: "North America", areaKm2: 442.0, population: 103603.0 }\n  , { code: "AUS", name: "Australia", continent: "Oceania", areaKm2: 7692024.0, population: 27536874.0 }\n  , { code: "AUT", name: "Austria", continent: "Europe", areaKm2: 83871.0, population: 9200931.0 }\n  , { code: "AZE", name: "Azerbaijan", continent: "Asia", areaKm2: 86600.0, population: 10241722.0 }\n  , { code: "BDI", name: "Burundi", continent: "Africa", areaKm2: 27834.0, population: 12332788.0 }\n  , { code: "BEL", name: "Belgium", continent: "Europe", areaKm2: 30528.0, population: 11825551.0 }\n  , { code: "BEN", name: "Benin", continent: "Africa", areaKm2: 112622.0, population: 13224860.0 }\n  , { code: "BES", name: "Caribbean Netherlands", continent: "North America", areaKm2: 328.0, population: 31980.0 }\n  , { code: "BFA", name: "Burkina Faso", continent: "Africa", areaKm2: 272967.0, population: 24070553.0 }\n  , { code: "BGD", name: "Bangladesh", continent: "Asia", areaKm2: 147570.0, population: 169828911.0 }\n  , { code: "BGR", name: "Bulgaria", continent: "Europe", areaKm2: 110879.0, population: 6437360.0 }\n  , { code: "BHR", name: "Bahrain", continent: "Asia", areaKm2: 765.0, population: 1594654.0 }\n  , { code: "BHS", name: "Bahamas", continent: "North America", areaKm2: 13943.0, population: 398165.0 }\n  , { code: "BIH", name: "Bosnia and Herzegovina", continent: "Europe", areaKm2: 51209.0, population: 3422000.0 }\n  , { code: "BLM", name: "Saint Barth\xE9lemy", continent: "North America", areaKm2: 21.0, population: 10562.0 }\n  , { code: "BLR", name: "Belarus", continent: "Europe", areaKm2: 207600.0, population: 9109280.0 }\n  , { code: "BLZ", name: "Belize", continent: "North America", areaKm2: 22966.0, population: 417634.0 }\n  , { code: "BMU", name: "Bermuda", continent: "North America", areaKm2: 54.0, population: 64055.0 }\n  , { code: "BOL", name: "Bolivia", continent: "South America", areaKm2: 1098581.0, population: 11365333.0 }\n  , { code: "BRA", name: "Brazil", continent: "South America", areaKm2: 8515767.0, population: 213421037.0 }\n  , { code: "BRB", name: "Barbados", continent: "North America", areaKm2: 430.0, population: 267800.0 }\n  , { code: "BRN", name: "Brunei", continent: "Asia", areaKm2: 5765.0, population: 455500.0 }\n  , { code: "BTN", name: "Bhutan", continent: "Asia", areaKm2: 38394.0, population: 784043.0 }\n  , { code: "BWA", name: "Botswana", continent: "Africa", areaKm2: 582000.0, population: 2359609.0 }\n  , { code: "CAF", name: "Central African Republic", continent: "Africa", areaKm2: 622984.0, population: 6470307.0 }\n  , { code: "CAN", name: "Canada", continent: "North America", areaKm2: 9984670.0, population: 41651653.0 }\n  , { code: "CCK", name: "Cocos (Keeling) Islands", continent: "Asia", areaKm2: 14.0, population: 593.0 }\n  , { code: "CHE", name: "Switzerland", continent: "Europe", areaKm2: 41284.0, population: 9082848.0 }\n  , { code: "CHL", name: "Chile", continent: "South America", areaKm2: 756102.0, population: 20206953.0 }\n  , { code: "CHN", name: "China", continent: "Asia", areaKm2: 9706961.0, population: 1408280000.0 }\n  , { code: "CIV", name: "Ivory Coast", continent: "Africa", areaKm2: 322463.0, population: 31719275.0 }\n  , { code: "CMR", name: "Cameroon", continent: "Africa", areaKm2: 475442.0, population: 29442327.0 }\n  , { code: "COD", name: "DR Congo", continent: "Africa", areaKm2: 2344858.0, population: 112832000.0 }\n  , { code: "COG", name: "Republic of the Congo", continent: "Africa", areaKm2: 342000.0, population: 6142180.0 }\n  , { code: "COK", name: "Cook Islands", continent: "Oceania", areaKm2: 236.0, population: 15040.0 }\n  , { code: "COL", name: "Colombia", continent: "South America", areaKm2: 1141748.0, population: 53057212.0 }\n  , { code: "COM", name: "Comoros", continent: "Africa", areaKm2: 1862.0, population: 919901.0 }\n  , { code: "CPV", name: "Cape Verde", continent: "Africa", areaKm2: 4033.0, population: 491233.0 }\n  , { code: "CRI", name: "Costa Rica", continent: "North America", areaKm2: 51100.0, population: 5309625.0 }\n  , { code: "CUB", name: "Cuba", continent: "North America", areaKm2: 109884.0, population: 9748007.0 }\n  , { code: "CUW", name: "Cura\xE7ao", continent: "North America", areaKm2: 444.0, population: 156115.0 }\n  , { code: "CXR", name: "Christmas Island", continent: "Asia", areaKm2: 135.0, population: 1692.0 }\n  , { code: "CYM", name: "Cayman Islands", continent: "North America", areaKm2: 264.0, population: 84738.0 }\n  , { code: "CYP", name: "Cyprus", continent: "Europe", areaKm2: 9251.0, population: 1442614.0 }\n  , { code: "CZE", name: "Czechia", continent: "Europe", areaKm2: 78865.0, population: 10882341.0 }\n  , { code: "DEU", name: "Germany", continent: "Europe", areaKm2: 357114.0, population: 83491249.0 }\n  , { code: "DJI", name: "Djibouti", continent: "Africa", areaKm2: 23200.0, population: 1066809.0 }\n  , { code: "DMA", name: "Dominica", continent: "North America", areaKm2: 751.0, population: 67408.0 }\n  , { code: "DNK", name: "Denmark", continent: "Europe", areaKm2: 43094.0, population: 6011488.0 }\n  , { code: "DOM", name: "Dominican Republic", continent: "North America", areaKm2: 48671.0, population: 10771504.0 }\n  , { code: "DZA", name: "Algeria", continent: "Africa", areaKm2: 2381741.0, population: 47400000.0 }\n  , { code: "ECU", name: "Ecuador", continent: "South America", areaKm2: 276841.0, population: 18103660.0 }\n  , { code: "EGY", name: "Egypt", continent: "Africa", areaKm2: 1002450.0, population: 107271260.0 }\n  , { code: "ERI", name: "Eritrea", continent: "Africa", areaKm2: 117600.0, population: 3607000.0 }\n  , { code: "ESH", name: "Western Sahara", continent: "Africa", areaKm2: 266000.0, population: 600904.0 }\n  , { code: "ESP", name: "Spain", continent: "Europe", areaKm2: 505992.0, population: 49315949.0 }\n  , { code: "EST", name: "Estonia", continent: "Europe", areaKm2: 45227.0, population: 1369995.0 }\n  , { code: "ETH", name: "Ethiopia", continent: "Africa", areaKm2: 1104300.0, population: 111652998.0 }\n  , { code: "FIN", name: "Finland", continent: "Europe", areaKm2: 338455.0, population: 5650325.0 }\n  , { code: "FJI", name: "Fiji", continent: "Oceania", areaKm2: 18272.0, population: 900869.0 }\n  , { code: "FLK", name: "Falkland Islands", continent: "South America", areaKm2: 12173.0, population: 3662.0 }\n  , { code: "FRA", name: "France", continent: "Europe", areaKm2: 543908.0, population: 66351959.0 }\n  , { code: "FRO", name: "Faroe Islands", continent: "Europe", areaKm2: 1393.0, population: 54885.0 }\n  , { code: "FSM", name: "Micronesia", continent: "Oceania", areaKm2: 702.0, population: 105564.0 }\n  , { code: "GAB", name: "Gabon", continent: "Africa", areaKm2: 267668.0, population: 2469296.0 }\n  , { code: "GBR", name: "United Kingdom", continent: "Europe", areaKm2: 244376.0, population: 69281437.0 }\n  , { code: "GEO", name: "Georgia", continent: "Asia", areaKm2: 69700.0, population: 4000921.0 }\n  , { code: "GGY", name: "Guernsey", continent: "Europe", areaKm2: 78.0, population: 64781.0 }\n  , { code: "GHA", name: "Ghana", continent: "Africa", areaKm2: 238533.0, population: 33742380.0 }\n  , { code: "GIB", name: "Gibraltar", continent: "Europe", areaKm2: 6.0, population: 38000.0 }\n  , { code: "GIN", name: "Guinea", continent: "Africa", areaKm2: 245857.0, population: 14363931.0 }\n  , { code: "GLP", name: "Guadeloupe", continent: "North America", areaKm2: 1628.0, population: 378561.0 }\n  , { code: "GMB", name: "Gambia", continent: "Africa", areaKm2: 10689.0, population: 2422712.0 }\n  , { code: "GNB", name: "Guinea-Bissau", continent: "Africa", areaKm2: 36125.0, population: 1781308.0 }\n  , { code: "GNQ", name: "Equatorial Guinea", continent: "Africa", areaKm2: 28051.0, population: 1668768.0 }\n  , { code: "GRC", name: "Greece", continent: "Europe", areaKm2: 131990.0, population: 10400720.0 }\n  , { code: "GRD", name: "Grenada", continent: "North America", areaKm2: 344.0, population: 109021.0 }\n  , { code: "GRL", name: "Greenland", continent: "North America", areaKm2: 2166086.0, population: 56542.0 }\n  , { code: "GTM", name: "Guatemala", continent: "North America", areaKm2: 108889.0, population: 18079810.0 }\n  , { code: "GUF", name: "French Guiana", continent: "South America", areaKm2: 83534.0, population: 292354.0 }\n  , { code: "GUM", name: "Guam", continent: "Oceania", areaKm2: 549.0, population: 153836.0 }\n  , { code: "GUY", name: "Guyana", continent: "South America", areaKm2: 214969.0, population: 772975.0 }\n  , { code: "HKG", name: "Hong Kong", continent: "Asia", areaKm2: 1104.0, population: 7527500.0 }\n  , { code: "HND", name: "Honduras", continent: "North America", areaKm2: 112492.0, population: 9892632.0 }\n  , { code: "HRV", name: "Croatia", continent: "Europe", areaKm2: 56594.0, population: 3866233.0 }\n  , { code: "HTI", name: "Haiti", continent: "North America", areaKm2: 27750.0, population: 11867032.0 }\n  , { code: "HUN", name: "Hungary", continent: "Europe", areaKm2: 93028.0, population: 9539502.0 }\n  , { code: "IDN", name: "Indonesia", continent: "Asia", areaKm2: 1904569.0, population: 284438782.0 }\n  , { code: "IMN", name: "Isle of Man", continent: "Europe", areaKm2: 572.0, population: 84530.0 }\n  , { code: "IND", name: "India", continent: "Asia", areaKm2: 3287263.0, population: 1417492000.0 }\n  , { code: "IOT", name: "British Indian Ocean Territory", continent: "Asia", areaKm2: 60.0, population: 0.0 }\n  , { code: "IRL", name: "Ireland", continent: "Europe", areaKm2: 70273.0, population: 5458600.0 }\n  , { code: "IRN", name: "Iran", continent: "Asia", areaKm2: 1648195.0, population: 85961000.0 }\n  , { code: "IRQ", name: "Iraq", continent: "Asia", areaKm2: 438317.0, population: 46118793.0 }\n  , { code: "ISL", name: "Iceland", continent: "Europe", areaKm2: 103000.0, population: 391810.0 }\n  , { code: "ISR", name: "Israel", continent: "Asia", areaKm2: 21937.0, population: 10134800.0 }\n  , { code: "ITA", name: "Italy", continent: "Europe", areaKm2: 301336.0, population: 58927633.0 }\n  , { code: "JAM", name: "Jamaica", continent: "North America", areaKm2: 10991.0, population: 2825544.0 }\n  , { code: "JEY", name: "Jersey", continent: "Europe", areaKm2: 116.0, population: 103267.0 }\n  , { code: "JOR", name: "Jordan", continent: "Asia", areaKm2: 89342.0, population: 11734000.0 }\n  , { code: "JPN", name: "Japan", continent: "Asia", areaKm2: 377930.0, population: 123210000.0 }\n  , { code: "KAZ", name: "Kazakhstan", continent: "Asia", areaKm2: 2724900.0, population: 20426568.0 }\n  , { code: "KEN", name: "Kenya", continent: "Africa", areaKm2: 580367.0, population: 53330978.0 }\n  , { code: "KGZ", name: "Kyrgyzstan", continent: "Asia", areaKm2: 199951.0, population: 7281800.0 }\n  , { code: "KHM", name: "Cambodia", continent: "Asia", areaKm2: 181035.0, population: 17577760.0 }\n  , { code: "KIR", name: "Kiribati", continent: "Oceania", areaKm2: 811.0, population: 120740.0 }\n  , { code: "KNA", name: "Saint Kitts and Nevis", continent: "North America", areaKm2: 261.0, population: 51320.0 }\n  , { code: "KOR", name: "South Korea", continent: "Asia", areaKm2: 100210.0, population: 51159889.0 }\n  , { code: "KWT", name: "Kuwait", continent: "Asia", areaKm2: 17818.0, population: 4881254.0 }\n  , { code: "LAO", name: "Laos", continent: "Asia", areaKm2: 236800.0, population: 7647000.0 }\n  , { code: "LBN", name: "Lebanon", continent: "Asia", areaKm2: 10452.0, population: 5490000.0 }\n  , { code: "LBR", name: "Liberia", continent: "Africa", areaKm2: 111369.0, population: 5248621.0 }\n  , { code: "LBY", name: "Libya", continent: "Africa", areaKm2: 1759540.0, population: 7459000.0 }\n  , { code: "LCA", name: "Saint Lucia", continent: "North America", areaKm2: 616.0, population: 184100.0 }\n  , { code: "LIE", name: "Liechtenstein", continent: "Europe", areaKm2: 160.0, population: 40900.0 }\n  , { code: "LKA", name: "Sri Lanka", continent: "Asia", areaKm2: 65610.0, population: 21763170.0 }\n  , { code: "LSO", name: "Lesotho", continent: "Africa", areaKm2: 30355.0, population: 2116427.0 }\n  , { code: "LTU", name: "Lithuania", continent: "Europe", areaKm2: 65300.0, population: 2894886.0 }\n  , { code: "LUX", name: "Luxembourg", continent: "Europe", areaKm2: 2586.0, population: 681973.0 }\n  , { code: "LVA", name: "Latvia", continent: "Europe", areaKm2: 64559.0, population: 1829000.0 }\n  , { code: "MAC", name: "Macau", continent: "Asia", areaKm2: 30.0, population: 685900.0 }\n  , { code: "MAF", name: "Saint Martin", continent: "North America", areaKm2: 53.0, population: 31496.0 }\n  , { code: "MAR", name: "Morocco", continent: "Africa", areaKm2: 446550.0, population: 36828330.0 }\n  , { code: "MCO", name: "Monaco", continent: "Europe", areaKm2: 2.0, population: 38423.0 }\n  , { code: "MDA", name: "Moldova", continent: "Europe", areaKm2: 33847.0, population: 2749076.0 }\n  , { code: "MDG", name: "Madagascar", continent: "Africa", areaKm2: 587041.0, population: 31727042.0 }\n  , { code: "MDV", name: "Maldives", continent: "Asia", areaKm2: 300.0, population: 515132.0 }\n  , { code: "MEX", name: "Mexico", continent: "North America", areaKm2: 1964375.0, population: 130575786.0 }\n  , { code: "MHL", name: "Marshall Islands", continent: "Oceania", areaKm2: 181.0, population: 42418.0 }\n  , { code: "MKD", name: "North Macedonia", continent: "Europe", areaKm2: 25713.0, population: 1822612.0 }\n  , { code: "MLI", name: "Mali", continent: "Africa", areaKm2: 1240192.0, population: 22395489.0 }\n  , { code: "MLT", name: "Malta", continent: "Europe", areaKm2: 316.0, population: 574250.0 }\n  , { code: "MMR", name: "Myanmar", continent: "Asia", areaKm2: 676578.0, population: 51316756.0 }\n  , { code: "MNE", name: "Montenegro", continent: "Europe", areaKm2: 13812.0, population: 623327.0 }\n  , { code: "MNG", name: "Mongolia", continent: "Asia", areaKm2: 1564110.0, population: 3544835.0 }\n  , { code: "MNP", name: "Northern Mariana Islands", continent: "Oceania", areaKm2: 464.0, population: 47329.0 }\n  , { code: "MOZ", name: "Mozambique", continent: "Africa", areaKm2: 801590.0, population: 34090466.0 }\n  , { code: "MRT", name: "Mauritania", continent: "Africa", areaKm2: 1030700.0, population: 4927532.0 }\n  , { code: "MSR", name: "Montserrat", continent: "North America", areaKm2: 102.0, population: 4386.0 }\n  , { code: "MTQ", name: "Martinique", continent: "North America", areaKm2: 1128.0, population: 349925.0 }\n  , { code: "MUS", name: "Mauritius", continent: "Africa", areaKm2: 2040.0, population: 1243741.0 }\n  , { code: "MWI", name: "Malawi", continent: "Africa", areaKm2: 118484.0, population: 20734262.0 }\n  , { code: "MYS", name: "Malaysia", continent: "Asia", areaKm2: 330803.0, population: 34231700.0 }\n  , { code: "MYT", name: "Mayotte", continent: "Africa", areaKm2: 374.0, population: 320901.0 }\n  , { code: "NAM", name: "Namibia", continent: "Africa", areaKm2: 825615.0, population: 3022401.0 }\n  , { code: "NCL", name: "New Caledonia", continent: "Oceania", areaKm2: 18575.0, population: 264596.0 }\n  , { code: "NER", name: "Niger", continent: "Africa", areaKm2: 1267000.0, population: 26312034.0 }\n  , { code: "NFK", name: "Norfolk Island", continent: "Oceania", areaKm2: 36.0, population: 2188.0 }\n  , { code: "NGA", name: "Nigeria", continent: "Africa", areaKm2: 923768.0, population: 223800000.0 }\n  , { code: "NIC", name: "Nicaragua", continent: "North America", areaKm2: 130373.0, population: 6803886.0 }\n  , { code: "NIU", name: "Niue", continent: "Oceania", areaKm2: 260.0, population: 1681.0 }\n  , { code: "NLD", name: "Netherlands", continent: "Europe", areaKm2: 41865.0, population: 18100436.0 }\n  , { code: "NOR", name: "Norway", continent: "Europe", areaKm2: 386224.0, population: 5606944.0 }\n  , { code: "NPL", name: "Nepal", continent: "Asia", areaKm2: 147181.0, population: 29911840.0 }\n  , { code: "NRU", name: "Nauru", continent: "Oceania", areaKm2: 21.0, population: 11680.0 }\n  , { code: "NZL", name: "New Zealand", continent: "Oceania", areaKm2: 268838.0, population: 5324700.0 }\n  , { code: "OMN", name: "Oman", continent: "Asia", areaKm2: 309500.0, population: 5343630.0 }\n  , { code: "PAK", name: "Pakistan", continent: "Asia", areaKm2: 796095.0, population: 241499431.0 }\n  , { code: "PAN", name: "Panama", continent: "North America", areaKm2: 75417.0, population: 4064780.0 }\n  , { code: "PCN", name: "Pitcairn Islands", continent: "Oceania", areaKm2: 47.0, population: 35.0 }\n  , { code: "PER", name: "Peru", continent: "South America", areaKm2: 1285216.0, population: 34350244.0 }\n  , { code: "PHL", name: "Philippines", continent: "Asia", areaKm2: 342353.0, population: 114123600.0 }\n  , { code: "PLW", name: "Palau", continent: "Oceania", areaKm2: 459.0, population: 16733.0 }\n  , { code: "PNG", name: "Papua New Guinea", continent: "Oceania", areaKm2: 462840.0, population: 11781559.0 }\n  , { code: "POL", name: "Poland", continent: "Europe", areaKm2: 312679.0, population: 37392000.0 }\n  , { code: "PRI", name: "Puerto Rico", continent: "North America", areaKm2: 8870.0, population: 3203295.0 }\n  , { code: "PRK", name: "North Korea", continent: "Asia", areaKm2: 120538.0, population: 25950000.0 }\n  , { code: "PRT", name: "Portugal", continent: "Europe", areaKm2: 92090.0, population: 10749635.0 }\n  , { code: "PRY", name: "Paraguay", continent: "South America", areaKm2: 406752.0, population: 6109644.0 }\n  , { code: "PSE", name: "Palestine", continent: "Asia", areaKm2: 6220.0, population: 5483450.0 }\n  , { code: "PYF", name: "French Polynesia", continent: "Oceania", areaKm2: 4167.0, population: 279500.0 }\n  , { code: "QAT", name: "Qatar", continent: "Asia", areaKm2: 11586.0, population: 3173024.0 }\n  , { code: "REU", name: "R\xE9union", continent: "Africa", areaKm2: 2511.0, population: 896175.0 }\n  , { code: "ROU", name: "Romania", continent: "Europe", areaKm2: 238391.0, population: 19036031.0 }\n  , { code: "RUS", name: "Russia", continent: "Asia", areaKm2: 17098246.0, population: 146028325.0 }\n  , { code: "RWA", name: "Rwanda", continent: "Africa", areaKm2: 26338.0, population: 14104969.0 }\n  , { code: "SAU", name: "Saudi Arabia", continent: "Asia", areaKm2: 2149690.0, population: 35300280.0 }\n  , { code: "SDN", name: "Sudan", continent: "Africa", areaKm2: 1886068.0, population: 51662000.0 }\n  , { code: "SEN", name: "Senegal", continent: "Africa", areaKm2: 196722.0, population: 18593258.0 }\n  , { code: "SGP", name: "Singapore", continent: "Asia", areaKm2: 710.0, population: 6110200.0 }\n  , { code: "SHN", name: "Saint Helena, Ascension and Tristan da Cunha", continent: "Africa", areaKm2: 394.0, population: 5651.0 }\n  , { code: "SJM", name: "Svalbard and Jan Mayen", continent: "Europe", areaKm2: 61399.0, population: 2530.0 }\n  , { code: "SLB", name: "Solomon Islands", continent: "Oceania", areaKm2: 28896.0, population: 750325.0 }\n  , { code: "SLE", name: "Sierra Leone", continent: "Africa", areaKm2: 71740.0, population: 9077691.0 }\n  , { code: "SLV", name: "El Salvador", continent: "North America", areaKm2: 21041.0, population: 6029976.0 }\n  , { code: "SMR", name: "San Marino", continent: "Europe", areaKm2: 61.0, population: 34132.0 }\n  , { code: "SOM", name: "Somalia", continent: "Africa", areaKm2: 637657.0, population: 19655000.0 }\n  , { code: "SPM", name: "Saint Pierre and Miquelon", continent: "North America", areaKm2: 242.0, population: 5819.0 }\n  , { code: "SRB", name: "Serbia", continent: "Europe", areaKm2: 77589.0, population: 6567783.0 }\n  , { code: "SSD", name: "South Sudan", continent: "Africa", areaKm2: 619745.0, population: 15786898.0 }\n  , { code: "STP", name: "S\xE3o Tom\xE9 and Pr\xEDncipe", continent: "Africa", areaKm2: 964.0, population: 209607.0 }\n  , { code: "SUR", name: "Suriname", continent: "South America", areaKm2: 163820.0, population: 616500.0 }\n  , { code: "SVK", name: "Slovakia", continent: "Europe", areaKm2: 49037.0, population: 5413813.0 }\n  , { code: "SVN", name: "Slovenia", continent: "Europe", areaKm2: 20273.0, population: 2130638.0 }\n  , { code: "SWE", name: "Sweden", continent: "Europe", areaKm2: 450295.0, population: 10605098.0 }\n  , { code: "SWZ", name: "Eswatini", continent: "Africa", areaKm2: 17364.0, population: 1235549.0 }\n  , { code: "SXM", name: "Sint Maarten", continent: "North America", areaKm2: 34.0, population: 41349.0 }\n  , { code: "SYC", name: "Seychelles", continent: "Africa", areaKm2: 452.0, population: 122729.0 }\n  , { code: "SYR", name: "Syria", continent: "Asia", areaKm2: 185180.0, population: 25620000.0 }\n  , { code: "TCA", name: "Turks and Caicos Islands", continent: "North America", areaKm2: 948.0, population: 50828.0 }\n  , { code: "TCD", name: "Chad", continent: "Africa", areaKm2: 1284000.0, population: 19340757.0 }\n  , { code: "TGO", name: "Togo", continent: "Africa", areaKm2: 56785.0, population: 8095498.0 }\n  , { code: "THA", name: "Thailand", continent: "Asia", areaKm2: 513120.0, population: 65859640.0 }\n  , { code: "TJK", name: "Tajikistan", continent: "Asia", areaKm2: 143100.0, population: 10499000.0 }\n  , { code: "TKL", name: "Tokelau", continent: "Oceania", areaKm2: 12.0, population: 2608.0 }\n  , { code: "TKM", name: "Turkmenistan", continent: "Asia", areaKm2: 488100.0, population: 7057841.0 }\n  , { code: "TLS", name: "Timor-Leste", continent: "Oceania", areaKm2: 14874.0, population: 1391221.0 }\n  , { code: "TON", name: "Tonga", continent: "Oceania", areaKm2: 747.0, population: 100179.0 }\n  , { code: "TTO", name: "Trinidad and Tobago", continent: "North America", areaKm2: 5130.0, population: 1367764.0 }\n  , { code: "TUN", name: "Tunisia", continent: "Africa", areaKm2: 163610.0, population: 11972169.0 }\n  , { code: "TUR", name: "Turkey", continent: "Asia", areaKm2: 783562.0, population: 85664944.0 }\n  , { code: "TUV", name: "Tuvalu", continent: "Oceania", areaKm2: 26.0, population: 10643.0 }\n  , { code: "TWN", name: "Taiwan", continent: "Asia", areaKm2: 36197.0, population: 23317031.0 }\n  , { code: "TZA", name: "Tanzania", continent: "Africa", areaKm2: 947303.0, population: 68153004.0 }\n  , { code: "UGA", name: "Uganda", continent: "Africa", areaKm2: 241550.0, population: 45905417.0 }\n  , { code: "UKR", name: "Ukraine", continent: "Europe", areaKm2: 603550.0, population: 32862000.0 }\n  , { code: "UMI", name: "United States Minor Outlying Islands", continent: "Oceania", areaKm2: 34.2, population: 0.0 }\n  , { code: "UNK", name: "Kosovo", continent: "Europe", areaKm2: 10908.0, population: 1585566.0 }\n  , { code: "URY", name: "Uruguay", continent: "South America", areaKm2: 181034.0, population: 3499451.0 }\n  , { code: "USA", name: "United States", continent: "North America", areaKm2: 9525067.0, population: 340110988.0 }\n  , { code: "UZB", name: "Uzbekistan", continent: "Asia", areaKm2: 447400.0, population: 37859698.0 }\n  , { code: "VAT", name: "Vatican City", continent: "Europe", areaKm2: 0.5, population: 882.0 }\n  , { code: "VCT", name: "Saint Vincent and the Grenadines", continent: "North America", areaKm2: 389.0, population: 110872.0 }\n  , { code: "VEN", name: "Venezuela", continent: "South America", areaKm2: 916445.0, population: 28517000.0 }\n  , { code: "VGB", name: "British Virgin Islands", continent: "North America", areaKm2: 151.0, population: 39471.0 }\n  , { code: "VIR", name: "United States Virgin Islands", continent: "North America", areaKm2: 347.0, population: 87146.0 }\n  , { code: "VNM", name: "Vietnam", continent: "Asia", areaKm2: 331212.0, population: 101343800.0 }\n  , { code: "VUT", name: "Vanuatu", continent: "Oceania", areaKm2: 12189.0, population: 321409.0 }\n  , { code: "WLF", name: "Wallis and Futuna", continent: "Oceania", areaKm2: 142.0, population: 11620.0 }\n  , { code: "WSM", name: "Samoa", continent: "Oceania", areaKm2: 2842.0, population: 205557.0 }\n  , { code: "YEM", name: "Yemen", continent: "Asia", areaKm2: 527968.0, population: 32684503.0 }\n  , { code: "ZAF", name: "South Africa", continent: "Africa", areaKm2: 1221037.0, population: 63100945.0 }\n  , { code: "ZMB", name: "Zambia", continent: "Africa", areaKm2: 752612.0, population: 19693423.0 }\n  , { code: "ZWE", name: "Zimbabwe", continent: "Africa", areaKm2: 390757.0, population: 17073087.0 }\n  ]\n\nbyContinent :: Map String (Array Country)\nbyContinent = foldl addOne Map.empty countries\n  where\n  addOne m c = Map.alter (Just <<< addTo c) c.continent m\n  addTo c Nothing = [ c ]\n  addTo c (Just xs) = Array.snoc xs c\n\nbyCode :: Map String Country\nbyCode = foldl (\\m c -> Map.insert c.code c m) Map.empty countries\n\ncontinentTotals :: Array { continent :: String, n :: Int, areaKm2 :: Number, population :: Number }\ncontinentTotals = map summarise (Map.toUnfoldable byContinent)\n  where\n  summarise (Tuple k cs) =\n    { continent: k\n    , n: Array.length cs\n    , areaKm2: foldl (\\a c -> a + c.areaKm2) 0.0 cs\n    , population: foldl (\\a c -> a + c.population) 0.0 cs\n    }\n\nglobalDensity :: Number\nglobalDensity =\n  let totArea = foldl (\\a c -> a + c.areaKm2) 0.0 countries\n      totPop  = foldl (\\a c -> a + c.population) 0.0 countries\n  in totPop / totArea\n\nleafValue :: Country -> Number\nleafValue c = max c.areaKm2 (c.population / globalDensity)\n\ncontinentTree :: HierarchyData String\ncontinentTree = HierarchyData\n  { data_: "world"\n  , value: Nothing\n  , children: Just (map continentBranch (Map.toUnfoldable byContinent))\n  }\n  where\n  continentBranch (Tuple name cs) = HierarchyData\n    { data_: name\n    , value: Nothing\n    , children: Just (map countryLeaf cs)\n    }\n  countryLeaf c = HierarchyData\n    { data_: c.code, value: Just (leafValue c), children: Nothing }\n\npackedLayout :: PackNode String\npackedLayout = pack\n  (defaultPackConfig { size = { width: 800.0, height: 800.0 }, padding = 2.0 })\n  (hierarchy continentTree)\n\ncontFill :: String -> String\ncontFill c = case c of\n  "Asia"          -> "#c74e4e"\n  "Africa"        -> "#d4a017"\n  "Europe"        -> "#4a7a9f"\n  "North America" -> "#5d8c5d"\n  "South America" -> "#9b6bb4"\n  "Oceania"       -> "#d48a4a"\n  _               -> "#888"\n\ncontStyleLand :: String -> String\ncontStyleLand c = "fill-opacity=\\"0.55\\" stroke=\\"#111\\" stroke-width=\\"0.7\\" fill=\\"" <> contFill c <> "\\""\n\ncontStyleBub :: String -> String\ncontStyleBub c = "fill=\\"" <> contFill c <> "\\" fill-opacity=\\"0.10\\" stroke=\\"" <> contFill c <> "\\" stroke-width=\\"1\\""\n\noverlayStyle :: String\noverlayStyle = "fill=\\"#a01c4c\\" fill-opacity=\\"0.35\\" stroke=\\"none\\""\n\ncircleAt :: Number -> Number -> Number -> String -> String\ncircleAt x y r sty =\n  "<circle cx=\\"" <> Num.toString x <> "\\" cy=\\"" <> Num.toString y\n    <> "\\" r=\\"" <> Num.toString r <> "\\" " <> sty <> "/>"\n\ntopCodesByArea :: Array String\ntopCodesByArea =\n  let sortDesc xs = Array.sortBy (\\a b -> compare b.areaKm2 a.areaKm2) xs\n      pick (Tuple _ cs) = Array.take 5 (sortDesc cs)\n      pairs = Map.toUnfoldable byContinent :: Array (Tuple String (Array Country))\n  in map _.code (Array.concatMap pick pairs)\n\nrenderLeafPair :: Maybe String -> PackNode String -> String\nrenderLeafPair mcont (PackNode n) =\n  case Map.lookup n.data_ byCode of\n    Nothing -> ""\n    Just c ->\n      let leafV  = leafValue c\n          rLand  = n.r * sqrt (c.areaKm2 / leafV)\n          rOver  = n.r * sqrt ((c.population / globalDensity) / leafV)\n          landSty = contStyleLand (case mcont of\n                                     Just cn -> cn\n                                     Nothing -> "")\n      in if rOver > rLand\n           then circleAt n.x n.y rOver overlayStyle\n                  <> circleAt n.x n.y rLand landSty\n           else circleAt n.x n.y rLand landSty\n                  <> circleAt n.x n.y rOver overlayStyle\n\nrenderLand :: Maybe String -> PackNode String -> String\nrenderLand mcont (PackNode n) = case n.depth of\n  0 -> circleAt n.x n.y n.r "fill=\\"none\\" stroke=\\"#ddd\\" stroke-width=\\"0.5\\""\n         <> foldl (\\acc k -> acc <> renderLand Nothing k) "" n.children\n  1 -> circleAt n.x n.y n.r (contStyleBub n.data_)\n         <> foldl (\\acc k -> acc <> renderLand (Just n.data_) k) "" n.children\n  _ -> renderLeafPair mcont (PackNode n)\n\nrenderLabels :: PackNode String -> String\nrenderLabels (PackNode n) =\n  let contLabel cn =\n        "<text x=\\"" <> Num.toString n.x <> "\\" y=\\"" <> Num.toString (n.y - n.r - 4.0)\n          <> "\\" text-anchor=\\"middle\\" font-size=\\"14\\" font-weight=\\"600\\" fill=\\"#222\\" font-family=\\"system-ui,sans-serif\\">"\n          <> cn <> "</text>"\n      codeLabel co =\n        "<text x=\\"" <> Num.toString n.x <> "\\" y=\\"" <> Num.toString (n.y + 3.0)\n          <> "\\" text-anchor=\\"middle\\" font-size=\\"9\\" fill=\\"#111\\" font-family=\\"system-ui,sans-serif\\" style=\\"paint-order:stroke;stroke:#fff;stroke-width:2px;\\">"\n          <> co <> "</text>"\n  in case n.depth of\n       0 -> foldl (\\acc k -> acc <> renderLabels k) "" n.children\n       1 -> foldl (\\acc k -> acc <> renderLabels k) "" n.children <> contLabel n.data_\n       _ -> if Array.elem n.data_ topCodesByArea then codeLabel n.data_ else ""\n\ncolouredSvg :: String\ncolouredSvg =\n  "<svg xmlns=\\"http://www.w3.org/2000/svg\\" viewBox=\\"0 0 800 800\\">"\n    <> renderLand Nothing packedLayout\n    <> renderLabels packedLayout\n    <> "</svg>"\n\n\n',
+    cells: [{
+      id: "c1",
+      kind: "expr",
+      source: "Array.length countries"
+    }, {
+      id: "c2",
+      kind: "expr",
+      source: "continentTotals"
+    }, {
+      id: "c3",
+      kind: "expr",
+      source: "{ globalDensity: globalDensity, densestFive: Array.take 5 (Array.sortBy (\\a b -> compare (b.population / b.areaKm2) (a.population / a.areaKm2)) countries), sparsestFive: Array.take 5 (Array.sortBy (\\a b -> compare (a.population / a.areaKm2) (b.population / b.areaKm2)) countries) }"
+    }, {
+      id: "c4",
+      kind: "expr",
+      source: "colouredSvg"
+    }, {
+      id: "c5",
+      kind: "expr",
+      source: 'let\n  contColour cn = case cn of\n    "Asia"          -> "#c74e4e"\n    "Africa"        -> "#d4a017"\n    "Europe"        -> "#4a7a9f"\n    "North America" -> "#5d8c5d"\n    "South America" -> "#9b6bb4"\n    "Oceania"       -> "#d48a4a"\n    _               -> "#888"\n  maxLeaf = foldl max 0.0 (map leafValue countries)\n  scale = 42.0 / sqrt maxLeaf\n  toNode c =\n    { id: c.code\n    , label: c.code\n    , fill: contColour c.continent\n    , radius: sqrt (leafValue c) * scale\n    }\nin\n  ForceRender\n    { width: 800.0\n    , height: 800.0\n    , nodes: map toNode countries\n    , links: [] :: Array ForceLink\n    , forces:\n        [ Center    { name: "centre",   x: 400.0, y: 400.0 }\n        , PositionX { name: "towardCx", x: 400.0, strength: 0.05 }\n        , PositionY { name: "towardCy", y: 400.0, strength: 0.05 }\n        , ManyBody  { name: "repel",    strength: -8.0 }\n        , Collide   { name: "collide",  radius: 12.0, strength: 0.85 }\n        ]\n    }\n'
+    }]
+  };
   var monadsCross = {
     key: "monads",
     label: "Monads: Maybe / Array / Either",
@@ -39438,7 +39470,7 @@
       source: "runCounter"
     }]
   };
-  var starters = [monadsCross, monadsWithAff, erlangProcesses];
+  var starters = [monadsCross, monadsWithAff, erlangProcesses, worldBubbles];
   var findByKey = function(k) {
     return find2(function(s) {
       return s.key === k;
@@ -40348,8 +40380,8 @@
   };
   var visibilityFromHide = function(hide) {
     var tokens = (function() {
-      var $283 = hide === "";
-      if ($283) {
+      var $284 = hide === "";
+      if ($284) {
         return [];
       }
       ;
@@ -40420,7 +40452,7 @@
           return pure25(unit);
         }
         ;
-        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1055, column 3 - line 1057, column 25): " + [s.worker.constructor.name]);
+        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1064, column 3 - line 1066, column 25): " + [s.worker.constructor.name]);
       })())(function() {
         return discard8((function() {
           if (s.workerSub instanceof Just) {
@@ -40431,7 +40463,7 @@
             return pure25(unit);
           }
           ;
-          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1058, column 3 - line 1060, column 25): " + [s.workerSub.constructor.name]);
+          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1067, column 3 - line 1069, column 25): " + [s.workerSub.constructor.name]);
         })())(function() {
           return discard8((function() {
             if (s.workerTimeout instanceof Just) {
@@ -40442,21 +40474,21 @@
               return pure25(unit);
             }
             ;
-            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1061, column 3 - line 1063, column 25): " + [s.workerTimeout.constructor.name]);
+            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1070, column 3 - line 1072, column 25): " + [s.workerTimeout.constructor.name]);
           })())(function() {
             return modify_4(function(v) {
-              var $291 = {};
-              for (var $292 in v) {
-                if ({}.hasOwnProperty.call(v, $292)) {
-                  $291[$292] = v[$292];
+              var $292 = {};
+              for (var $293 in v) {
+                if ({}.hasOwnProperty.call(v, $293)) {
+                  $292[$293] = v[$293];
                 }
                 ;
               }
               ;
-              $291.worker = Nothing.value;
-              $291.workerSub = Nothing.value;
-              $291.workerTimeout = Nothing.value;
-              return $291;
+              $292.worker = Nothing.value;
+              $292.workerSub = Nothing.value;
+              $292.workerTimeout = Nothing.value;
+              return $292;
             });
           });
         });
@@ -40479,10 +40511,10 @@
         return v1.value0;
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1513, column 16 - line 1515, column 24): " + [v1.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1522, column 16 - line 1524, column 24): " + [v1.constructor.name]);
     }
     ;
-    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1511, column 23 - line 1515, column 24): " + [v.constructor.name]);
+    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1520, column 23 - line 1524, column 24): " + [v.constructor.name]);
   };
   var stateIdleMsFor = function(state3) {
     if (state3.conch.holder instanceof Nothing) {
@@ -40493,7 +40525,7 @@
       return state3.conch.lastActivityAt;
     }
     ;
-    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1138, column 24 - line 1140, column 39): " + [state3.conch.holder.constructor.name]);
+    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1147, column 24 - line 1149, column 39): " + [state3.conch.holder.constructor.name]);
   };
   var sendClientMsg = function(dictMonadAff) {
     var liftEffect7 = liftEffect(monadEffectHalogenM(dictMonadAff.MonadEffect0()));
@@ -40507,7 +40539,7 @@
           return liftEffect7(send(s.ws.value0)(stringify(encode2(clientMsgCodec)(msg))));
         }
         ;
-        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 892, column 3 - line 895, column 66): " + [s.ws.constructor.name]);
+        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 901, column 3 - line 904, column 66): " + [s.ws.constructor.name]);
       });
     };
   };
@@ -40515,8 +40547,8 @@
     return function(value1) {
       return function(label5) {
         return button([class_("runtime-btn" + (function() {
-          var $302 = state3.runtime === value1;
-          if ($302) {
+          var $303 = state3.runtime === value1;
+          if ($303) {
             return " runtime-active";
           }
           ;
@@ -40537,8 +40569,8 @@
     };
     var sc = forRuntime(state3.runtime);
     return section([class_("settings-panel")])([p([class_("settings-tagline")])([text5("A REPL for agents, with a window for humans. Auto-compiles 400ms after you stop typing.")]), div2([class_("settings-section")])([h3_([text5("Runtime")]), div2([class_("runtime-toggle")])([runtimeButton(state3)("browser")("Browser"), runtimeButton(state3)("node")("Node"), runtimeButton(state3)("purerl")("Purerl")])]), div2([class_("settings-section")])([h3_([text5("In scope \u2014 "), span3([class_("runtime-label")])([text5(sc.runtimeLabel)])]), div2([class_("in-scope-grid")])([renderList("Auto-imported (cells see these)")(sc.autoImports), renderList("Highlighted packages")(sc.highlightedPackages)]), (function() {
-      var $303 = $$null3(sc.notes);
-      if ($303) {
+      var $304 = $$null3(sc.notes);
+      if ($304) {
         return text5("");
       }
       ;
@@ -40556,7 +40588,7 @@
       return [pre([class_("runtime-error")])([text5("runtime: " + v.value0)])];
     }
     ;
-    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1561, column 22 - line 1566, column 6): " + [v.constructor.name]);
+    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1570, column 22 - line 1575, column 6): " + [v.constructor.name]);
   };
   var renderConchBanner = function(state3) {
     if (state3.conchBanner instanceof Nothing) {
@@ -40569,7 +40601,7 @@
       })])([text5("\xD7")])]);
     }
     ;
-    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1122, column 27 - line 1132, column 8): " + [state3.conchBanner.constructor.name]);
+    throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1131, column 27 - line 1141, column 8): " + [state3.conchBanner.constructor.name]);
   };
   var remoteDiffers = function(s) {
     return function(r) {
@@ -40651,7 +40683,7 @@
                 };
               }
               ;
-              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1023, column 11 - line 1036, column 94): " + [v1.constructor.name]);
+              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1032, column 11 - line 1045, column 94): " + [v1.constructor.name]);
             }
             ;
           }
@@ -40682,17 +40714,17 @@
       })))(function(ws) {
         return bind23(subscribe2(v.emitter))(function(sub1) {
           return modify_4(function(v1) {
-            var $322 = {};
-            for (var $323 in v1) {
-              if ({}.hasOwnProperty.call(v1, $323)) {
-                $322[$323] = v1[$323];
+            var $323 = {};
+            for (var $324 in v1) {
+              if ({}.hasOwnProperty.call(v1, $324)) {
+                $323[$324] = v1[$324];
               }
               ;
             }
             ;
-            $322.ws = new Just(ws);
-            $322.wsSub = new Just(sub1);
-            return $322;
+            $323.ws = new Just(ws);
+            $323.wsSub = new Just(sub1);
+            return $323;
           });
         });
       });
@@ -40784,7 +40816,7 @@
               return "";
             }
             ;
-            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1469, column 13 - line 1471, column 22): " + [v.constructor.name]);
+            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1478, column 13 - line 1480, column 22): " + [v.constructor.name]);
           })();
           return label4([class_("cell-form-field")])([span3([class_("cell-form-label")])([text5(spec.name)]), inputForKind1(c)(spec)(raw)]);
         };
@@ -40805,7 +40837,7 @@
             return empty2;
           }
           ;
-          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1457, column 14 - line 1459, column 25): " + [v.constructor.name]);
+          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1466, column 14 - line 1468, column 25): " + [v.constructor.name]);
         })();
         return div2([class_("cell-form")])(map42(renderFormField1(c)(existing))(specs));
       };
@@ -40828,7 +40860,7 @@
         return false;
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1219, column 21 - line 1221, column 24): " + [state3.conch.holder.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1228, column 21 - line 1230, column 24): " + [state3.conch.holder.constructor.name]);
     })();
     var idleMs = stateIdleMsFor(state3);
     var iHold = iHoldConch(state3);
@@ -40851,7 +40883,7 @@
         return "conch-observing";
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1232, column 7 - line 1236, column 40): ");
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1241, column 7 - line 1245, column 40): ");
     })();
     var forceable = somebodyElseHolds && idleMs > 6e4;
     var status = (function() {
@@ -40875,7 +40907,7 @@
         return "Observing";
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1226, column 7 - line 1231, column 34): ");
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1235, column 7 - line 1240, column 34): ");
     })();
     var title4 = (function() {
       if (iHold) {
@@ -40894,7 +40926,7 @@
         return "Another viewer holds the conch. Click to request it.";
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1237, column 7 - line 1241, column 77): ");
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1246, column 7 - line 1250, column 77): ");
     })();
     var action2 = (function() {
       if (iHold) {
@@ -40909,7 +40941,7 @@
         return RequestConchAction.value;
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1242, column 7 - line 1245, column 41): ");
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1251, column 7 - line 1254, column 41): ");
     })();
     return button([class_("title-conch " + stateCls), title2(title4), onClick(function(v) {
       return action2;
@@ -40996,8 +41028,8 @@
               url,
               responseFormat: json,
               content: (function() {
-                var $354 = $$null2(bodyJson);
-                if ($354) {
+                var $355 = $$null2(bodyJson);
+                if ($355) {
                   return Nothing.value;
                 }
                 ;
@@ -41024,17 +41056,17 @@
                     throw new Error("Failed pattern match at Playground.Frontend.Shell (line 742, column 22 - line 744, column 50): " + [v2.constructor.name]);
                   })();
                   return discard8(modify_4(function(v2) {
-                    var $361 = {};
-                    for (var $362 in v2) {
-                      if ({}.hasOwnProperty.call(v2, $362)) {
-                        $361[$362] = v2[$362];
+                    var $362 = {};
+                    for (var $363 in v2) {
+                      if ({}.hasOwnProperty.call(v2, $363)) {
+                        $362[$363] = v2[$363];
                       }
                       ;
                     }
                     ;
-                    $361.conchBanner = new Just(banner);
-                    $361.compiling = false;
-                    return $361;
+                    $362.conchBanner = new Just(banner);
+                    $362.compiling = false;
+                    return $362;
                   }))(function() {
                     return pure25(new Left("conch-held: " + banner));
                   });
@@ -41160,8 +41192,8 @@
       var endLine = oldLen - suffix | 0;
       var newSlice = slice(prefix)(newLen - suffix | 0)(newLines);
       var text6 = joinWith("\n")(newSlice);
-      var $371 = endLine < startLine || $$null2(text6);
-      if ($371) {
+      var $372 = endLine < startLine || $$null2(text6);
+      if ($372) {
         return DiffFullReplace.value;
       }
       ;
@@ -41206,8 +41238,8 @@
           ;
           return "no";
         })() + (function() {
-          var $378 = currentRuntime === label5;
-          if ($378) {
+          var $379 = currentRuntime === label5;
+          if ($379) {
             return " compat-current";
           }
           ;
@@ -41225,8 +41257,8 @@
   var renderStarterOption = function(state3) {
     return function(s) {
       return button([class_("starter-option" + (function() {
-        var $380 = state3.starterKey === s.key;
-        if ($380) {
+        var $381 = state3.starterKey === s.key;
+        if ($381) {
           return " current";
         }
         ;
@@ -41247,7 +41279,7 @@
         return "Starter \u25BE";
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1294, column 18 - line 1296, column 27): " + [v.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1303, column 18 - line 1305, column 27): " + [v.constructor.name]);
     })();
     return div2([class_("starter-dropdown")])([button([class_("starter-btn"), onClick(function(v) {
       return ToggleStarterMenu.value;
@@ -41390,13 +41422,13 @@
         };
       };
       if (e.filename instanceof Just && e.position instanceof Just) {
-        var $398 = endsWith("Playground/User.purs")(e.filename.value0);
-        if ($398) {
+        var $399 = endsWith("Playground/User.purs")(e.filename.value0);
+        if ($399) {
           return "module \u25B8 line " + show6(e.position.value0.startLine);
         }
         ;
-        var $399 = endsWith("Main.purs")(e.filename.value0);
-        if ($399) {
+        var $400 = endsWith("Main.purs")(e.filename.value0);
+        if ($400) {
           var v = findCellAt(state3.cellRanges)(e.position.value0.startLine);
           if (v instanceof Just) {
             return "cell " + (v.value0.id + (" \u25B8 line " + show6((e.position.value0.startLine - v.value0.startLine | 0) + 1 | 0)));
@@ -41406,7 +41438,7 @@
             return "synthesis \u25B8 Main.purs line " + show6(e.position.value0.startLine);
           }
           ;
-          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1661, column 9 - line 1666, column 71): " + [v.constructor.name]);
+          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1670, column 9 - line 1675, column 71): " + [v.constructor.name]);
         }
         ;
         return e.filename.value0;
@@ -41425,8 +41457,8 @@
   var renderErrorPanel = function(state3) {
     var row = function(r) {
       return div2([class_("error-row error-" + r.kind)])([div2([class_("error-head")])([span3([class_("error-kind")])([text5(r.kind)]), span3([class_("error-target")])([text5(r.target)]), (function() {
-        var $407 = r.code === "";
-        if ($407) {
+        var $408 = r.code === "";
+        if ($408) {
           return text5("");
         }
         ;
@@ -41448,7 +41480,7 @@
         return [];
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1598, column 20 - line 1601, column 20): " + [state3.transportError.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1607, column 20 - line 1610, column 20): " + [state3.transportError.constructor.name]);
     })();
     var compileRows = map42(attributedRow(state3)("compile"))(state3.errors);
     var rows4 = append14(transportRow)(append14(compileRows)(warningRows));
@@ -41524,7 +41556,7 @@
                 return span3([class_("muted")])([text5("\u2014")]);
               }
               ;
-              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1553, column 25 - line 1558, column 66): " + [v.constructor.name]);
+              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1562, column 25 - line 1567, column 66): " + [v.constructor.name]);
             };
           };
           var renderType = function(st) {
@@ -41540,7 +41572,7 @@
                 return span3([class_("muted gutter-type")])([text5("\u2014")]);
               }
               ;
-              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1547, column 24 - line 1552, column 78): " + [v.constructor.name]);
+              throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1556, column 24 - line 1561, column 78): " + [v.constructor.name]);
             };
           };
           return div2([class_("gutter-row " + cellColorClass(idx))])([span3([class_("gutter-cell-id")])([text5(c.id)]), div2([class_("gutter-body")])([renderType(state3)(c), renderValue(state3)(c)])]);
@@ -41553,8 +41585,8 @@
     return function(state3) {
       var maybeRow = function(idx) {
         return function(c) {
-          var $415 = c.kind === "expr";
-          if ($415) {
+          var $416 = c.kind === "expr";
+          if ($416) {
             return new Just(renderCellResult1(state3)(idx)(c));
           }
           ;
@@ -41588,7 +41620,7 @@
               return "";
             }
             ;
-            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1588, column 14 - line 1590, column 18): " + [v.constructor.name]);
+            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1597, column 14 - line 1599, column 18): " + [v.constructor.name]);
           })();
           return div2([class_("render-row " + cellColorClass(idx))])([slot_22(_render)(c.id)(component1)({
             json: cellJson
@@ -41602,8 +41634,8 @@
     return function(state3) {
       var maybeRow = function(idx) {
         return function(c) {
-          var $418 = c.kind === "expr";
-          if ($418) {
+          var $419 = c.kind === "expr";
+          if ($419) {
             return new Just(renderCellVisual1(state3)(idx)(c));
           }
           ;
@@ -41663,7 +41695,7 @@
               return false;
             }
             ;
-            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1381, column 22 - line 1383, column 25): " + [formSpecs.constructor.name]);
+            throw new Error("Failed pattern match at Playground.Frontend.Shell (line 1390, column 22 - line 1392, column 25): " + [formSpecs.constructor.name]);
           })();
           var showAsForm = c.form && formEligible;
           var bodyHtml = (function() {
@@ -41680,8 +41712,8 @@
             });
           })();
           return div2([class_("cell-row " + (cellColorClass(idx) + ((function() {
-            var $429 = c.kind === "let";
-            if ($429) {
+            var $430 = c.kind === "let";
+            if ($430) {
               return " cell-row-let";
             }
             ;
@@ -41695,8 +41727,8 @@
           })())))])([div2([class_("cell-meta")])(append14([span3([class_("cell-id")])([text5(c.id)]), button([class_("cell-kind-btn cell-kind-" + c.kind), onClick(function(v) {
             return new ToggleCellKind(c.id);
           }), title2((function() {
-            var $431 = c.kind === "let";
-            if ($431) {
+            var $432 = c.kind === "let";
+            if ($432) {
               return "let-cell (splices verbatim; no gutter output). Click to switch to expr.";
             }
             ;
@@ -41798,16 +41830,16 @@
     return function(js) {
       return discard8(teardownExecution1)(function() {
         return discard8(modify_4(function(v) {
-          var $441 = {};
-          for (var $442 in v) {
-            if ({}.hasOwnProperty.call(v, $442)) {
-              $441[$442] = v[$442];
+          var $442 = {};
+          for (var $443 in v) {
+            if ({}.hasOwnProperty.call(v, $443)) {
+              $442[$443] = v[$443];
             }
             ;
           }
           ;
-          $441.cellResults = empty2;
-          return $441;
+          $442.cellResults = empty2;
+          return $442;
         }))(function() {
           return bind23(liftEffect7(create3))(function(v) {
             return bind23(subscribe2(map114(HandleWorkerMessage.create)(v.emitter)))(function(subId) {
@@ -41817,18 +41849,18 @@
                     return handleAction2(dictMonadAff)(WorkerTimeout.value);
                   })))(function(timeoutId) {
                     return modify_4(function(v1) {
-                      var $445 = {};
-                      for (var $446 in v1) {
-                        if ({}.hasOwnProperty.call(v1, $446)) {
-                          $445[$446] = v1[$446];
+                      var $446 = {};
+                      for (var $447 in v1) {
+                        if ({}.hasOwnProperty.call(v1, $447)) {
+                          $446[$447] = v1[$447];
                         }
                         ;
                       }
                       ;
-                      $445.worker = new Just(worker);
-                      $445.workerSub = new Just(subId);
-                      $445.workerTimeout = new Just(timeoutId);
-                      return $445;
+                      $446.worker = new Just(worker);
+                      $446.workerSub = new Just(subId);
+                      $446.workerTimeout = new Just(timeoutId);
+                      return $446;
                     });
                   });
                 });
@@ -41857,19 +41889,19 @@
         throw new Error("Failed pattern match at Playground.Frontend.Shell (line 531, column 29 - line 533, column 24): " + [v.constructor.name]);
       };
       var cellsDirty = filter(cellSourceChanged)(s.cells);
-      var $452 = !moduleDirty && $$null3(cellsDirty);
-      if ($452) {
+      var $453 = !moduleDirty && $$null3(cellsDirty);
+      if ($453) {
         return modify_4(function(v) {
-          var $453 = {};
-          for (var $454 in v) {
-            if ({}.hasOwnProperty.call(v, $454)) {
-              $453[$454] = v[$454];
+          var $454 = {};
+          for (var $455 in v) {
+            if ({}.hasOwnProperty.call(v, $455)) {
+              $454[$455] = v[$455];
             }
             ;
           }
           ;
-          $453.compiling = false;
-          return $453;
+          $454.compiling = false;
+          return $454;
         });
       }
       ;
@@ -41890,32 +41922,32 @@
           ;
           if (lastResp instanceof Just && lastResp.value0 instanceof Left) {
             return modify_4(function(v) {
-              var $460 = {};
-              for (var $461 in v) {
-                if ({}.hasOwnProperty.call(v, $461)) {
-                  $460[$461] = v[$461];
+              var $461 = {};
+              for (var $462 in v) {
+                if ({}.hasOwnProperty.call(v, $462)) {
+                  $461[$462] = v[$462];
                 }
                 ;
               }
               ;
-              $460.compiling = false;
-              $460.transportError = new Just(lastResp.value0.value0);
-              return $460;
+              $461.compiling = false;
+              $461.transportError = new Just(lastResp.value0.value0);
+              return $461;
             });
           }
           ;
           if (lastResp instanceof Nothing) {
             return modify_4(function(v) {
-              var $465 = {};
-              for (var $466 in v) {
-                if ({}.hasOwnProperty.call(v, $466)) {
-                  $465[$466] = v[$466];
+              var $466 = {};
+              for (var $467 in v) {
+                if ({}.hasOwnProperty.call(v, $467)) {
+                  $466[$467] = v[$467];
                 }
                 ;
               }
               ;
-              $465.compiling = false;
-              return $465;
+              $466.compiling = false;
+              return $466;
             });
           }
           ;
@@ -41945,17 +41977,17 @@
       return bind23(httpJson1(POST2.value)(backendUrl + "/session/compile")(bodyJson))(function(result) {
         if (result instanceof Left) {
           return modify_4(function(v) {
-            var $469 = {};
-            for (var $470 in v) {
-              if ({}.hasOwnProperty.call(v, $470)) {
-                $469[$470] = v[$470];
+            var $470 = {};
+            for (var $471 in v) {
+              if ({}.hasOwnProperty.call(v, $471)) {
+                $470[$471] = v[$471];
               }
               ;
             }
             ;
-            $469.compiling = false;
-            $469.transportError = new Just(result.value0);
-            return $469;
+            $470.compiling = false;
+            $470.transportError = new Just(result.value0);
+            return $470;
           });
         }
         ;
@@ -41968,6 +42000,17 @@
     };
   };
   var hydrateFromServer = function(dictMonadAff) {
+    var jsEmpty = function(v) {
+      if (v instanceof Nothing) {
+        return true;
+      }
+      ;
+      if (v instanceof Just) {
+        return v.value0 === "";
+      }
+      ;
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 806, column 13 - line 808, column 22): " + [v.constructor.name]);
+    };
     return bind23(liftAff(monadAffHalogenM(dictMonadAff))(request3({
       headers: defaultRequest.headers,
       username: defaultRequest.username,
@@ -41990,18 +42033,20 @@
         }
         ;
         if (v instanceof Right) {
-          var $479 = $$null3(v.value0.cells) && v.value0.module.source === "module Scratch where\n\nimport Prelude\n";
-          if ($479) {
+          var $482 = $$null3(v.value0.cells) && v.value0.module.source === "module Scratch where\n\nimport Prelude\n";
+          if ($482) {
             return handleAction2(dictMonadAff)(Compile.value);
           }
           ;
-          return applyRemote(dictMonadAff)(v.value0);
+          return discard8(applyRemote(dictMonadAff)(v.value0))(function() {
+            return when13(jsEmpty(v.value0.js))(handleAction2(dictMonadAff)(ScheduleCompile.value));
+          });
         }
         ;
-        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 791, column 23 - line 797, column 29): " + [v.constructor.name]);
+        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 791, column 23 - line 803, column 63): " + [v.constructor.name]);
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 789, column 3 - line 797, column 29): " + [result.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 789, column 3 - line 803, column 63): " + [result.constructor.name]);
     });
   };
   var handleIncomingBroadcast = function(dictMonadAff) {
@@ -42021,17 +42066,17 @@
         if (v1 instanceof Right) {
           if (v1.value0 instanceof Welcome) {
             return discard8(modify_4(function(v2) {
-              var $488 = {};
-              for (var $489 in v2) {
-                if ({}.hasOwnProperty.call(v2, $489)) {
-                  $488[$489] = v2[$489];
+              var $491 = {};
+              for (var $492 in v2) {
+                if ({}.hasOwnProperty.call(v2, $492)) {
+                  $491[$492] = v2[$492];
                 }
                 ;
               }
               ;
-              $488.myId = new Just(v1.value0.value0.yourId);
-              $488.conch = v1.value0.value0.conch;
-              return $488;
+              $491.myId = new Just(v1.value0.value0.yourId);
+              $491.conch = v1.value0.value0.conch;
+              return $491;
             }))(function() {
               return discard8(applyRemote(dictMonadAff)(v1.value0.value0.snapshot))(function() {
                 return syncEditorsEditable1;
@@ -42041,16 +42086,16 @@
           ;
           if (v1.value0 instanceof Snapshot) {
             return discard8(modify_4(function(v2) {
-              var $493 = {};
-              for (var $494 in v2) {
-                if ({}.hasOwnProperty.call(v2, $494)) {
-                  $493[$494] = v2[$494];
+              var $496 = {};
+              for (var $497 in v2) {
+                if ({}.hasOwnProperty.call(v2, $497)) {
+                  $496[$497] = v2[$497];
                 }
                 ;
               }
               ;
-              $493.conch = v1.value0.value0.conch;
-              return $493;
+              $496.conch = v1.value0.value0.conch;
+              return $496;
             }))(function() {
               return bind23(get7)(function(s) {
                 return when13(remoteDiffers(s)(v1.value0.value0.snapshot))(applyRemote(dictMonadAff)(v1.value0.value0.snapshot));
@@ -42068,51 +42113,51 @@
                 return false;
               })();
               return discard8(modify_4(function(v2) {
-                var $505 = {};
-                for (var $506 in v2) {
-                  if ({}.hasOwnProperty.call(v2, $506)) {
-                    $505[$506] = v2[$506];
+                var $508 = {};
+                for (var $509 in v2) {
+                  if ({}.hasOwnProperty.call(v2, $509)) {
+                    $508[$509] = v2[$509];
                   }
                   ;
                 }
                 ;
-                $505.conch = v1.value0.value0.conch;
-                $505.requestingConch = (function() {
-                  var $502 = iHoldNow || !s.requestingConch;
-                  if ($502) {
+                $508.conch = v1.value0.value0.conch;
+                $508.requestingConch = (function() {
+                  var $505 = iHoldNow || !s.requestingConch;
+                  if ($505) {
                     return false;
                   }
                   ;
                   return s.requestingConch;
                 })();
-                $505.conchBackoffMs = (function() {
+                $508.conchBackoffMs = (function() {
                   if (iHoldNow) {
                     return 250;
                   }
                   ;
                   return s.conchBackoffMs;
                 })();
-                $505.conchBanner = (function() {
+                $508.conchBanner = (function() {
                   if (iHoldNow) {
                     return Nothing.value;
                   }
                   ;
                   return s.conchBanner;
                 })();
-                return $505;
+                return $508;
               }))(function() {
                 return syncEditorsEditable1;
               });
             });
           }
           ;
-          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 835, column 17 - line 858, column 28): " + [v1.value0.constructor.name]);
+          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 844, column 17 - line 867, column 28): " + [v1.value0.constructor.name]);
         }
         ;
-        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 833, column 14 - line 858, column 28): " + [v1.constructor.name]);
+        throw new Error("Failed pattern match at Playground.Frontend.Shell (line 842, column 14 - line 867, column 28): " + [v1.constructor.name]);
       }
       ;
-      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 831, column 31 - line 858, column 28): " + [v.constructor.name]);
+      throw new Error("Failed pattern match at Playground.Frontend.Shell (line 840, column 31 - line 867, column 28): " + [v.constructor.name]);
     };
   };
   var handleAction2 = function(dictMonadAff) {
@@ -42125,24 +42170,24 @@
     var updateCell = function(id3) {
       return function(src9) {
         return function(cells2) {
-          return fromMaybe(cells2)(bind110(findIndex(function($662) {
+          return fromMaybe(cells2)(bind110(findIndex(function($665) {
             return /* @__PURE__ */ (function(v) {
               return v === id3;
             })((function(v) {
               return v.id;
-            })($662));
+            })($665));
           })(cells2))(function(idx) {
             return modifyAt(idx)(function(v) {
-              var $511 = {};
-              for (var $512 in v) {
-                if ({}.hasOwnProperty.call(v, $512)) {
-                  $511[$512] = v[$512];
+              var $514 = {};
+              for (var $515 in v) {
+                if ({}.hasOwnProperty.call(v, $515)) {
+                  $514[$515] = v[$515];
                 }
                 ;
               }
               ;
-              $511.source = src9;
-              return $511;
+              $514.source = src9;
+              return $514;
             })(cells2);
           }));
         };
@@ -42159,16 +42204,16 @@
       if (v instanceof Startup) {
         return bind23(liftEffect7(readHideParam))(function(hide) {
           return discard8(modify_4(function(v12) {
-            var $516 = {};
-            for (var $517 in v12) {
-              if ({}.hasOwnProperty.call(v12, $517)) {
-                $516[$517] = v12[$517];
+            var $519 = {};
+            for (var $520 in v12) {
+              if ({}.hasOwnProperty.call(v12, $520)) {
+                $519[$520] = v12[$520];
               }
               ;
             }
             ;
-            $516.visibility = visibilityFromHide(hide);
-            return $516;
+            $519.visibility = visibilityFromHide(hide);
+            return $519;
           }))(function() {
             return discard8(hydrateFromServer(dictMonadAff))(function() {
               return openWebSocket1;
@@ -42179,16 +42224,16 @@
       ;
       if (v instanceof ModuleChanged) {
         return discard8(modify_4(function(v12) {
-          var $519 = {};
-          for (var $520 in v12) {
-            if ({}.hasOwnProperty.call(v12, $520)) {
-              $519[$520] = v12[$520];
+          var $522 = {};
+          for (var $523 in v12) {
+            if ({}.hasOwnProperty.call(v12, $523)) {
+              $522[$523] = v12[$523];
             }
             ;
           }
           ;
-          $519.moduleSource = v.value0;
-          return $519;
+          $522.moduleSource = v.value0;
+          return $522;
         }))(function() {
           return handleAction2(dictMonadAff)(ScheduleCompile.value);
         });
@@ -42196,16 +42241,16 @@
       ;
       if (v instanceof CellChanged) {
         return discard8(modify_4(function(s) {
-          var $523 = {};
-          for (var $524 in s) {
-            if ({}.hasOwnProperty.call(s, $524)) {
-              $523[$524] = s[$524];
+          var $526 = {};
+          for (var $527 in s) {
+            if ({}.hasOwnProperty.call(s, $527)) {
+              $526[$527] = s[$527];
             }
             ;
           }
           ;
-          $523.cells = updateCell(v.value0)(v.value1)(s.cells);
-          return $523;
+          $526.cells = updateCell(v.value0)(v.value1)(s.cells);
+          return $526;
         }))(function() {
           return handleAction2(dictMonadAff)(ScheduleCompile.value);
         });
@@ -42220,24 +42265,6 @@
             source: "",
             form: false
           };
-          var $528 = {};
-          for (var $529 in s) {
-            if ({}.hasOwnProperty.call(s, $529)) {
-              $528[$529] = s[$529];
-            }
-            ;
-          }
-          ;
-          $528.cells = snoc(s.cells)(newCell);
-          $528.nextCellId = s.nextCellId + 1 | 0;
-          return $528;
-        }))(function() {
-          return handleAction2(dictMonadAff)(ScheduleCompile.value);
-        });
-      }
-      ;
-      if (v instanceof RemoveCell) {
-        return discard8(modify_4(function(s) {
           var $531 = {};
           for (var $532 in s) {
             if ({}.hasOwnProperty.call(s, $532)) {
@@ -42246,15 +42273,33 @@
             ;
           }
           ;
-          $531.cells = filter(function($663) {
+          $531.cells = snoc(s.cells)(newCell);
+          $531.nextCellId = s.nextCellId + 1 | 0;
+          return $531;
+        }))(function() {
+          return handleAction2(dictMonadAff)(ScheduleCompile.value);
+        });
+      }
+      ;
+      if (v instanceof RemoveCell) {
+        return discard8(modify_4(function(s) {
+          var $534 = {};
+          for (var $535 in s) {
+            if ({}.hasOwnProperty.call(s, $535)) {
+              $534[$535] = s[$535];
+            }
+            ;
+          }
+          ;
+          $534.cells = filter(function($666) {
             return (function(v2) {
               return v2 !== v.value0;
             })((function(v2) {
               return v2.id;
-            })($663));
+            })($666));
           })(s.cells);
-          $531.cellResults = $$delete6(v.value0)(s.cellResults);
-          return $531;
+          $534.cellResults = $$delete6(v.value0)(s.cellResults);
+          return $534;
         }))(function() {
           return handleAction2(dictMonadAff)(ScheduleCompile.value);
         });
@@ -42262,34 +42307,34 @@
       ;
       if (v instanceof ToggleCellKind) {
         return discard8(modify_4(function(s) {
-          var $539 = {};
-          for (var $540 in s) {
-            if ({}.hasOwnProperty.call(s, $540)) {
-              $539[$540] = s[$540];
+          var $542 = {};
+          for (var $543 in s) {
+            if ({}.hasOwnProperty.call(s, $543)) {
+              $542[$543] = s[$543];
             }
             ;
           }
           ;
-          $539.cells = map42(function(c) {
-            var $535 = c.id === v.value0;
-            if ($535) {
-              var $536 = {};
-              for (var $537 in c) {
-                if ({}.hasOwnProperty.call(c, $537)) {
-                  $536[$537] = c[$537];
+          $542.cells = map42(function(c) {
+            var $538 = c.id === v.value0;
+            if ($538) {
+              var $539 = {};
+              for (var $540 in c) {
+                if ({}.hasOwnProperty.call(c, $540)) {
+                  $539[$540] = c[$540];
                 }
                 ;
               }
               ;
-              $536.kind = flipKind(c.kind);
-              return $536;
+              $539.kind = flipKind(c.kind);
+              return $539;
             }
             ;
             return c;
           })(s.cells);
-          $539.cellResults = $$delete6(v.value0)(s.cellResults);
-          $539.cellTypes = $$delete6(v.value0)(s.cellTypes);
-          return $539;
+          $542.cellResults = $$delete6(v.value0)(s.cellResults);
+          $542.cellTypes = $$delete6(v.value0)(s.cellTypes);
+          return $542;
         }))(function() {
           return handleAction2(dictMonadAff)(ScheduleCompile.value);
         });
@@ -42297,12 +42342,12 @@
       ;
       if (v instanceof ToggleCellForm) {
         return bind23(get7)(function(s) {
-          var v12 = find2(function($664) {
+          var v12 = find2(function($667) {
             return (function(v2) {
               return v2 === v.value0;
             })((function(v2) {
               return v2.id;
-            })($664));
+            })($667));
           })(s.cells);
           if (v12 instanceof Nothing) {
             return pure25(unit);
@@ -42311,32 +42356,32 @@
           if (v12 instanceof Just) {
             var newForm = !v12.value0.form;
             return discard8(modify_4(function(st) {
-              var $548 = {};
-              for (var $549 in st) {
-                if ({}.hasOwnProperty.call(st, $549)) {
-                  $548[$549] = st[$549];
+              var $551 = {};
+              for (var $552 in st) {
+                if ({}.hasOwnProperty.call(st, $552)) {
+                  $551[$552] = st[$552];
                 }
                 ;
               }
               ;
-              $548.cells = map42(function(cc) {
-                var $544 = cc.id === v.value0;
-                if ($544) {
-                  var $545 = {};
-                  for (var $546 in cc) {
-                    if ({}.hasOwnProperty.call(cc, $546)) {
-                      $545[$546] = cc[$546];
+              $551.cells = map42(function(cc) {
+                var $547 = cc.id === v.value0;
+                if ($547) {
+                  var $548 = {};
+                  for (var $549 in cc) {
+                    if ({}.hasOwnProperty.call(cc, $549)) {
+                      $548[$549] = cc[$549];
                     }
                     ;
                   }
                   ;
-                  $545.form = newForm;
-                  return $545;
+                  $548.form = newForm;
+                  return $548;
                 }
                 ;
                 return cc;
               })(st.cells);
-              return $548;
+              return $551;
             }))(function() {
               var body2 = stringify(id2(singleton7("form")(id2(newForm))));
               return bind23(httpJson1(PATCH.value)(backendUrl + ("/session/cells/" + v.value0))(body2))(function(result) {
@@ -42359,12 +42404,12 @@
       ;
       if (v instanceof CellFormFieldChanged) {
         return bind23(get7)(function(s) {
-          var v12 = find2(function($665) {
+          var v12 = find2(function($668) {
             return (function(v22) {
               return v22 === v.value0;
             })((function(v22) {
               return v22.id;
-            })($665));
+            })($668));
           })(s.cells);
           if (v12 instanceof Nothing) {
             return pure25(unit);
@@ -42384,32 +42429,32 @@
               ;
               if (v3 instanceof Just) {
                 return discard8(modify_4(function(st) {
-                  var $563 = {};
-                  for (var $564 in st) {
-                    if ({}.hasOwnProperty.call(st, $564)) {
-                      $563[$564] = st[$564];
+                  var $566 = {};
+                  for (var $567 in st) {
+                    if ({}.hasOwnProperty.call(st, $567)) {
+                      $566[$567] = st[$567];
                     }
                     ;
                   }
                   ;
-                  $563.cells = map42(function(cc) {
-                    var $559 = cc.id === v.value0;
-                    if ($559) {
-                      var $560 = {};
-                      for (var $561 in cc) {
-                        if ({}.hasOwnProperty.call(cc, $561)) {
-                          $560[$561] = cc[$561];
+                  $566.cells = map42(function(cc) {
+                    var $562 = cc.id === v.value0;
+                    if ($562) {
+                      var $563 = {};
+                      for (var $564 in cc) {
+                        if ({}.hasOwnProperty.call(cc, $564)) {
+                          $563[$564] = cc[$564];
                         }
                         ;
                       }
                       ;
-                      $560.source = v3.value0;
-                      return $560;
+                      $563.source = v3.value0;
+                      return $563;
                     }
                     ;
                     return cc;
                   })(st.cells);
-                  return $563;
+                  return $566;
                 }))(function() {
                   var body2 = stringify(id2(singleton7("source")(id2(v3.value0))));
                   return bind23(httpJson1(PATCH.value)(backendUrl + ("/session/cells/" + v.value0))(body2))(function(result) {
@@ -42439,17 +42484,17 @@
       if (v instanceof SetRuntime) {
         return bind23(get7)(function(s0) {
           return when13(s0.runtime !== v.value0)(discard8(modify_4(function(v12) {
-            var $575 = {};
-            for (var $576 in v12) {
-              if ({}.hasOwnProperty.call(v12, $576)) {
-                $575[$576] = v12[$576];
+            var $578 = {};
+            for (var $579 in v12) {
+              if ({}.hasOwnProperty.call(v12, $579)) {
+                $578[$579] = v12[$579];
               }
               ;
             }
             ;
-            $575.runtime = v.value0;
-            $575.cellResults = empty2;
-            return $575;
+            $578.runtime = v.value0;
+            $578.cellResults = empty2;
+            return $578;
           }))(function() {
             return handleAction2(dictMonadAff)(ScheduleCompile.value);
           }));
@@ -42458,16 +42503,16 @@
       ;
       if (v instanceof ToggleStarterMenu) {
         return modify_4(function(s) {
-          var $579 = {};
-          for (var $580 in s) {
-            if ({}.hasOwnProperty.call(s, $580)) {
-              $579[$580] = s[$580];
+          var $582 = {};
+          for (var $583 in s) {
+            if ({}.hasOwnProperty.call(s, $583)) {
+              $582[$583] = s[$583];
             }
             ;
           }
           ;
-          $579.starterMenuOpen = !s.starterMenuOpen;
-          return $579;
+          $582.starterMenuOpen = !s.starterMenuOpen;
+          return $582;
         });
       }
       ;
@@ -42479,22 +42524,22 @@
         ;
         if (v1 instanceof Just) {
           return discard8(modify_4(function(s) {
-            var $583 = {};
-            for (var $584 in s) {
-              if ({}.hasOwnProperty.call(s, $584)) {
-                $583[$584] = s[$584];
+            var $586 = {};
+            for (var $587 in s) {
+              if ({}.hasOwnProperty.call(s, $587)) {
+                $586[$587] = s[$587];
               }
               ;
             }
             ;
-            $583.moduleSource = v1.value0.moduleSource;
-            $583.cells = map42(withFormDefault)(v1.value0.cells);
-            $583.nextCellId = length3(v1.value0.cells) + 1 | 0;
-            $583.starterKey = v1.value0.key;
-            $583.starterMenuOpen = false;
-            $583.cellResults = empty2;
-            $583.cellTypes = empty2;
-            return $583;
+            $586.moduleSource = v1.value0.moduleSource;
+            $586.cells = map42(withFormDefault)(v1.value0.cells);
+            $586.nextCellId = length3(v1.value0.cells) + 1 | 0;
+            $586.starterKey = v1.value0.key;
+            $586.starterMenuOpen = false;
+            $586.cellResults = empty2;
+            $586.cellTypes = empty2;
+            return $586;
           }))(function() {
             return handleAction2(dictMonadAff)(ScheduleCompile.value);
           });
@@ -42505,21 +42550,6 @@
       ;
       if (v instanceof ToggleSettings) {
         return modify_4(function(s) {
-          var $588 = {};
-          for (var $589 in s) {
-            if ({}.hasOwnProperty.call(s, $589)) {
-              $588[$589] = s[$589];
-            }
-            ;
-          }
-          ;
-          $588.settingsOpen = !s.settingsOpen;
-          return $588;
-        });
-      }
-      ;
-      if (v instanceof ToggleColumn) {
-        return discard8(modify_4(function(s) {
           var $591 = {};
           for (var $592 in s) {
             if ({}.hasOwnProperty.call(s, $592)) {
@@ -42528,8 +42558,23 @@
             ;
           }
           ;
-          $591.visibility = toggleKey(v.value0)(s.visibility);
+          $591.settingsOpen = !s.settingsOpen;
           return $591;
+        });
+      }
+      ;
+      if (v instanceof ToggleColumn) {
+        return discard8(modify_4(function(s) {
+          var $594 = {};
+          for (var $595 in s) {
+            if ({}.hasOwnProperty.call(s, $595)) {
+              $594[$595] = s[$595];
+            }
+            ;
+          }
+          ;
+          $594.visibility = toggleKey(v.value0)(s.visibility);
+          return $594;
         }))(function() {
           return bind23(get7)(function(s) {
             return liftEffect7(writeHideParam(hideFromVisibility(s.visibility)));
@@ -42547,16 +42592,16 @@
       ;
       if (v instanceof WsClosed) {
         return modify_4(function(v12) {
-          var $596 = {};
-          for (var $597 in v12) {
-            if ({}.hasOwnProperty.call(v12, $597)) {
-              $596[$597] = v12[$597];
+          var $599 = {};
+          for (var $600 in v12) {
+            if ({}.hasOwnProperty.call(v12, $600)) {
+              $599[$600] = v12[$600];
             }
             ;
           }
           ;
-          $596.ws = Nothing.value;
-          return $596;
+          $599.ws = Nothing.value;
+          return $599;
         });
       }
       ;
@@ -42566,27 +42611,6 @@
       ;
       if (v instanceof RequestConchAction) {
         return discard8(sendClientMsg1(RequestConch.value))(function() {
-          return modify_4(function(v12) {
-            var $601 = {};
-            for (var $602 in v12) {
-              if ({}.hasOwnProperty.call(v12, $602)) {
-                $601[$602] = v12[$602];
-              }
-              ;
-            }
-            ;
-            $601.requestingConch = true;
-            return $601;
-          });
-        });
-      }
-      ;
-      if (v instanceof YieldConchAction) {
-        return sendClientMsg1(YieldConch.value);
-      }
-      ;
-      if (v instanceof ForceConchAction) {
-        return discard8(sendClientMsg1(ForceConch.value))(function() {
           return modify_4(function(v12) {
             var $604 = {};
             for (var $605 in v12) {
@@ -42602,18 +42626,39 @@
         });
       }
       ;
+      if (v instanceof YieldConchAction) {
+        return sendClientMsg1(YieldConch.value);
+      }
+      ;
+      if (v instanceof ForceConchAction) {
+        return discard8(sendClientMsg1(ForceConch.value))(function() {
+          return modify_4(function(v12) {
+            var $607 = {};
+            for (var $608 in v12) {
+              if ({}.hasOwnProperty.call(v12, $608)) {
+                $607[$608] = v12[$608];
+              }
+              ;
+            }
+            ;
+            $607.requestingConch = true;
+            return $607;
+          });
+        });
+      }
+      ;
       if (v instanceof DismissConchBanner) {
         return modify_4(function(v12) {
-          var $607 = {};
-          for (var $608 in v12) {
-            if ({}.hasOwnProperty.call(v12, $608)) {
-              $607[$608] = v12[$608];
+          var $610 = {};
+          for (var $611 in v12) {
+            if ({}.hasOwnProperty.call(v12, $611)) {
+              $610[$611] = v12[$611];
             }
             ;
           }
           ;
-          $607.conchBanner = Nothing.value;
-          return $607;
+          $610.conchBanner = Nothing.value;
+          return $610;
         });
       }
       ;
@@ -42634,16 +42679,16 @@
               return handleAction2(dictMonadAff)(Compile.value);
             })))(function(fid) {
               return modify_4(function(v12) {
-                var $612 = {};
-                for (var $613 in v12) {
-                  if ({}.hasOwnProperty.call(v12, $613)) {
-                    $612[$613] = v12[$613];
+                var $615 = {};
+                for (var $616 in v12) {
+                  if ({}.hasOwnProperty.call(v12, $616)) {
+                    $615[$616] = v12[$616];
                   }
                   ;
                 }
                 ;
-                $612.pendingCompile = new Just(fid);
-                return $612;
+                $615.pendingCompile = new Just(fid);
+                return $615;
               });
             });
           });
@@ -42652,23 +42697,23 @@
       ;
       if (v instanceof Compile) {
         return discard8(modify_4(function(v12) {
-          var $615 = {};
-          for (var $616 in v12) {
-            if ({}.hasOwnProperty.call(v12, $616)) {
-              $615[$616] = v12[$616];
+          var $618 = {};
+          for (var $619 in v12) {
+            if ({}.hasOwnProperty.call(v12, $619)) {
+              $618[$619] = v12[$619];
             }
             ;
           }
           ;
-          $615.compiling = true;
-          $615.transportError = Nothing.value;
-          $615.runtimeError = Nothing.value;
-          $615.pendingCompile = Nothing.value;
-          return $615;
+          $618.compiling = true;
+          $618.transportError = Nothing.value;
+          $618.runtimeError = Nothing.value;
+          $618.pendingCompile = Nothing.value;
+          return $618;
         }))(function() {
           return bind23(get7)(function(s) {
-            var $618 = needsFullCompile(s);
-            if ($618) {
+            var $621 = needsFullCompile(s);
+            if ($621) {
               return runFullCompile(dictMonadAff)(s);
             }
             ;
@@ -42680,16 +42725,16 @@
       if (v instanceof HandleWorkerMessage) {
         if (v.value0 instanceof Emit) {
           return modify_4(function(s) {
-            var $620 = {};
-            for (var $621 in s) {
-              if ({}.hasOwnProperty.call(s, $621)) {
-                $620[$621] = s[$621];
+            var $623 = {};
+            for (var $624 in s) {
+              if ({}.hasOwnProperty.call(s, $624)) {
+                $623[$624] = s[$624];
               }
               ;
             }
             ;
-            $620.cellResults = insert10(v.value0.value0)(parse7(v.value0.value1))(s.cellResults);
-            return $620;
+            $623.cellResults = insert10(v.value0.value0)(parse7(v.value0.value1))(s.cellResults);
+            return $623;
           });
         }
         ;
@@ -42699,16 +42744,16 @@
         ;
         if (v.value0 instanceof WorkerError) {
           return discard8(modify_4(function(v12) {
-            var $625 = {};
-            for (var $626 in v12) {
-              if ({}.hasOwnProperty.call(v12, $626)) {
-                $625[$626] = v12[$626];
+            var $628 = {};
+            for (var $629 in v12) {
+              if ({}.hasOwnProperty.call(v12, $629)) {
+                $628[$629] = v12[$629];
               }
               ;
             }
             ;
-            $625.runtimeError = new Just(v.value0.value0);
-            return $625;
+            $628.runtimeError = new Just(v.value0.value0);
+            return $628;
           }))(function() {
             return teardownExecution1;
           });
@@ -42716,16 +42761,16 @@
         ;
         if (v.value0 instanceof Unknown) {
           return modify_4(function(v12) {
-            var $629 = {};
-            for (var $630 in v12) {
-              if ({}.hasOwnProperty.call(v12, $630)) {
-                $629[$630] = v12[$630];
+            var $632 = {};
+            for (var $633 in v12) {
+              if ({}.hasOwnProperty.call(v12, $633)) {
+                $632[$633] = v12[$633];
               }
               ;
             }
             ;
-            $629.runtimeError = new Just("worker: unknown message " + v.value0.value0);
-            return $629;
+            $632.runtimeError = new Just("worker: unknown message " + v.value0.value0);
+            return $632;
           });
         }
         ;
@@ -42734,16 +42779,16 @@
       ;
       if (v instanceof WorkerTimeout) {
         return discard8(modify_4(function(v12) {
-          var $634 = {};
-          for (var $635 in v12) {
-            if ({}.hasOwnProperty.call(v12, $635)) {
-              $634[$635] = v12[$635];
+          var $637 = {};
+          for (var $638 in v12) {
+            if ({}.hasOwnProperty.call(v12, $638)) {
+              $637[$638] = v12[$638];
             }
             ;
           }
           ;
-          $634.runtimeError = new Just("timeout after " + show14(workerTimeoutMs));
-          return $634;
+          $637.runtimeError = new Just("timeout after " + show14(workerTimeoutMs));
+          return $637;
         }))(function() {
           return teardownExecution1;
         });
@@ -42777,30 +42822,30 @@
         };
       })(r.cells);
       return discard8(modify_4(function(v) {
-        var $642 = {};
-        for (var $643 in v) {
-          if ({}.hasOwnProperty.call(v, $643)) {
-            $642[$643] = v[$643];
+        var $645 = {};
+        for (var $646 in v) {
+          if ({}.hasOwnProperty.call(v, $646)) {
+            $645[$646] = v[$646];
           }
           ;
         }
         ;
-        $642.moduleSource = r.module.source;
-        $642.cells = cellRecs;
-        $642.runtime = r.runtime;
-        $642.cellTypes = typesMap;
-        $642.cellResults = resultsMap;
-        $642.cellRanges = r.cellLines;
-        $642.errors = r.errors;
-        $642.warnings = r.warnings;
-        $642.lastSyncedModule = r.module.source;
-        $642.lastSyncedCells = syncedCells;
-        $642.lastSyncedRuntime = r.runtime;
-        return $642;
+        $645.moduleSource = r.module.source;
+        $645.cells = cellRecs;
+        $645.runtime = r.runtime;
+        $645.cellTypes = typesMap;
+        $645.cellResults = resultsMap;
+        $645.cellRanges = r.cellLines;
+        $645.errors = r.errors;
+        $645.warnings = r.warnings;
+        $645.lastSyncedModule = r.module.source;
+        $645.lastSyncedCells = syncedCells;
+        $645.lastSyncedRuntime = r.runtime;
+        return $645;
       }))(function() {
         return discard8(decorateErrors1(r.errors)(r.cellLines))(function() {
-          var $645 = !$$null3(r.emits);
-          if ($645) {
+          var $648 = !$$null3(r.emits);
+          if ($648) {
             return teardownExecution1;
           }
           ;
@@ -42812,7 +42857,7 @@
             return startExecution(dictMonadAff)(r.js.value0);
           }
           ;
-          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 978, column 8 - line 980, column 33): " + [r.js.constructor.name]);
+          throw new Error("Failed pattern match at Playground.Frontend.Shell (line 987, column 8 - line 989, column 33): " + [r.js.constructor.name]);
         });
       });
     };
@@ -42831,42 +42876,42 @@
         });
       })(v.cells));
       return discard8(modify_4(function(v1) {
-        var $652 = {};
-        for (var $653 in v1) {
-          if ({}.hasOwnProperty.call(v1, $653)) {
-            $652[$653] = v1[$653];
+        var $655 = {};
+        for (var $656 in v1) {
+          if ({}.hasOwnProperty.call(v1, $656)) {
+            $655[$656] = v1[$656];
           }
           ;
         }
         ;
-        $652.compiling = false;
-        $652.errors = v.errors;
-        $652.warnings = v.warnings;
-        $652.cellRanges = v.cellLines;
-        $652.cellTypes = typesMap;
-        $652.lastSyncedModule = v.module.source;
-        $652.lastSyncedCells = syncedCells;
-        $652.lastSyncedRuntime = v.runtime;
-        return $652;
+        $655.compiling = false;
+        $655.errors = v.errors;
+        $655.warnings = v.warnings;
+        $655.cellRanges = v.cellLines;
+        $655.cellTypes = typesMap;
+        $655.lastSyncedModule = v.module.source;
+        $655.lastSyncedCells = syncedCells;
+        $655.lastSyncedRuntime = v.runtime;
+        return $655;
       }))(function() {
         return discard8(decorateErrors1(v.errors)(v.cellLines))(function() {
-          var $655 = !$$null3(v.emits);
-          if ($655) {
+          var $658 = !$$null3(v.emits);
+          if ($658) {
             return discard8(teardownExecution1)(function() {
               return modify_4(function(s$prime) {
                 var decoded = fromFoldable14(map42(function(v1) {
                   return new Tuple(v1.id, parse7(v1.value));
                 })(v.emits));
-                var $657 = {};
-                for (var $658 in s$prime) {
-                  if ({}.hasOwnProperty.call(s$prime, $658)) {
-                    $657[$658] = s$prime[$658];
+                var $660 = {};
+                for (var $661 in s$prime) {
+                  if ({}.hasOwnProperty.call(s$prime, $661)) {
+                    $660[$661] = s$prime[$661];
                   }
                   ;
                 }
                 ;
-                $657.cellResults = decoded;
-                return $657;
+                $660.cellResults = decoded;
+                return $660;
               });
             });
           }

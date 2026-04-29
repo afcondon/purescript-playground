@@ -794,9 +794,18 @@ hydrateFromServer = do
         let UserModule rm = r."module"
         in if Array.null r.cells && rm.source == pristineServerModule
           then handleAction Compile
-          else applyRemote r
+          else do
+            applyRemote r
+            -- If the loaded session has source but no compiled JS
+            -- (e.g. just restored from a snapshot), kick off a
+            -- compile so the values column doesn't stay blank until
+            -- the user types something.
+            when (jsEmpty r.js) (handleAction ScheduleCompile)
   where
   pristineServerModule = "module Scratch where\n\nimport Prelude\n"
+  jsEmpty = case _ of
+    Nothing -> true
+    Just s -> s == ""
 
 -- | Open the WebSocket subscription to `/session/ws` and wire incoming
 -- | frames into the Halogen event stream via a Subscription. The WS
