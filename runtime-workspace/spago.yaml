@@ -11,7 +11,7 @@ workspace:
   # this file (`runtime-workspace/spago.yaml`), so one extra `../` compared
   # to the outer repo's `spago.yaml`.
   packageSet:
-    registry: 73.3.0
+    registry: 77.13.1
   extraPackages:
     httpurple:
       path: ../../purescript-httpurple-ws
