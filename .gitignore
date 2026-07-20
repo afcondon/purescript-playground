@@ -26,3 +26,4 @@ runtime-workspace/workspaces/*/atelier-session.json
 # Spago lock files: commit to library repos, not to app repos with fast-moving deps.
 # For now we keep them committed; remove from tracking later if they churn.
 *.pdf
+.direnv/
